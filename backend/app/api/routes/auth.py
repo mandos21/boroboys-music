@@ -85,6 +85,13 @@ def complete_login(request: Request, db: Session = Depends(get_db)) -> Response:
     spotify_user_id = profile["id"]
     display_name = profile.get("display_name") or spotify_user_id
     email = profile.get("email")
+    images = profile.get("images") or []
+    avatar_url = None
+    for image in images:
+        url = image.get("url")
+        if url:
+            avatar_url = url
+            break
 
     invite_value = invite_token or request.session.get("invite_token")
     try:
@@ -99,6 +106,7 @@ def complete_login(request: Request, db: Session = Depends(get_db)) -> Response:
             expires_at=expires_at,
             scope=scope,
             invite_token=invite_value,
+            avatar_url=avatar_url,
         )
     except PermissionError as exc:
         logger.warning("Spotify user login blocked: {}", exc)

@@ -8,6 +8,7 @@ from typing import Iterable, Optional
 from sqlalchemy import Select, and_, func, select
 from sqlalchemy.orm import Session
 
+from app.core.dates import normalize_month
 from app.db import models
 
 
@@ -28,6 +29,7 @@ def upsert_spotify_user(
     expires_at: datetime,
     scope: str,
     invite_token: Optional[str] = None,
+    avatar_url: Optional[str] = None,
 ) -> models.User:
     statement: Select[tuple[models.User]] = select(models.User).where(
         models.User.spotify_user_id == spotify_user_id
@@ -52,6 +54,7 @@ def upsert_spotify_user(
             email=email,
             role=role,
             spotify_user_id=spotify_user_id,
+            spotify_avatar_url=avatar_url,
             spotify_access_token=access_token,
             spotify_refresh_token=refresh_token,
             spotify_token_expires_at=expires_at,
@@ -70,6 +73,7 @@ def upsert_spotify_user(
         user.spotify_token_expires_at = expires_at
         user.spotify_scope = scope
         user.spotify_user_id = spotify_user_id
+        user.spotify_avatar_url = avatar_url or user.spotify_avatar_url
         if refresh_token:
             user.spotify_refresh_token = refresh_token
     session.flush()
@@ -124,6 +128,55 @@ def create_invite(
     return invite
 
 
+def get_month_settings(session: Session, month: datetime) -> Optional[models.MonthSettings]:
+    month = normalize_month(month)
+    statement: Select[tuple[models.MonthSettings]] = select(models.MonthSettings).where(
+        models.MonthSettings.month == month
+    )
+    return session.scalar(statement)
+
+
+def get_or_create_month_settings(
+    session: Session,
+    month: datetime,
+    *,
+    submission_limit: Optional[int] = None,
+    spotify_owner_id: Optional[str] = None,
+) -> models.MonthSettings:
+    month = normalize_month(month)
+    settings = get_month_settings(session, month)
+    if settings is None:
+        settings = models.MonthSettings(
+            month=month,
+            submission_limit=submission_limit,
+            spotify_owner_id=spotify_owner_id,
+        )
+        session.add(settings)
+        session.flush()
+        session.refresh(settings)
+    return settings
+
+
+def update_month_settings(
+    session: Session,
+    month: datetime,
+    *,
+    submission_limit: Optional[int] = None,
+    spotify_owner_id: Optional[str] = None,
+) -> models.MonthSettings:
+    settings = get_or_create_month_settings(
+        session,
+        month,
+        submission_limit=submission_limit,
+        spotify_owner_id=spotify_owner_id,
+    )
+    settings.submission_limit = submission_limit
+    settings.spotify_owner_id = spotify_owner_id
+    session.flush()
+    session.refresh(settings)
+    return settings
+
+
 def list_invites(session: Session, *, include_used: bool = False) -> Iterable[models.Invite]:
     statement = select(models.Invite).order_by(models.Invite.created_at.desc())
     if not include_used:
@@ -175,6 +228,8 @@ def add_playlist_track(
     playlist: models.Playlist,
     track: models.Track,
     position: Optional[int] = None,
+    submitter_id: Optional[int] = None,
+    submitter_notes: Optional[str] = None,
 ) -> models.PlaylistTrack:
     entry = session.scalar(
         select(models.PlaylistTrack).where(
@@ -194,14 +249,43 @@ def add_playlist_track(
             playlist_id=playlist.id,
             track_id=track.id,
             position=position,
+            submitter_id=submitter_id,
+            submitter_notes=submitter_notes,
         )
         session.add(entry)
     else:
         if position is not None:
             entry.position = position
+        entry.submitter_id = submitter_id
+        entry.submitter_notes = submitter_notes
     session.flush()
     session.refresh(entry)
     return entry
+
+
+def get_user_submission(session: Session, *, user_id: int, month: datetime) -> Optional[models.Submission]:
+    month = normalize_month(month)
+    statement = select(models.Submission).where(
+        models.Submission.user_id == user_id,
+        models.Submission.submission_month == month,
+    )
+    return session.scalar(statement)
+
+
+def count_submissions_for_month(session: Session, month: datetime) -> int:
+    month = normalize_month(month)
+    statement = select(func.count(models.Submission.id)).where(
+        models.Submission.submission_month == month
+    )
+    return session.scalar(statement) or 0
+
+
+def list_submissions_for_month(session: Session, month: datetime) -> Iterable[models.Submission]:
+    month = normalize_month(month)
+    statement = select(models.Submission).where(
+        models.Submission.submission_month == month
+    ).order_by(models.Submission.created_at.asc())
+    return session.scalars(statement).unique().all()
 
 
 def create_or_update_submission(
@@ -252,6 +336,7 @@ def upsert_track(
     duration_ms: Optional[int] = None,
     release_date: Optional[date] = None,
     spotify_url: Optional[str] = None,
+    artwork_url: Optional[str] = None,
     genres: Optional[dict] = None,
     lastfm_tags: Optional[dict] = None,
 ) -> models.Track:
@@ -267,6 +352,7 @@ def upsert_track(
             duration_ms=duration_ms,
             release_date=release_date,
             spotify_url=spotify_url,
+            artwork_url=artwork_url,
             genres=genres or {},
             lastfm_tags=lastfm_tags or {},
         )
@@ -278,6 +364,7 @@ def upsert_track(
         track.duration_ms = duration_ms
         track.release_date = release_date
         track.spotify_url = spotify_url
+        track.artwork_url = artwork_url
         track.genres = genres or {}
         track.lastfm_tags = lastfm_tags or {}
     return track

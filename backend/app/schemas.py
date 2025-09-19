@@ -28,6 +28,7 @@ class TrackBase(BaseModel):
     spotify_url: Optional[str] = None
     genres: List[str] = Field(default_factory=list)
     lastfm_tags: List[str] = Field(default_factory=list)
+    artwork_url: Optional[str] = None
 
     @field_validator("genres", "lastfm_tags", mode="before")
     @classmethod
@@ -56,6 +57,7 @@ class SpotifyTrackResult(BaseModel):
     album: Optional[str] = None
     duration_ms: Optional[int] = None
     spotify_url: Optional[str] = None
+    artwork_url: Optional[str] = None
 
 
 class SubmissionBase(BaseModel):
@@ -90,6 +92,8 @@ class PlaylistTrackRead(ORMModel):
     position: int
     submitter_id: Optional[int] = None
     submitter_name: Optional[str] = None
+    submitter_notes: Optional[str] = None
+    submitter_avatar_url: Optional[str] = None
 
 class PlaylistRead(ORMModel):
     id: int
@@ -137,6 +141,7 @@ class PlaylistImportTrack(BaseModel):
     duration_ms: Optional[int] = None
     position: int
     spotify_url: Optional[str] = None
+    artwork_url: Optional[str] = None
 
 
 class PlaylistImportResponse(BaseModel):
@@ -163,6 +168,7 @@ class PlaylistImportResponse(BaseModel):
                     duration_ms=item.get("duration_ms"),
                     position=item.get("position") or index + 1,
                     spotify_url=item.get("spotify_url"),
+                    artwork_url=item.get("artwork_url"),
                 )
             )
         return cls(
@@ -188,6 +194,28 @@ class PlaylistImportSaveRequest(BaseModel):
     payload: PlaylistImportResponse
     assignments: List[PlaylistAssignment] = Field(default_factory=list)
     lock_submissions: bool = True
+
+
+class MonthSettingsRead(ORMModel):
+    id: int
+    month: datetime
+    submission_limit: Optional[int] = None
+    spotify_owner_id: Optional[str] = None
+
+
+class MonthSettingsUpdate(BaseModel):
+    submission_limit: Optional[int] = Field(default=None, ge=1)
+    spotify_owner_id: Optional[str] = Field(default=None, max_length=120)
+
+
+class AdminMonthSummary(BaseModel):
+    settings: MonthSettingsRead
+    submissions: List[SubmissionRead] = Field(default_factory=list)
+    released: bool
+
+
+class ManualReleaseRequest(BaseModel):
+    spotify_owner_id: Optional[str] = Field(default=None, max_length=120)
 
 
 class InviteRead(ORMModel):
@@ -219,6 +247,7 @@ class UserRead(ORMModel):
     role: str
     email: Optional[str]
     spotify_user_id: Optional[str]
+    spotify_avatar_url: Optional[str]
     lastfm_username: Optional[str]
     created_at: datetime
 

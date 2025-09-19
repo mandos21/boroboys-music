@@ -9,14 +9,9 @@ from sqlalchemy import Select, select
 
 from app.db import crud, models
 from app.db.session import session_scope
+from app.core.dates import normalize_month
 from app.services.lastfm_service import LastFMService
 from app.services.spotify_service import SpotifyService
-
-
-def _normalize_month(value: date | datetime) -> datetime:
-    base = value if isinstance(value, datetime) else datetime(value.year, value.month, 1)
-    return base.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
 
 class PlaylistManager:
     """Coordinates monthly playlists across Spotify, Last.fm, and PostgreSQL."""
@@ -37,7 +32,7 @@ class PlaylistManager:
         admin_user_id: Optional[int] = None,
         spotify_owner_id: Optional[str] = None,
     ) -> Optional[models.Playlist]:
-        month_start = _normalize_month(target_month)
+        month_start = normalize_month(target_month)
         with session_scope() as session:
             playlist = crud.get_playlist_by_month(session, month_start)
             if playlist:
@@ -91,6 +86,8 @@ class PlaylistManager:
                         playlist=playlist,
                         track=submission.track,
                         position=index,
+                        submitter_id=submission.user_id,
+                        submitter_notes=submission.notes,
                     )
                 )
                 submission.is_locked = True

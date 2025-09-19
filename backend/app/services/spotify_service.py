@@ -16,6 +16,16 @@ class SpotifyService:
     def __init__(self, client: Spotify):
         self.client = client
 
+    @staticmethod
+    def pick_image_url(images: Optional[List[dict[str, Any]]]) -> Optional[str]:
+        if not images:
+            return None
+        for image in images:
+            url = image.get("url")
+            if url:
+                return url
+        return None
+
     @classmethod
     def from_app_credentials(cls) -> "SpotifyService":
         """Instantiate the service using client credentials flow."""
@@ -74,6 +84,7 @@ class SpotifyService:
                         "duration_ms": track.get("duration_ms"),
                         "position": position,
                         "spotify_url": spotify_url,
+                        "artwork_url": self.pick_image_url(album.get("images")),
                     }
                 )
                 position += 1

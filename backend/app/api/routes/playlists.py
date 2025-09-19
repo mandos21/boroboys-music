@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -21,12 +21,21 @@ from app.schemas import (
 router = APIRouter(prefix="/playlists")
 
 
+def _hydrate_playlist_submitters(db: Session, playlists: Iterable[models.Playlist]) -> None:
+    for playlist in playlists:
+        for entry in playlist.tracks:
+            if entry.submitter_id:
+                if entry.submitter is None:
+                    entry.submitter = db.get(models.User, entry.submitter_id)
+
+
 @router.get("", response_model=PlaylistListResponse)
 def list_playlists(
     limit: Optional[int] = 12,
     db: Session = Depends(deps.get_db),
 ) -> PlaylistListResponse:
     playlists = crud.list_playlists(db, limit=limit)
+    _hydrate_playlist_submitters(db, playlists)
     for playlist in playlists:
         for entry in playlist.tracks:
             if entry.track is not None:
@@ -36,15 +45,6 @@ def list_playlists(
                 if isinstance(entry.track.lastfm_tags, dict):
                     entry.track.lastfm_tags = list(entry.track.lastfm_tags.values())
                 entry.track.lastfm_tags = entry.track.lastfm_tags or []
-            submission = db.scalar(
-                select(models.Submission).where(
-                    models.Submission.track_id == entry.track_id,
-                    models.Submission.submission_month == playlist.month,
-                )
-            )
-            if submission and submission.user:
-                entry.submitter_id = submission.user.id
-                entry.submitter_name = submission.user.display_name or submission.user.username
     return PlaylistListResponse(items=[PlaylistRead.from_orm(playlist) for playlist in playlists])
 
 
@@ -53,6 +53,15 @@ def read_playlist(playlist_id: int, db: Session = Depends(deps.get_db)) -> Playl
     playlist = db.get(models.Playlist, playlist_id)
     if not playlist:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found")
+    _hydrate_playlist_submitters(db, [playlist])
+    for entry in playlist.tracks:
+        if entry.track is not None:
+            if isinstance(entry.track.genres, dict):
+                entry.track.genres = list(entry.track.genres.values())
+            entry.track.genres = entry.track.genres or []
+            if isinstance(entry.track.lastfm_tags, dict):
+                entry.track.lastfm_tags = list(entry.track.lastfm_tags.values())
+            entry.track.lastfm_tags = entry.track.lastfm_tags or []
     return PlaylistRead.from_orm(playlist)
 
 
@@ -134,35 +143,37 @@ def save_imported_playlist(
             album=track.album,
             duration_ms=track.duration_ms,
             spotify_url=track.spotify_url,
+            artwork_url=getattr(track, "artwork_url", None),
         )
         db.flush()
+
+        assignment = assignments.get(track.position)
+        submitter_id: Optional[int] = None
+        submitter_notes: Optional[str] = None
+
+        if assignment and assignment.user_id is not None:
+            user = user_cache.get(assignment.user_id)
+            if user is None:
+                user = db.get(models.User, assignment.user_id)
+                if user is not None:
+                    user_cache[user.id] = user
+            if user is not None:
+                submitter_id = user.id
+                submitter_notes = assignment.notes
+
         crud.add_playlist_track(
             db,
             playlist=playlist_db,
             track=track_db,
             position=track.position,
+            submitter_id=submitter_id,
+            submitter_notes=submitter_notes,
         )
-
-        assignment = assignments.get(track.position)
-        if assignment and assignment.user_id is not None:
-            user = user_cache.get(assignment.user_id)
-            if user is None:
-                user = db.get(models.User, assignment.user_id)
-                if user is None:
-                    continue
-                user_cache[user.id] = user
-            crud.create_or_update_submission(
-                db,
-                user=user,
-                track=track_db,
-                submission_month=playlist_month_dt,
-                notes=assignment.notes,
-                is_locked=payload.lock_submissions,
-            )
 
     playlist_db.finalized_by = current_user.id
     db.commit()
     db.refresh(playlist_db)
+    _hydrate_playlist_submitters(db, [playlist_db])
     for entry in playlist_db.tracks:
         if entry.track is not None:
             if isinstance(entry.track.genres, dict):
@@ -171,13 +182,4 @@ def save_imported_playlist(
             if isinstance(entry.track.lastfm_tags, dict):
                 entry.track.lastfm_tags = list(entry.track.lastfm_tags.values())
             entry.track.lastfm_tags = entry.track.lastfm_tags or []
-        submission = db.scalar(
-            select(models.Submission).where(
-                models.Submission.track_id == entry.track_id,
-                models.Submission.submission_month == playlist_db.month,
-            )
-        )
-        if submission and submission.user:
-            entry.submitter_id = submission.user.id
-            entry.submitter_name = submission.user.display_name or submission.user.username
     return PlaylistRead.from_orm(playlist_db)

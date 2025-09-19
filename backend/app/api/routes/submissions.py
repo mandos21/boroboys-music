@@ -9,14 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.db import crud, models
+from app.core.dates import normalize_month
 from app.schemas import (
     SubmissionCreate,
     SubmissionListResponse,
     SubmissionRead,
     SubmissionUpdate,
 )
-from app.services.playlist_manager import _normalize_month
-
 router = APIRouter(prefix="/submissions")
 
 
@@ -26,7 +25,7 @@ def list_submissions(
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.require_user),
 ) -> SubmissionListResponse:
-    month_filter = _normalize_month(month) if month else None
+    month_filter = normalize_month(month) if month else None
 
     statement = select(models.Submission).order_by(models.Submission.submission_month.desc())
     if month_filter:
@@ -47,6 +46,21 @@ def create_submission(
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.require_user),
 ) -> SubmissionRead:
+    submission_month = normalize_month(payload.submission_month)
+    playlist = crud.get_playlist_by_month(db, submission_month)
+    if playlist is not None and playlist.finalized_by is not None and current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Submissions are closed for this month.")
+
+    existing_submission = crud.get_user_submission(db, user_id=current_user.id, month=submission_month)
+    if existing_submission and existing_submission.is_locked and current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Your submission is locked for this month.")
+
+    settings = crud.get_month_settings(db, submission_month)
+    if existing_submission is None and settings and settings.submission_limit is not None and current_user.role != "admin":
+        total_submissions = crud.count_submissions_for_month(db, submission_month)
+        if total_submissions >= settings.submission_limit:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Monthly submission limit reached. Contact an admin for changes.")
+
     track_data = payload.track
     track = crud.upsert_track(
         db,
@@ -57,6 +71,7 @@ def create_submission(
         duration_ms=track_data.duration_ms,
         release_date=track_data.release_date,
         spotify_url=track_data.spotify_url,
+        artwork_url=track_data.artwork_url,
         genres={"items": track_data.genres} if track_data.genres else None,
         lastfm_tags={"tags": track_data.lastfm_tags} if track_data.lastfm_tags else None,
     )
@@ -66,7 +81,7 @@ def create_submission(
         db,
         user=current_user,
         track=track,
-        submission_month=payload.submission_month,
+        submission_month=submission_month,
         notes=payload.notes,
         is_locked=False,
     )
@@ -103,6 +118,7 @@ def update_submission(
             duration_ms=track_data.duration_ms,
             release_date=track_data.release_date,
             spotify_url=track_data.spotify_url,
+            artwork_url=track_data.artwork_url,
             genres={"items": track_data.genres} if track_data.genres else None,
             lastfm_tags={"tags": track_data.lastfm_tags} if track_data.lastfm_tags else None,
         )
@@ -112,7 +128,7 @@ def update_submission(
     if payload.notes is not None:
         submission.notes = payload.notes
     if payload.submission_month is not None:
-        submission.submission_month = _normalize_month(payload.submission_month)
+        submission.submission_month = normalize_month(payload.submission_month)
     if payload.is_locked is not None and current_user.role == "admin":
         submission.is_locked = payload.is_locked
 

@@ -30,6 +30,7 @@ class User(Base):
     email: Mapped[Optional[str]] = mapped_column(String(150))
     password_hash: Mapped[Optional[str]] = mapped_column(String(255))
     spotify_user_id: Mapped[Optional[str]] = mapped_column(String(120))
+    spotify_avatar_url: Mapped[Optional[str]] = mapped_column(String(500))
     spotify_access_token: Mapped[Optional[str]] = mapped_column(String(512))
     spotify_refresh_token: Mapped[Optional[str]] = mapped_column(String(512))
     spotify_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -62,6 +63,7 @@ class Track(Base):
     duration_ms: Mapped[Optional[int]]
     release_date: Mapped[Optional[date]] = mapped_column(Date)
     spotify_url: Mapped[Optional[str]] = mapped_column(String(250))
+    artwork_url: Mapped[Optional[str]] = mapped_column(String(500))
     genres: Mapped[dict] = mapped_column(JSONB, default=dict)
     lastfm_tags: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -122,10 +124,37 @@ class PlaylistTrack(Base):
     playlist_id: Mapped[int] = mapped_column(ForeignKey("playlists.id", ondelete="CASCADE"), nullable=False)
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
+    submitter_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    submitter_notes: Mapped[Optional[str]] = mapped_column(String(500))
 
     playlist: Mapped[Playlist] = relationship(back_populates="tracks")
     track: Mapped[Track] = relationship(back_populates="playlist_entries")
+    submitter: Mapped[Optional[User]] = relationship(foreign_keys=[submitter_id])
 
+    @property
+    def submitter_name(self) -> Optional[str]:
+        if self.submitter is not None:
+            return self.submitter.display_name or self.submitter.username
+        return None
+
+    @property
+    def submitter_avatar_url(self) -> Optional[str]:
+        if self.submitter is not None:
+            return self.submitter.spotify_avatar_url
+        return None
+
+
+class MonthSettings(Base):
+    __tablename__ = "month_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    month: Mapped[datetime] = mapped_column(DateTime(timezone=True), unique=True, nullable=False)
+    submission_limit: Mapped[Optional[int]] = mapped_column(Integer)
+    spotify_owner_id: Mapped[Optional[str]] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 class ListeningStat(Base):
     __tablename__ = "listening_stats"
