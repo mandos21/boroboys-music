@@ -1,5 +1,16 @@
-.env
-.venv/
-venv/
+# Node artifacts
+frontend/node_modules/
+frontend/dist/
+
+# Python artifacts
+backend/.venv/
+__pycache__/
 *.pyc
-.pytest_cache/
+.pytest_cache
+
+# Setup flag
+backend/.setup_unlocked
+backend/.env
+
+# Editor junk
+.DS_Store
