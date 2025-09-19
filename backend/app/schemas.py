@@ -29,6 +29,21 @@ class TrackBase(BaseModel):
     genres: List[str] = Field(default_factory=list)
     lastfm_tags: List[str] = Field(default_factory=list)
 
+    @field_validator("genres", "lastfm_tags", mode="before")
+    @classmethod
+    def _coerce_list(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [str(item) for item in value]
+        if isinstance(value, dict):
+            for key in ("items", "tags"):
+                items = value.get(key)
+                if isinstance(items, list):
+                    return [str(item) for item in items]
+            return [str(item) for item in value.values()]
+        return [str(value)] if value not in ("", None) else []
+
 
 class TrackRead(TrackBase, ORMModel):
     id: int
@@ -73,7 +88,8 @@ class SubmissionListResponse(BaseModel):
 class PlaylistTrackRead(ORMModel):
     track: TrackRead
     position: int
-
+    submitter_id: Optional[int] = None
+    submitter_name: Optional[str] = None
 
 class PlaylistRead(ORMModel):
     id: int

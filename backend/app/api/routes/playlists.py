@@ -27,6 +27,24 @@ def list_playlists(
     db: Session = Depends(deps.get_db),
 ) -> PlaylistListResponse:
     playlists = crud.list_playlists(db, limit=limit)
+    for playlist in playlists:
+        for entry in playlist.tracks:
+            if entry.track is not None:
+                if isinstance(entry.track.genres, dict):
+                    entry.track.genres = list(entry.track.genres.values())
+                entry.track.genres = entry.track.genres or []
+                if isinstance(entry.track.lastfm_tags, dict):
+                    entry.track.lastfm_tags = list(entry.track.lastfm_tags.values())
+                entry.track.lastfm_tags = entry.track.lastfm_tags or []
+            submission = db.scalar(
+                select(models.Submission).where(
+                    models.Submission.track_id == entry.track_id,
+                    models.Submission.submission_month == playlist.month,
+                )
+            )
+            if submission and submission.user:
+                entry.submitter_id = submission.user.id
+                entry.submitter_name = submission.user.display_name or submission.user.username
     return PlaylistListResponse(items=[PlaylistRead.from_orm(playlist) for playlist in playlists])
 
 
@@ -145,4 +163,21 @@ def save_imported_playlist(
     playlist_db.finalized_by = current_user.id
     db.commit()
     db.refresh(playlist_db)
+    for entry in playlist_db.tracks:
+        if entry.track is not None:
+            if isinstance(entry.track.genres, dict):
+                entry.track.genres = list(entry.track.genres.values())
+            entry.track.genres = entry.track.genres or []
+            if isinstance(entry.track.lastfm_tags, dict):
+                entry.track.lastfm_tags = list(entry.track.lastfm_tags.values())
+            entry.track.lastfm_tags = entry.track.lastfm_tags or []
+        submission = db.scalar(
+            select(models.Submission).where(
+                models.Submission.track_id == entry.track_id,
+                models.Submission.submission_month == playlist_db.month,
+            )
+        )
+        if submission and submission.user:
+            entry.submitter_id = submission.user.id
+            entry.submitter_name = submission.user.display_name or submission.user.username
     return PlaylistRead.from_orm(playlist_db)
