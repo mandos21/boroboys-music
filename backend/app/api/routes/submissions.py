@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -12,6 +12,7 @@ from app.db import crud, models
 from app.core.dates import normalize_month
 from app.schemas import (
     SubmissionCreate,
+    SubmissionLimitResponse,
     SubmissionListResponse,
     SubmissionRead,
     SubmissionUpdate,
@@ -40,12 +41,37 @@ def list_submissions(
     )
 
 
+@router.get("/limit/current", response_model=SubmissionLimitResponse)
+def get_current_limit(
+    month: Optional[datetime] = None,
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.require_user),
+) -> SubmissionLimitResponse:
+    crud.ensure_multi_submission_schema(db)
+    current = month or datetime.now(timezone.utc)
+    target_month = normalize_month(current)
+    settings = crud.get_or_create_month_settings(db, target_month, default_submission_limit=3)
+    playlist = crud.get_playlist_by_month(db, target_month)
+    used = crud.count_user_submissions_for_month(db, target_month, current_user.id)
+    limit_value = settings.submission_limit
+    remaining = None if limit_value is None else max(limit_value - used, 0)
+    is_locked = bool(playlist and playlist.finalized_by is not None)
+    db.commit()
+    return SubmissionLimitResponse(
+        submission_limit=limit_value,
+        used=used,
+        remaining=remaining,
+        is_locked=is_locked,
+    )
+
+
 @router.post("", response_model=SubmissionRead, status_code=status.HTTP_201_CREATED)
 def create_submission(
     payload: SubmissionCreate,
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.require_user),
 ) -> SubmissionRead:
+    crud.ensure_multi_submission_schema(db)
     submission_month = normalize_month(payload.submission_month)
     playlist = crud.get_playlist_by_month(db, submission_month)
     if playlist is not None and playlist.finalized_by is not None and current_user.role != "admin":
@@ -55,11 +81,16 @@ def create_submission(
     if existing_submission and existing_submission.is_locked and current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Your submission is locked for this month.")
 
-    settings = crud.get_month_settings(db, submission_month)
-    if existing_submission is None and settings and settings.submission_limit is not None and current_user.role != "admin":
-        total_submissions = crud.count_submissions_for_month(db, submission_month)
-        if total_submissions >= settings.submission_limit:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Monthly submission limit reached. Contact an admin for changes.")
+    settings = crud.get_or_create_month_settings(db, submission_month, default_submission_limit=3)
+    if settings.submission_limit is not None and current_user.role != "admin":
+        user_submission_count = crud.count_user_submissions_for_month(
+            db, submission_month, current_user.id
+        )
+        if user_submission_count >= settings.submission_limit:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You've reached your submission limit for this month.",
+            )
 
     track_data = payload.track
     track = crud.upsert_track(
@@ -77,13 +108,12 @@ def create_submission(
     )
     db.flush()
 
-    submission = crud.create_or_update_submission(
+    submission = crud.create_submission(
         db,
         user=current_user,
         track=track,
         submission_month=submission_month,
         notes=payload.notes,
-        is_locked=False,
     )
     db.commit()
     db.refresh(submission)

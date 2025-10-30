@@ -185,6 +185,14 @@
     margin: 1.5rem 0;
   }
 
+  .submission-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 1rem;
+  }
+
   .submission-card {
     display: flex;
     justify-content: space-between;
@@ -198,6 +206,12 @@
 
   .submission-card__artwork {
     flex: 0 0 96px;
+  }
+
+  .submission-card__content {
+    display: grid;
+    gap: 0.25rem;
+    flex: 1 1 auto;
   }
 
   .artwork {
@@ -219,6 +233,10 @@
 
   .submission-status__meta {
     margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
   }
 
   .submission-search,

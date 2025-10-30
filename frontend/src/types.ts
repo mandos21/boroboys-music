@@ -98,3 +98,10 @@ export type AdminMonthSummary = {
   submissions: SubmissionRecord[];
   released: boolean;
 };
+
+export type SubmissionLimitInfo = {
+  submission_limit: number | null;
+  used: number;
+  remaining: number | null;
+  is_locked: boolean;
+};

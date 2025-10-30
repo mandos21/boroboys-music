@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 import secrets
 from typing import Iterable, Optional
 
-from sqlalchemy import Select, and_, func, select
+from sqlalchemy import Select, and_, func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.dates import normalize_month
@@ -140,7 +140,7 @@ def get_or_create_month_settings(
     session: Session,
     month: datetime,
     *,
-    submission_limit: Optional[int] = None,
+    default_submission_limit: Optional[int] = 3,
     spotify_owner_id: Optional[str] = None,
 ) -> models.MonthSettings:
     month = normalize_month(month)
@@ -148,7 +148,7 @@ def get_or_create_month_settings(
     if settings is None:
         settings = models.MonthSettings(
             month=month,
-            submission_limit=submission_limit,
+            submission_limit=default_submission_limit,
             spotify_owner_id=spotify_owner_id,
         )
         session.add(settings)
@@ -167,7 +167,7 @@ def update_month_settings(
     settings = get_or_create_month_settings(
         session,
         month,
-        submission_limit=submission_limit,
+        default_submission_limit=submission_limit,
         spotify_owner_id=spotify_owner_id,
     )
     settings.submission_limit = submission_limit
@@ -175,6 +175,26 @@ def update_month_settings(
     session.flush()
     session.refresh(settings)
     return settings
+
+
+def ensure_multi_submission_schema(session: Session) -> None:
+    session.execute(
+        text(
+            """
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_constraint
+                    WHERE conname = 'uq_user_month'
+                ) THEN
+                    ALTER TABLE submissions DROP CONSTRAINT uq_user_month;
+                END IF;
+            END
+            $$;
+            """
+        )
+    )
 
 
 def list_invites(session: Session, *, include_used: bool = False) -> Iterable[models.Invite]:
@@ -272,20 +292,21 @@ def get_user_submission(session: Session, *, user_id: int, month: datetime) -> O
     return session.scalar(statement)
 
 
-def count_submissions_for_month(session: Session, month: datetime) -> int:
-    month = normalize_month(month)
-    statement = select(func.count(models.Submission.id)).where(
-        models.Submission.submission_month == month
-    )
-    return session.scalar(statement) or 0
-
-
 def list_submissions_for_month(session: Session, month: datetime) -> Iterable[models.Submission]:
     month = normalize_month(month)
     statement = select(models.Submission).where(
         models.Submission.submission_month == month
     ).order_by(models.Submission.created_at.asc())
     return session.scalars(statement).unique().all()
+
+
+def count_user_submissions_for_month(session: Session, month: datetime, user_id: int) -> int:
+    month = normalize_month(month)
+    statement = select(func.count(models.Submission.id)).where(
+        models.Submission.submission_month == month,
+        models.Submission.user_id == user_id,
+    )
+    return session.scalar(statement) or 0
 
 
 def create_or_update_submission(

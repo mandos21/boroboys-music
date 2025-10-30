@@ -218,6 +218,13 @@ class ManualReleaseRequest(BaseModel):
     spotify_owner_id: Optional[str] = Field(default=None, max_length=120)
 
 
+class SubmissionLimitResponse(BaseModel):
+    submission_limit: Optional[int]
+    used: int
+    remaining: Optional[int]
+    is_locked: bool
+
+
 class InviteRead(ORMModel):
     id: int
     token: str

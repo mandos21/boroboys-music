@@ -22,6 +22,7 @@ import type {
   Role,
   SpotifyTrackResult,
   SubmissionRecord,
+  SubmissionLimitInfo,
   UserSummary,
 } from "./types";
 import "./styles.css";
@@ -46,11 +47,15 @@ function App() {
   const [activeView, setActiveView] = useState<AppView>("submit");
   const [loginInFlight, setLoginInFlight] = useState(false);
 
-  const [submission, setSubmission] = useState<SubmissionRecord | null>(null);
+  const [submissions, setSubmissions] = useState<SubmissionRecord[]>([]);
   const [submissionLoading, setSubmissionLoading] = useState(false);
   const [submissionNotes, setSubmissionNotes] = useState("");
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submissionLimit, setSubmissionLimit] = useState<number | null>(null);
+  const [submissionUsed, setSubmissionUsed] = useState(0);
+  const [submissionRemaining, setSubmissionRemaining] = useState<number | null>(null);
+  const [submissionsLocked, setSubmissionsLocked] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SpotifyTrackResult[]>([]);
@@ -122,18 +127,37 @@ function App() {
     }
   }, [user]);
 
-  const loadSubmission = useCallback(async () => {
+  const loadSubmissionLimit = useCallback(async () => {
+    try {
+      const payload = await fetchJson<SubmissionLimitInfo>(`/api/v1/submissions/limit/current?month=${encodeURIComponent(currentMonthIso)}`);
+      setSubmissionLimit(payload.submission_limit);
+      setSubmissionUsed(payload.used);
+      setSubmissionRemaining(payload.remaining);
+      setSubmissionsLocked(payload.is_locked);
+    } catch (error) {
+      console.error("Failed to load submission limit", error);
+      setSubmissionLimit(null);
+      setSubmissionRemaining(null);
+      setSubmissionUsed(0);
+      setSubmissionsLocked(false);
+    }
+  }, [currentMonthIso]);
+
+  const loadSubmissions = useCallback(async () => {
     setSubmissionLoading(true);
     setSubmissionError(null);
     try {
       const payload = await fetchJson<{ items: SubmissionRecord[] }>(`/api/v1/submissions?month=${encodeURIComponent(currentMonthIso)}`);
-      const record = payload.items[0] ?? null;
-      setSubmission(record);
-      setSubmissionNotes(record?.notes ?? "");
+      setSubmissions(payload.items);
+      setSubmissionNotes("");
+      setSubmissionUsed(payload.items.length);
+      setSubmissionsLocked(payload.items.some((item) => item.is_locked));
     } catch (error) {
       console.error("Failed to load submission", error);
       setSubmissionError("Unable to load submission. Try again shortly.");
-      setSubmission(null);
+      setSubmissions([]);
+      setSubmissionUsed(0);
+      setSubmissionsLocked(false);
     } finally {
       setSubmissionLoading(false);
     }
@@ -216,7 +240,11 @@ function App() {
 
   useEffect(() => {
     if (authState !== "authenticated") {
-      setSubmission(null);
+      setSubmissions([]);
+      setSubmissionLimit(null);
+      setSubmissionUsed(0);
+      setSubmissionRemaining(null);
+      setSubmissionsLocked(false);
       setHistoryList([]);
       setSelectedPlaylist(null);
       setInvites([]);
@@ -230,13 +258,16 @@ function App() {
       return;
     }
 
-    if (activeView === "submit") loadSubmission();
+    if (activeView === "submit") {
+      loadSubmissions();
+      loadSubmissionLimit();
+    }
     if (activeView === "history") loadHistoryList();
     if (activeView === "admin" && user?.role === "admin") {
       loadInvites();
       loadMonthSummary();
     }
-  }, [activeView, authState, loadHistoryList, loadInvites, loadMonthSummary, loadSubmission, user]);
+  }, [activeView, authState, loadHistoryList, loadInvites, loadMonthSummary, loadSubmissionLimit, loadSubmissions, user]);
 
   useEffect(() => {
     if (user?.role !== "admin" && activeView === "admin") {
@@ -265,13 +296,18 @@ function App() {
     } finally {
       setUser(null);
       setAuthState("unauthenticated");
-      setSubmission(null);
+      setSubmissions([]);
       setHistoryList([]);
       setSelectedPlaylist(null);
       setInvites([]);
       setImportPayload(null);
       setImportAssignments({});
       setImportStatus(null);
+      setSubmissionLimit(null);
+      setSubmissionUsed(0);
+      setSubmissionRemaining(null);
+      setSubmissionsLocked(false);
+      setSubmissionNotes("");
       setActiveView("submit");
     }
   }, []);
@@ -302,13 +338,15 @@ function App() {
         setSubmissionMessage("Submission saved!");
         setSearchResults([]);
         setSearchQuery("");
-        await loadSubmission();
+        setSubmissionNotes("");
+        await loadSubmissions();
+        await loadSubmissionLimit();
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to save submission";
         setSubmissionError(message);
       }
     },
-    [currentMonthIso, loadSubmission, submissionNotes]
+    [currentMonthIso, loadSubmissionLimit, loadSubmissions, submissionNotes]
   );
 
   const resolveTrackReference = useCallback(
@@ -334,6 +372,25 @@ function App() {
     [selectTrack]
   );
 
+  const deleteSubmission = useCallback(
+    async (submissionId: number) => {
+      setSubmissionError(null);
+      setSubmissionMessage(null);
+      try {
+        await fetchJson(`/api/v1/submissions/${submissionId}`, {
+          method: "DELETE",
+        });
+        setSubmissionMessage("Submission removed.");
+        await loadSubmissions();
+        await loadSubmissionLimit();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to remove submission.";
+        setSubmissionError(message);
+      }
+    },
+    [loadSubmissionLimit, loadSubmissions]
+  );
+
   const searchTracks = useCallback(async () => {
     const trimmedQuery = searchQuery.trim();
     if (!trimmedQuery) return;
@@ -357,6 +414,7 @@ function App() {
       setSearchLoading(false);
     }
   }, [resolveTrackReference, searchQuery]);
+
 
   const updateMonthSettings = useCallback(
     async ({ submission_limit, spotify_owner_id }: { submission_limit: number | null; spotify_owner_id: string | null }) => {
@@ -392,14 +450,15 @@ function App() {
       setMonthStatusMessage("Playlist released.");
       await loadMonthSummary();
       await loadHistoryList();
-      await loadSubmission();
+      await loadSubmissions();
+      await loadSubmissionLimit();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to release the playlist.";
       setMonthStatusError(message);
     } finally {
       setReleaseBusy(false);
     }
-  }, [loadHistoryList, loadMonthSummary, loadSubmission]);
+  }, [loadHistoryList, loadMonthSummary, loadSubmissionLimit, loadSubmissions]);
 
   const lookupTracks = useCallback(async () => {
     setLookupError(null);
@@ -519,18 +578,22 @@ function App() {
   } else if (activeView === "submit") {
     content = (
       <SubmissionPanel
-        submission={submission}
+        submissions={submissions}
         isLoading={submissionLoading}
-        isLocked={Boolean(submission?.is_locked)}
+        isLocked={submissionsLocked}
+        limit={submissionLimit}
+        used={submissionUsed}
+        remaining={submissionRemaining}
         notes={submissionNotes}
         onNotesChange={setSubmissionNotes}
         onSearch={searchTracks}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         searchResults={searchResults}
-        searchLoading={searchLoading || resolveLoading}
+        searchLoading={searchLoading}
         resolveLoading={resolveLoading}
         onSelectTrack={selectTrack}
+        onDeleteSubmission={deleteSubmission}
         message={submissionMessage}
         error={submissionError}
       />

@@ -50,7 +50,7 @@ function AdminMonthPanel({
 
   const totalSubmissions = summary?.submissions.length ?? 0;
   const submissionLimit = summary?.settings.submission_limit ?? null;
-  const limitDisplay = submissionLimit != null ? `${totalSubmissions} / ${submissionLimit}` : `${totalSubmissions}`;
+  const limitDisplay = submissionLimit != null ? `${submissionLimit} per person` : "Unlimited per person";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -110,7 +110,7 @@ function AdminMonthPanel({
         <div className="admin-month__content">
           <form className="admin-month__settings" onSubmit={handleSubmit}>
             <div className="field">
-              <label>Submission limit (per month)</label>
+              <label>Submission limit per person</label>
               <input
                 type="number"
                 min={1}
@@ -137,8 +137,10 @@ function AdminMonthPanel({
           </form>
 
           <div className="admin-month__status">
-            <span className="muted small">Submissions collected</span>
+            <span className="muted small">Limit</span>
             <strong>{limitDisplay}</strong>
+            <span className="muted small">Submissions collected</span>
+            <strong>{totalSubmissions}</strong>
             {summary.released ? (
               <span className="pill">Released</span>
             ) : (
