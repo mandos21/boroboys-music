@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 import secrets
 from typing import Iterable, Optional
 
-from sqlalchemy import Select, and_, func, select, text
+from sqlalchemy import Select, and_, func, select
 from sqlalchemy.orm import Session
 
 from app.core.dates import normalize_month
@@ -177,26 +177,6 @@ def update_month_settings(
     return settings
 
 
-def ensure_multi_submission_schema(session: Session) -> None:
-    session.execute(
-        text(
-            """
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1
-                    FROM pg_constraint
-                    WHERE conname = 'uq_user_month'
-                ) THEN
-                    ALTER TABLE submissions DROP CONSTRAINT uq_user_month;
-                END IF;
-            END
-            $$;
-            """
-        )
-    )
-
-
 def list_invites(session: Session, *, include_used: bool = False) -> Iterable[models.Invite]:
     statement = select(models.Invite).order_by(models.Invite.created_at.desc())
     if not include_used:
@@ -283,15 +263,6 @@ def add_playlist_track(
     return entry
 
 
-def get_user_submission(session: Session, *, user_id: int, month: datetime) -> Optional[models.Submission]:
-    month = normalize_month(month)
-    statement = select(models.Submission).where(
-        models.Submission.user_id == user_id,
-        models.Submission.submission_month == month,
-    )
-    return session.scalar(statement)
-
-
 def list_submissions_for_month(session: Session, month: datetime) -> Iterable[models.Submission]:
     month = normalize_month(month)
     statement = select(models.Submission).where(
@@ -309,42 +280,14 @@ def count_user_submissions_for_month(session: Session, month: datetime, user_id:
     return session.scalar(statement) or 0
 
 
-def create_or_update_submission(
-    session: Session,
-    *,
-    user: models.User,
-    track: models.Track,
-    submission_month: datetime,
-    notes: Optional[str] = None,
-    is_locked: bool = False,
-) -> models.Submission:
-    if submission_month.tzinfo is None:
-        submission_month = submission_month.replace(tzinfo=timezone.utc)
-    else:
-        submission_month = submission_month.astimezone(timezone.utc)
-
-    submission = session.scalar(
-        select(models.Submission).where(
-            models.Submission.user_id == user.id,
-            models.Submission.submission_month == submission_month,
-        )
+def user_has_locked_submission(session: Session, month: datetime, user_id: int) -> bool:
+    month = normalize_month(month)
+    statement = select(func.count(models.Submission.id)).where(
+        models.Submission.submission_month == month,
+        models.Submission.user_id == user_id,
+        models.Submission.is_locked.is_(True),
     )
-    if submission is None:
-        submission = models.Submission(
-            user_id=user.id,
-            track_id=track.id,
-            submission_month=submission_month,
-            notes=notes,
-            is_locked=is_locked,
-        )
-        session.add(submission)
-    else:
-        submission.track_id = track.id
-        submission.notes = notes
-        submission.is_locked = is_locked
-    session.flush()
-    session.refresh(submission)
-    return submission
+    return bool(session.scalar(statement))
 
 
 def upsert_track(

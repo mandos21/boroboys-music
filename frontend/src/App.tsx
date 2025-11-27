@@ -53,8 +53,6 @@ function App() {
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submissionLimit, setSubmissionLimit] = useState<number | null>(null);
-  const [submissionUsed, setSubmissionUsed] = useState(0);
-  const [submissionRemaining, setSubmissionRemaining] = useState<number | null>(null);
   const [submissionsLocked, setSubmissionsLocked] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,17 +127,14 @@ function App() {
 
   const loadSubmissionLimit = useCallback(async () => {
     try {
-      const payload = await fetchJson<SubmissionLimitInfo>(`/api/v1/submissions/limit/current?month=${encodeURIComponent(currentMonthIso)}`);
+      const payload = await fetchJson<SubmissionLimitInfo>(
+        `/api/v1/submissions/limit/current?month=${encodeURIComponent(currentMonthIso)}`
+      );
       setSubmissionLimit(payload.submission_limit);
-      setSubmissionUsed(payload.used);
-      setSubmissionRemaining(payload.remaining);
       setSubmissionsLocked(payload.is_locked);
     } catch (error) {
       console.error("Failed to load submission limit", error);
       setSubmissionLimit(null);
-      setSubmissionRemaining(null);
-      setSubmissionUsed(0);
-      setSubmissionsLocked(false);
     }
   }, [currentMonthIso]);
 
@@ -150,13 +145,11 @@ function App() {
       const payload = await fetchJson<{ items: SubmissionRecord[] }>(`/api/v1/submissions?month=${encodeURIComponent(currentMonthIso)}`);
       setSubmissions(payload.items);
       setSubmissionNotes("");
-      setSubmissionUsed(payload.items.length);
       setSubmissionsLocked(payload.items.some((item) => item.is_locked));
     } catch (error) {
       console.error("Failed to load submission", error);
       setSubmissionError("Unable to load submission. Try again shortly.");
       setSubmissions([]);
-      setSubmissionUsed(0);
       setSubmissionsLocked(false);
     } finally {
       setSubmissionLoading(false);
@@ -242,8 +235,6 @@ function App() {
     if (authState !== "authenticated") {
       setSubmissions([]);
       setSubmissionLimit(null);
-      setSubmissionUsed(0);
-      setSubmissionRemaining(null);
       setSubmissionsLocked(false);
       setHistoryList([]);
       setSelectedPlaylist(null);
@@ -304,8 +295,6 @@ function App() {
       setImportAssignments({});
       setImportStatus(null);
       setSubmissionLimit(null);
-      setSubmissionUsed(0);
-      setSubmissionRemaining(null);
       setSubmissionsLocked(false);
       setSubmissionNotes("");
       setActiveView("submit");
@@ -339,8 +328,7 @@ function App() {
         setSearchResults([]);
         setSearchQuery("");
         setSubmissionNotes("");
-        await loadSubmissions();
-        await loadSubmissionLimit();
+        await Promise.all([loadSubmissions(), loadSubmissionLimit()]);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to save submission";
         setSubmissionError(message);
@@ -381,8 +369,7 @@ function App() {
           method: "DELETE",
         });
         setSubmissionMessage("Submission removed.");
-        await loadSubmissions();
-        await loadSubmissionLimit();
+        await Promise.all([loadSubmissions(), loadSubmissionLimit()]);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to remove submission.";
         setSubmissionError(message);
@@ -450,8 +437,7 @@ function App() {
       setMonthStatusMessage("Playlist released.");
       await loadMonthSummary();
       await loadHistoryList();
-      await loadSubmissions();
-      await loadSubmissionLimit();
+      await Promise.all([loadSubmissions(), loadSubmissionLimit()]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to release the playlist.";
       setMonthStatusError(message);
@@ -561,6 +547,10 @@ function App() {
     setImportLock((prev) => !prev);
   }, []);
 
+  const submissionsUsed = submissions.length;
+  const submissionsRemaining =
+    submissionLimit == null ? null : Math.max(submissionLimit - submissionsUsed, 0);
+
   let content: JSX.Element | null = null;
 
   if (authState === "loading") {
@@ -582,8 +572,8 @@ function App() {
         isLoading={submissionLoading}
         isLocked={submissionsLocked}
         limit={submissionLimit}
-        used={submissionUsed}
-        remaining={submissionRemaining}
+        used={submissionsUsed}
+        remaining={submissionsRemaining}
         notes={submissionNotes}
         onNotesChange={setSubmissionNotes}
         onSearch={searchTracks}

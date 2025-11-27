@@ -47,7 +47,6 @@ def get_current_limit(
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.require_user),
 ) -> SubmissionLimitResponse:
-    crud.ensure_multi_submission_schema(db)
     current = month or datetime.now(timezone.utc)
     target_month = normalize_month(current)
     settings = crud.get_or_create_month_settings(db, target_month, default_submission_limit=3)
@@ -71,14 +70,12 @@ def create_submission(
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.require_user),
 ) -> SubmissionRead:
-    crud.ensure_multi_submission_schema(db)
     submission_month = normalize_month(payload.submission_month)
     playlist = crud.get_playlist_by_month(db, submission_month)
     if playlist is not None and playlist.finalized_by is not None and current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Submissions are closed for this month.")
 
-    existing_submission = crud.get_user_submission(db, user_id=current_user.id, month=submission_month)
-    if existing_submission and existing_submission.is_locked and current_user.role != "admin":
+    if current_user.role != "admin" and crud.user_has_locked_submission(db, submission_month, current_user.id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Your submission is locked for this month.")
 
     settings = crud.get_or_create_month_settings(db, submission_month, default_submission_limit=3)
