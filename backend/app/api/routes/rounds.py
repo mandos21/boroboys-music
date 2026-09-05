@@ -46,6 +46,35 @@ class SubmissionCreate(BaseModel):
     note: str | None = Field(default=None, max_length=4000)
 
 
+@router.get("")
+def list_my_rounds(
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, object]]:
+    rows = db.execute(
+        select(Round, RoundMember)
+        .join(RoundMember, RoundMember.round_id == Round.id)
+        .where(RoundMember.user_id == user.id, RoundMember.removed_at.is_(None))
+        .order_by(Round.opens_at.desc())
+    )
+    return [
+        {
+            "id": str(round_.id),
+            "title": round_.title,
+            "status": round_.status.value,
+            "opensAt": round_.opens_at.isoformat(),
+            "closesAt": round_.closes_at.isoformat(),
+            "publishAt": round_.publish_at.isoformat(),
+            "submissionLimit": (
+                member.submission_limit_override
+                if member.submission_limit_override is not None
+                else round_.submission_limit
+            ),
+        }
+        for round_, member in rows
+    ]
+
+
 @router.get("/{round_id}")
 def get_round(
     round_id: uuid.UUID,

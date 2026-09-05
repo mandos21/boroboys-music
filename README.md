@@ -14,9 +14,10 @@ previous prototype remains in `main` branch history.
 
 ## Status
 
-Phase 0 is in progress: project structure, health endpoint, migration scaffolding,
-worker entry point, and a frontend shell are present. Domain workflows are not yet
-implemented.
+The v2 rebuild is in active development. The current branch includes the initial
+domain schema, generic OIDC sessions, core administration, contributor submissions,
+and the foundations for listening evidence and publication. It is not ready for a
+live round yet; the implementation contract remains the authoritative roadmap.
 
 ## Developer commands
 
