@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     oidc_bootstrap_admin_subjects: str = ""
     session_cookie_name: str = "music_rounds_session"
     session_lifetime_hours: int = 168
+    lastfm_api_key: SecretStr | None = None
+    lastfm_evidence_refresh_hours: int = 24
 
     @property
     def oidc_is_configured(self) -> bool:
