@@ -226,6 +226,7 @@ class Round(UUIDTimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("opens_at < closes_at", name="ck_rounds_open_before_close"),
         CheckConstraint("closes_at <= publish_at", name="ck_rounds_close_before_publish"),
+        CheckConstraint("submission_limit >= 0", name="ck_rounds_submission_limit_nonnegative"),
     )
 
     series_id: Mapped[uuid.UUID] = mapped_column(
@@ -233,6 +234,7 @@ class Round(UUIDTimestampMixin, Base):
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+    submission_limit: Mapped[int] = mapped_column(Integer, nullable=False)
     opens_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     closes_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     publish_at: Mapped[datetime] = mapped_column(
