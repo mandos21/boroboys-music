@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.core.config import get_settings
+from app.core.security import decrypt
 from app.db.models import (
     EvaluationDecision,
     EvidenceVisibility,
     ExternalAccount,
+    ExternalCredential,
     ExternalProvider,
     ListeningEvidence,
     PlatformRole,
@@ -28,6 +33,7 @@ from app.db.models import (
     Track,
     User,
 )
+from app.services import spotify
 from app.services.policies import evaluate_submission
 from app.tasks import refresh_evidence
 
@@ -99,6 +105,69 @@ def get_round(
         "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": limit,
     }
+
+
+@router.get("/{round_id}/track-search")
+def search_tracks(
+    round_id: uuid.UUID,
+    query: Annotated[str, Query(min_length=2, max_length=200)],
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, object]]:
+    _member_round(db, round_id, user.id)
+    account = db.scalar(
+        select(ExternalAccount).where(
+            ExternalAccount.user_id == user.id,
+            ExternalAccount.provider == ExternalProvider.SPOTIFY,
+            ExternalAccount.is_active.is_(True),
+        )
+    )
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Spotify account is not linked"
+        )
+    credential = db.scalar(
+        select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
+    )
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Spotify account needs reauthorization"
+        )
+    try:
+        payload = json.loads(
+            decrypt(
+                credential.ciphertext, get_settings().credential_encryption_key.get_secret_value()
+            )
+        )
+        access_token = payload.get("access_token") if isinstance(payload, dict) else None
+        if not isinstance(access_token, str):
+            raise ValueError
+        matches = spotify.search_tracks(access_token, query)
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Spotify search failed"
+        ) from None
+    return [
+        {
+            "spotifyTrackId": item.get("id"),
+            "name": item.get("name"),
+            "artist": ", ".join(
+                artist.get("name", "")
+                for artist in item.get("artists", [])
+                if isinstance(artist, dict)
+            ),
+            "album": item.get("album", {}).get("name")
+            if isinstance(item.get("album"), dict)
+            else None,
+            "spotifyUri": item.get("uri"),
+            "artworkUrl": (item.get("album", {}).get("images") or [{}])[0].get("url")
+            if isinstance(item.get("album"), dict)
+            else None,
+            "providerMetadata": {"explicit": item.get("explicit", False)},
+        }
+        for item in matches
+        if isinstance(item.get("id"), str) and isinstance(item.get("name"), str)
+    ]
 
 
 @router.get("/{round_id}/tracks/{track_id}/evidence")

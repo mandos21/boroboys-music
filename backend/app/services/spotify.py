@@ -58,6 +58,19 @@ def current_profile(access_token: str) -> dict[str, Any]:
     return profile
 
 
+def search_tracks(access_token: str, query: str) -> list[dict[str, Any]]:
+    response = httpx.get(
+        f"{SPOTIFY_API}/search",
+        headers=_headers(access_token),
+        params={"q": query, "type": "track", "limit": 20},
+        timeout=15.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    tracks = payload.get("tracks", {}).get("items", []) if isinstance(payload, dict) else []
+    return [item for item in tracks if isinstance(item, dict)]
+
+
 def create_playlist(access_token: str, user_id: str, name: str, description: str) -> str:
     response = httpx.post(
         f"{SPOTIFY_API}/users/{user_id}/playlists",
