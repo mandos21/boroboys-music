@@ -17,10 +17,12 @@ from app.db.models import (
     ExternalAccount,
     ExternalProvider,
     ListeningEvidence,
+    PlatformRole,
     PolicyEvaluation,
     Round,
     RoundMember,
     RoundStatus,
+    SeriesAdmin,
     Submission,
     SubmissionStatus,
     Track,
@@ -106,7 +108,31 @@ def get_evidence(
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
-    round_, _ = _member_round(db, round_id, user.id)
+    round_ = db.get(Round, round_id)
+    if round_ is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="round not found")
+    is_member = (
+        db.scalar(
+            select(RoundMember.id).where(
+                RoundMember.round_id == round_id,
+                RoundMember.user_id == user.id,
+                RoundMember.removed_at.is_(None),
+            )
+        )
+        is not None
+    )
+    is_series_admin = (
+        user.platform_role is PlatformRole.ADMIN
+        or db.scalar(
+            select(SeriesAdmin.id).where(
+                SeriesAdmin.series_id == round_.series_id,
+                SeriesAdmin.user_id == user.id,
+            )
+        )
+        is not None
+    )
+    if not is_member and not is_series_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="round access required")
     rows = list(
         db.execute(
             select(ExternalAccount, ListeningEvidence)
@@ -122,10 +148,13 @@ def get_evidence(
     )
     evidence = []
     for account, item in rows:
-        if (
-            account.user_id != user.id
-            and account.evidence_visibility is not EvidenceVisibility.ROUND_MEMBERS
-        ):
+        if account.user_id == user.id:
+            pass
+        elif account.evidence_visibility is EvidenceVisibility.ROUND_MEMBERS and is_member:
+            pass
+        elif account.evidence_visibility is EvidenceVisibility.SERIES_ADMINS and is_series_admin:
+            pass
+        else:
             continue
         evidence.append(
             {
