@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import uuid
+from datetime import UTC, datetime
 
+import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
+from app.core.security import decrypt
 from app.db.models import (
+    ExternalAccount,
+    ExternalCredential,
     Publication,
     PublicationItem,
     PublicationState,
@@ -15,7 +22,9 @@ from app.db.models import (
     RoundStatus,
     Submission,
     SubmissionStatus,
+    Track,
 )
+from app.services import spotify
 from app.services.lifecycle import create_rolling_successor
 
 
@@ -101,3 +110,95 @@ def start_unpublish(db: Session, round_id: uuid.UUID) -> Publication:
     publication.state = PublicationState.UNPUBLISHING
     round_.status = RoundStatus.UNPUBLISHING
     return publication
+
+
+def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
+    """Perform a retry-safe remote publish, committing playlist identity before item writes."""
+    publication = db.scalar(
+        select(Publication).where(Publication.id == publication_id).with_for_update()
+    )
+    if publication is None or publication.state not in {
+        PublicationState.PUBLISHING,
+        PublicationState.FAILED,
+    }:
+        return
+    round_ = db.get(Round, publication.round_id)
+    account = db.get(ExternalAccount, publication.publisher_account_id)
+    if round_ is None or account is None:
+        _fail(db, publication, round_, "publication prerequisites are unavailable")
+        return
+    try:
+        token = _access_token(db, account.id)
+        if publication.spotify_playlist_id is None:
+            publication.spotify_playlist_id = spotify.create_playlist(
+                token, account.provider_subject, round_.title, "Published by Music Rounds"
+            )
+            publication.attempt_count += 1
+            db.commit()
+        uris = _publication_uris(db, publication.id)
+        spotify.add_items(token, publication.spotify_playlist_id, uris)
+        mark_published(db, publication.id, publication.spotify_playlist_id)
+        publication.published_at = datetime.now(UTC)
+        publication.last_error = None
+        db.commit()
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
+        _fail(db, publication, round_, "Spotify publication failed")
+
+
+def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
+    publication = db.scalar(
+        select(Publication).where(Publication.id == publication_id).with_for_update()
+    )
+    if publication is None or publication.state != PublicationState.UNPUBLISHING:
+        return
+    round_ = db.get(Round, publication.round_id)
+    if round_ is None or not publication.spotify_playlist_id:
+        _fail(db, publication, round_, "publication cannot be retired")
+        return
+    try:
+        spotify.retire_playlist(
+            _access_token(db, publication.publisher_account_id),
+            publication.spotify_playlist_id,
+            _publication_uris(db, publication.id),
+        )
+        publication.state = PublicationState.UNPUBLISHED
+        publication.unpublished_at = datetime.now(UTC)
+        round_.status = RoundStatus.CLOSED
+        db.commit()
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
+        _fail(db, publication, round_, "Spotify playlist retirement failed")
+
+
+def _access_token(db: Session, account_id: uuid.UUID) -> str:
+    credential = db.scalar(
+        select(ExternalCredential).where(ExternalCredential.external_account_id == account_id)
+    )
+    if credential is None:
+        raise ValueError("publisher has no credential")
+    payload = json.loads(
+        decrypt(credential.ciphertext, get_settings().credential_encryption_key.get_secret_value())
+    )
+    token = payload.get("access_token") if isinstance(payload, dict) else None
+    if not isinstance(token, str):
+        raise ValueError("publisher credential is malformed")
+    return token
+
+
+def _publication_uris(db: Session, publication_id: uuid.UUID) -> list[str]:
+    return list(
+        db.scalars(
+            select(Track.spotify_uri)
+            .join(PublicationItem, PublicationItem.track_id == Track.id)
+            .where(PublicationItem.publication_id == publication_id, Track.spotify_uri.is_not(None))
+            .order_by(PublicationItem.position)
+        )
+    )
+
+
+def _fail(db: Session, publication: Publication, round_: Round | None, message: str) -> None:
+    publication.state = PublicationState.FAILED
+    publication.attempt_count += 1
+    publication.last_error = message
+    if round_ is not None:
+        round_.status = RoundStatus.FAILED
+    db.commit()
