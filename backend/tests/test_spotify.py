@@ -54,3 +54,19 @@ def test_add_items_batches_at_spotify_limit(monkeypatch: pytest.MonkeyPatch) -> 
     spotify.add_items("token", "playlist", [f"spotify:track:{index}" for index in range(201)])
 
     assert [len(batch) for batch in batches] == [100, 100, 1]
+
+
+def test_refresh_token_uses_confidential_client_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_post(*_: object, **kwargs: object) -> FakeResponse:
+        observed.update(kwargs)
+        return FakeResponse({"access_token": "refreshed", "expires_in": 3600})
+
+    monkeypatch.setattr(spotify.httpx, "post", fake_post)
+    settings = Settings(spotify_client_id="client", spotify_client_secret="secret")
+
+    payload = spotify.refresh_token(settings, "refresh-value")
+
+    assert payload["access_token"] == "refreshed"
+    assert observed["auth"] == ("client", "secret")

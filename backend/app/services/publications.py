@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.security import decrypt
+from app.core.security import decrypt, encrypt
 from app.db.models import (
     ExternalAccount,
     ExternalCredential,
@@ -175,12 +175,24 @@ def _access_token(db: Session, account_id: uuid.UUID) -> str:
     )
     if credential is None:
         raise ValueError("publisher has no credential")
+    settings = get_settings()
     payload = json.loads(
-        decrypt(credential.ciphertext, get_settings().credential_encryption_key.get_secret_value())
+        decrypt(credential.ciphertext, settings.credential_encryption_key.get_secret_value())
     )
     token = payload.get("access_token") if isinstance(payload, dict) else None
     if not isinstance(token, str):
         raise ValueError("publisher credential is malformed")
+    if credential.expires_at is not None and credential.expires_at <= datetime.now(UTC):
+        refresh_token_value = payload.get("refresh_token") if isinstance(payload, dict) else None
+        if not isinstance(refresh_token_value, str):
+            raise ValueError("publisher credential needs reauthorization")
+        refreshed = spotify.refresh_token(settings, refresh_token_value)
+        refreshed.setdefault("refresh_token", refresh_token_value)
+        credential.ciphertext = encrypt(
+            json.dumps(refreshed), settings.credential_encryption_key.get_secret_value()
+        )
+        credential.expires_at = spotify.token_expiry(refreshed)
+        token = str(refreshed["access_token"])
     return token
 
 

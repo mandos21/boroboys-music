@@ -49,6 +49,22 @@ def exchange_code(settings: Settings, code: str, verifier: str) -> dict[str, Any
     return payload
 
 
+def refresh_token(settings: Settings, refresh_token_value: str) -> dict[str, Any]:
+    if not settings.spotify_client_id or not settings.spotify_client_secret:
+        raise SpotifyError("Spotify is not configured")
+    response = httpx.post(
+        f"{SPOTIFY_ACCOUNTS}/api/token",
+        data={"grant_type": "refresh_token", "refresh_token": refresh_token_value},
+        auth=(settings.spotify_client_id, settings.spotify_client_secret.get_secret_value()),
+        timeout=15.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict) or not isinstance(payload.get("access_token"), str):
+        raise SpotifyError("Spotify returned no refreshed access token")
+    return payload
+
+
 def current_profile(access_token: str) -> dict[str, Any]:
     response = httpx.get(f"{SPOTIFY_API}/me", headers=_headers(access_token), timeout=15.0)
     response.raise_for_status()
