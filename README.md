@@ -6,6 +6,9 @@ This is the clean v2 rebuild. The implementation contract is in
 [docs/v2-product-and-architecture.md](docs/v2-product-and-architecture.md); the
 previous prototype remains in `main` branch history.
 
+Operational procedures, including the required backup/restore drill and credential
+key rotation, are in [docs/operations.md](docs/operations.md).
+
 ## Layout
 
 - `backend/` — FastAPI API, Alembic schema, and Procrastinate tasks.
