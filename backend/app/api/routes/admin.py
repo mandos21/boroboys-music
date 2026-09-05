@@ -23,6 +23,8 @@ from app.db.models import (
     SeriesAdmin,
     User,
 )
+from app.services.publications import PublicationError, start_publication, start_unpublish
+from app.tasks import publish_round, retire_round
 
 router = APIRouter(prefix="/admin", tags=["administration"], dependencies=[Depends(require_csrf)])
 
@@ -86,6 +88,10 @@ class RoundCreate(BaseModel):
 
 class RoundMemberUpdate(BaseModel):
     submission_limit_override: int | None = Field(default=None, ge=0)
+
+
+class PublishRequest(BaseModel):
+    publisher_account_id: uuid.UUID
 
 
 @router.post("/series", status_code=status.HTTP_201_CREATED)
@@ -247,6 +253,47 @@ def add_round_member(
         membership.submission_limit_override = payload.submission_limit_override
         membership.removed_at = None
     db.commit()
+
+
+@router.post("/rounds/{round_id}/publish", status_code=status.HTTP_202_ACCEPTED)
+def publish_round_request(
+    round_id: uuid.UUID,
+    payload: PublishRequest,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    round_ = db.get(Round, round_id)
+    if round_ is None:
+        raise _not_found("round")
+    _require_series_admin(db, user, round_.series_id)
+    try:
+        publication = start_publication(db, round_id, payload.publisher_account_id)
+        db.commit()
+    except PublicationError as error:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    publish_round.defer(str(publication.id))
+    return {"publicationId": str(publication.id), "state": publication.state.value}
+
+
+@router.post("/rounds/{round_id}/unpublish", status_code=status.HTTP_202_ACCEPTED)
+def unpublish_round_request(
+    round_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    round_ = db.get(Round, round_id)
+    if round_ is None:
+        raise _not_found("round")
+    _require_series_admin(db, user, round_.series_id)
+    try:
+        publication = start_unpublish(db, round_id)
+        db.commit()
+    except PublicationError as error:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    retire_round.defer(str(publication.id))
+    return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
 def _require_platform_admin(user: User) -> None:
