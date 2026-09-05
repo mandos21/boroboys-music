@@ -1005,6 +1005,21 @@ sphinx = ["sphinx"]
 sqlalchemy = ["sqlalchemy (>=2.0,<3.0)"]
 
 [[package]]
+name = "prometheus-client"
+version = "0.21.1"
+description = "Python client for the Prometheus monitoring system."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "prometheus_client-0.21.1-py3-none-any.whl", hash = "sha256:594b45c410d6f4f8888940fe80b5cc2521b305a1fafe1c58609ef715a001f301"},
+    {file = "prometheus_client-0.21.1.tar.gz", hash = "sha256:252505a722ac04b0456be05c05f75f45d760c2911ffc45f2a06bcaed9f3ae3fb"},
+]
+
+[package.extras]
+twisted = ["twisted"]
+
+[[package]]
 name = "psycopg"
 version = "3.3.5"
 description = "PostgreSQL database adapter for Python"
@@ -2017,4 +2032,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "412855d7235c7120686839e219a634a456d356d5184adafcc1170ca0c15ac47f"
+content-hash = "b53d25bb4cb8ff197484a58b308c3efafc615b035d4e1ff25a30db927be2db2a"
