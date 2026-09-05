@@ -106,12 +106,28 @@ class ServerSession(UUIDTimestampMixin, Base):
     token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     csrf_secret_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     oidc_session_id: Mapped[str | None] = mapped_column(String(255))
+    oidc_id_token_ciphertext: Mapped[str | None] = mapped_column(Text)
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class OidcLoginAttempt(UUIDTimestampMixin, Base):
+    __tablename__ = "oidc_login_attempts"
+    __table_args__ = (UniqueConstraint("state_hash", name="uq_oidc_login_attempts_state_hash"),)
+
+    state_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    nonce_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    nonce_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    code_verifier_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    return_path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ExternalAccount(UUIDTimestampMixin, Base):

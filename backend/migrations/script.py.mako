@@ -9,7 +9,9 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+% if "postgresql." in upgrades or "postgresql." in downgrades:
 from sqlalchemy.dialects import postgresql
+% endif
 
 
 revision: str = ${repr(up_revision)}
