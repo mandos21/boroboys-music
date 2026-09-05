@@ -2,15 +2,29 @@
 
 from __future__ import annotations
 
+import json
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
-from app.db.models import EvidenceVisibility, ExternalAccount, ExternalProvider, User
+from app.core.config import get_settings
+from app.core.security import decrypt, encrypt, hash_secret, new_secret
+from app.db.models import (
+    EvidenceVisibility,
+    ExternalAccount,
+    ExternalCredential,
+    ExternalLinkAttempt,
+    ExternalProvider,
+    User,
+)
+from app.services import spotify
 
 router = APIRouter(
     prefix="/connections", tags=["connections"], dependencies=[Depends(require_csrf)]
@@ -24,6 +38,114 @@ class LastfmLink(BaseModel):
 
 class VisibilityUpdate(BaseModel):
     visibility: EvidenceVisibility
+
+
+@router.get("/spotify/login")
+def begin_spotify_link(
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> RedirectResponse:
+    settings = get_settings()
+    if not settings.spotify_is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Spotify is not configured"
+        )
+    state, verifier = new_secret(), new_secret()
+    attempt = ExternalLinkAttempt(
+        user_id=user.id,
+        provider=ExternalProvider.SPOTIFY,
+        state_hash=hash_secret(state),
+        code_verifier_ciphertext=encrypt(
+            verifier, settings.credential_encryption_key.get_secret_value()
+        ),
+        expires_at=datetime.now(UTC) + timedelta(minutes=10),
+    )
+    db.add(attempt)
+    db.commit()
+    return RedirectResponse(spotify.authorization_url(settings, state, verifier), status_code=303)
+
+
+@router.get("/spotify/callback")
+def complete_spotify_link(
+    db: DbSession,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+) -> RedirectResponse:
+    if error or not code or not state:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Spotify link was denied"
+        )
+    settings = get_settings()
+    attempt = db.scalar(
+        select(ExternalLinkAttempt)
+        .where(
+            ExternalLinkAttempt.state_hash == hash_secret(state),
+            ExternalLinkAttempt.provider == ExternalProvider.SPOTIFY,
+            ExternalLinkAttempt.expires_at > datetime.now(UTC),
+            ExternalLinkAttempt.consumed_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if attempt is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid Spotify state"
+        )
+    attempt.consumed_at = datetime.now(UTC)
+    try:
+        token = spotify.exchange_code(
+            settings,
+            code,
+            decrypt(
+                attempt.code_verifier_ciphertext,
+                settings.credential_encryption_key.get_secret_value(),
+            ),
+        )
+        profile = spotify.current_profile(str(token["access_token"]))
+    except (httpx.HTTPError, spotify.SpotifyError) as exception:
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Spotify link failed"
+        ) from exception
+    account = db.scalar(
+        select(ExternalAccount).where(
+            ExternalAccount.provider == ExternalProvider.SPOTIFY,
+            ExternalAccount.provider_subject == profile["id"],
+        )
+    )
+    if account is not None and account.user_id != attempt.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Spotify account is already linked"
+        )
+    if account is None:
+        account = ExternalAccount(
+            user_id=attempt.user_id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject=profile["id"],
+            display_name=profile.get("display_name")
+            if isinstance(profile.get("display_name"), str)
+            else profile["id"],
+            scopes=str(token.get("scope", "")).split(),
+        )
+        db.add(account)
+        db.flush()
+    credential = db.scalar(
+        select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
+    )
+    ciphertext = encrypt(json.dumps(token), settings.credential_encryption_key.get_secret_value())
+    if credential is None:
+        db.add(
+            ExternalCredential(
+                external_account_id=account.id,
+                ciphertext=ciphertext,
+                key_version="v1",
+                expires_at=spotify.token_expiry(token),
+            )
+        )
+    else:
+        credential.ciphertext, credential.expires_at = ciphertext, spotify.token_expiry(token)
+    db.commit()
+    return RedirectResponse(f"{str(settings.app_base_url).rstrip('/')}/", status_code=303)
 
 
 @router.put("/lastfm", status_code=status.HTTP_201_CREATED)

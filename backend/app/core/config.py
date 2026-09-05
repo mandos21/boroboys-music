@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     session_lifetime_hours: int = 168
     lastfm_api_key: SecretStr | None = None
     lastfm_evidence_refresh_hours: int = 24
+    spotify_client_id: str | None = None
+    spotify_client_secret: SecretStr | None = None
+    spotify_redirect_uri: HttpUrl = HttpUrl(
+        "http://localhost:8000/api/v1/connections/spotify/callback"
+    )
+
+    @property
+    def spotify_is_configured(self) -> bool:
+        return all((self.spotify_client_id, self.spotify_client_secret))
 
     @property
     def oidc_is_configured(self) -> bool:

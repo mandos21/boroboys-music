@@ -166,6 +166,22 @@ class ExternalCredential(UUIDTimestampMixin, Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ExternalLinkAttempt(UUIDTimestampMixin, Base):
+    __tablename__ = "external_link_attempts"
+    __table_args__ = (UniqueConstraint("state_hash", name="uq_external_link_attempts_state_hash"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[ExternalProvider] = mapped_column(nullable=False)
+    state_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    code_verifier_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Series(UUIDTimestampMixin, Base):
     __tablename__ = "series"
     __table_args__ = (UniqueConstraint("slug", name="uq_series_slug"),)
