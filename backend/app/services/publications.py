@@ -16,6 +16,7 @@ from app.db.models import (
     Submission,
     SubmissionStatus,
 )
+from app.services.lifecycle import create_rolling_successor
 
 
 class PublicationError(Exception):
@@ -79,6 +80,7 @@ def mark_published(db: Session, publication_id: uuid.UUID, playlist_id: str) -> 
     publication.spotify_playlist_id = playlist_id
     publication.state = PublicationState.PUBLISHED
     round_.status = RoundStatus.PUBLISHED
+    create_rolling_successor(db, round_)
     return publication
 
 
