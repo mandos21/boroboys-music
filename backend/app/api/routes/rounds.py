@@ -27,6 +27,7 @@ from app.db.models import (
     User,
 )
 from app.services.policies import evaluate_submission
+from app.tasks import refresh_evidence
 
 router = APIRouter(prefix="/rounds", tags=["rounds"])
 
@@ -204,6 +205,7 @@ def create_submission(
         for item in decisions
     )
     db.commit()
+    refresh_evidence.defer(str(round_.id), str(track.id))
     return {
         "accepted": True,
         "id": str(submission.id),

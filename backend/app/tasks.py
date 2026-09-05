@@ -12,6 +12,7 @@ from procrastinate import App, PsycopgConnector
 
 from app.core.config import get_settings
 from app.db.session import get_session_factory
+from app.services.evidence import refresh_round_evidence
 from app.services.lifecycle import reconcile_rounds
 from app.services.publications import execute_publication, execute_retirement
 
@@ -40,3 +41,9 @@ async def publish_round(publication_id: str) -> None:
 async def retire_round(publication_id: str) -> None:
     with get_session_factory()() as db:
         execute_retirement(db, uuid.UUID(publication_id))
+
+
+@app.task(queue="evidence", queueing_lock="evidence-{round_id}-{track_id}")
+async def refresh_evidence(round_id: str, track_id: str) -> None:
+    with get_session_factory()() as db:
+        refresh_round_evidence(db, round_id, track_id)
