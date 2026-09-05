@@ -13,6 +13,10 @@ from sqlalchemy import func, select
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.db.models import (
     EvaluationDecision,
+    EvidenceVisibility,
+    ExternalAccount,
+    ExternalProvider,
+    ListeningEvidence,
     PolicyEvaluation,
     Round,
     RoundMember,
@@ -63,6 +67,47 @@ def get_round(
         "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": limit,
     }
+
+
+@router.get("/{round_id}/tracks/{track_id}/evidence")
+def get_evidence(
+    round_id: uuid.UUID,
+    track_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    round_, _ = _member_round(db, round_id, user.id)
+    rows = list(
+        db.execute(
+            select(ExternalAccount, ListeningEvidence)
+            .join(ListeningEvidence, ListeningEvidence.external_account_id == ExternalAccount.id)
+            .join(RoundMember, RoundMember.user_id == ExternalAccount.user_id)
+            .where(
+                RoundMember.round_id == round_.id,
+                RoundMember.removed_at.is_(None),
+                ExternalAccount.provider == ExternalProvider.LASTFM,
+                ListeningEvidence.track_id == track_id,
+            )
+        )
+    )
+    evidence = []
+    for account, item in rows:
+        if (
+            account.user_id != user.id
+            and account.evidence_visibility is not EvidenceVisibility.ROUND_MEMBERS
+        ):
+            continue
+        evidence.append(
+            {
+                "accountId": str(account.id),
+                "displayName": account.display_name,
+                "playcount": item.playcount,
+                "fetchedAt": item.fetched_at.isoformat(),
+                "refreshAfter": item.refresh_after.isoformat() if item.refresh_after else None,
+                "status": item.response_status,
+            }
+        )
+    return {"roundId": str(round_.id), "trackId": str(track_id), "evidence": evidence}
 
 
 @router.post(
