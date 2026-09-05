@@ -18,6 +18,7 @@ backend/.venv/
 # Node
 frontend/node_modules/
 frontend/dist/
+*.tsbuildinfo
 
 # OS/editor files
 .DS_Store
