@@ -7,3 +7,6 @@ This repository now hosts the FastAPI backend and the React/Vite frontend for th
 - `docker-compose.yml` – Local orchestration for Postgres, backend, and frontend services.
 
 Refer to `backend/README.md` and `frontend/README.md` for language-specific setup instructions.
+
+The accepted v2 product and implementation guide is in
+[`docs/v2-product-and-architecture.md`](docs/v2-product-and-architecture.md).
