@@ -1,35 +1,22 @@
-# syntax=docker/dockerfile:1
-FROM python:3.11-slim as base
+FROM python:3.12-slim
 
-ENV POETRY_VERSION=1.8.3 \
-    POETRY_HOME=/opt/poetry \
-    POETRY_VIRTUALENVS_IN_PROJECT=true \
+ENV POETRY_VERSION=2.0.1 \
     POETRY_NO_INTERACTION=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-ENV PATH="$POETRY_HOME/bin:/app/.venv/bin:$PATH"
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    PATH="/opt/poetry/bin:/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential curl libffi-dev python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -sSL https://install.python-poetry.org | python3 - --version "$POETRY_VERSION"
 
-RUN curl -sSL https://install.python-poetry.org | python - --version $POETRY_VERSION
-
-COPY pyproject.toml ./
-
-RUN poetry install --no-root --no-ansi
+COPY pyproject.toml poetry.lock* ./
+RUN poetry install --only main --no-root
 
 COPY app ./app
-COPY docs ./docs
-COPY tests ./tests
-COPY README.md .
+COPY migrations ./migrations
+COPY alembic.ini ./
 
-RUN poetry install --no-ansi
-
-EXPOSE 8000
-
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

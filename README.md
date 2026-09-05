@@ -1,12 +1,36 @@
-# Boro Boys Music Monorepo
+# Music Rounds
 
-This repository now hosts the FastAPI backend and the React/Vite frontend for the Boro Boys Music project.
+Music Rounds is a private, self-hosted tool for timed music-submission rounds and Spotify publishing.
 
-- `backend/` – FastAPI application, database models, and background jobs (Python/Poetry).
-- `frontend/` – React application bootstrapped with Vite (Node.js/TypeScript).
-- `docker-compose.yml` – Local orchestration for Postgres, backend, and frontend services.
+This is the clean v2 rebuild. The implementation contract is in
+[docs/v2-product-and-architecture.md](docs/v2-product-and-architecture.md); the
+previous prototype remains in `main` branch history.
 
-Refer to `backend/README.md` and `frontend/README.md` for language-specific setup instructions.
+## Layout
 
-The accepted v2 product and implementation guide is in
-[`docs/v2-product-and-architecture.md`](docs/v2-product-and-architecture.md).
+- `backend/` — FastAPI API, Alembic schema, and Procrastinate tasks.
+- `frontend/` — TypeScript React application.
+- `docs/` — product and architectural decisions.
+
+## Status
+
+Phase 0 is in progress: project structure, health endpoint, migration scaffolding,
+worker entry point, and a frontend shell are present. Domain workflows are not yet
+implemented.
+
+## Developer commands
+
+```text
+make bootstrap
+make db-up
+make migrate
+make task-schema
+make api
+make worker
+make web
+make test
+make lint
+make typecheck
+```
+
+Copy `.env.example` to `.env` before starting local services. Never commit secrets.

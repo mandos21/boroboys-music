@@ -1,48 +1,24 @@
 from __future__ import annotations
 
-import os
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 
-from app.api import api_router
-from app.bootstrap import initialize_database
-from app.config import get_settings
+from app.core.config import get_settings
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Boro Boys Music API")
-
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=os.getenv("SECRET_KEY", "setup-secret"),
-        https_only=False,
-        same_site="lax",
-        max_age=60 * 60 * 24 * 14,
+    settings = get_settings()
+    app = FastAPI(
+        title="Music Rounds API",
+        version="0.1.0",
+        docs_url="/api/docs" if settings.app_env != "production" else None,
+        openapi_url="/api/openapi.json",
     )
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    app.include_router(api_router)
-
-    @app.on_event("startup")
-    def ensure_database() -> None:
-        try:
-            settings = get_settings()
-        except Exception:  # pragma: no cover - configuration not ready yet
-            return
-        initialize_database(settings.database_url)
-
-    @app.get("/")
-    async def root() -> dict[str, str]:
-        return {"service": "boroboys-music", "status": "online"}
+    @app.get("/api/v1/health", tags=["health"])
+    async def health() -> dict[str, str]:
+        return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
 
     return app
 

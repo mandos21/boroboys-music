@@ -1,47 +1,20 @@
-version: "3.9"
-
 services:
   postgres:
-    image: postgres:15
+    image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DATABASE_NAME:-boroboys_music}
-      POSTGRES_USER: ${DATABASE_USER:-postgres}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      POSTGRES_DB: music_rounds
+      POSTGRES_USER: music_rounds
+      POSTGRES_PASSWORD: music_rounds
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U music_rounds -d music_rounds"]
       interval: 5s
       timeout: 5s
-      retries: 5
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file:
-      - ./backend/.env
-    environment:
-      DATABASE_HOST: postgres
-    ports:
-      - "8000:8000"
-    # volumes:
-    #   - ./backend/app:/app/app
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    depends_on:
-      - backend
-    ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://backend:8000
+      retries: 10
 
 volumes:
   postgres_data:

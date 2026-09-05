@@ -1,16 +1,25 @@
-# Node artifacts
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+backend/.venv/
+
+# Node
 frontend/node_modules/
 frontend/dist/
 
-# Python artifacts
-backend/.venv/
-__pycache__/
-*.pyc
-.pytest_cache
-
-# Setup flag
-backend/.setup_unlocked
-backend/.env
-
-# Editor junk
+# OS/editor files
 .DS_Store
+.idea/
+.vscode/

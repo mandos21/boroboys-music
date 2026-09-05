@@ -1,53 +1,21 @@
-"""Scheduler entry points for recurring background jobs."""
+"""Procrastinate task registry.
+
+Phase 0 intentionally exposes only the scheduler reconciliation task. Domain tasks
+are added with their durable, idempotent domain state in later phases.
+"""
 from __future__ import annotations
 
-from datetime import date
-from typing import Optional
+from procrastinate import App, PsycopgConnector
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from loguru import logger
+from app.core.config import get_settings
 
-from app.config import get_settings
-from app.services.playlist_manager import PlaylistManager
+settings = get_settings()
+app = App(connector=PsycopgConnector(conninfo=settings.procrastinate_database_url))
 
 
-scheduler = BackgroundScheduler(timezone="UTC")
+@app.periodic(cron="* * * * *", queue="scheduling")
+@app.task(queue="scheduling", queueing_lock="reconcile-schedules")
+async def reconcile_schedules(timestamp: int) -> None:
+    """Reconcile dynamic round plans; implemented with the round domain in Phase 1."""
 
-
-def _current_month() -> date:
-    today = date.today()
-    return today.replace(day=1)
-
-
-def schedule_monthly_playlist_finalization(
-    manager: PlaylistManager,
-    *,
-    spotify_owner_id: Optional[str],
-) -> None:
-    settings = get_settings()
-    if not settings.enable_scheduler:
-        logger.info("Scheduler disabled via configuration; skipping job setup")
-        return
-
-    def _finalize_job() -> None:
-        logger.info("Running scheduled playlist finalization job")
-        manager.finalize_month(_current_month(), spotify_owner_id=spotify_owner_id)
-
-    scheduler.add_job(
-        _finalize_job,
-        trigger="cron",
-        day=1,
-        hour=1,
-        minute=0,
-        id="monthly_playlist_finalization",
-        replace_existing=True,
-    )
-    if not scheduler.running:
-        scheduler.start()
-        logger.info("Scheduler started")
-
-
-def shutdown_scheduler() -> None:
-    if scheduler.running:
-        scheduler.shutdown(wait=False)
-        logger.info("Scheduler shutdown complete")
+    del timestamp
