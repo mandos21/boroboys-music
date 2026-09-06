@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     oidc_client_secret: SecretStr | None = None
     oidc_redirect_uri: HttpUrl = HttpUrl("http://localhost:8000/api/v1/auth/callback")
     oidc_auto_provision_users: bool = True
+    oidc_bootstrap_first_user_admin: bool = True
     oidc_require_verified_email: bool = False
     oidc_post_logout_redirect_url: HttpUrl | None = None
     oidc_bootstrap_admin_subjects: str = ""

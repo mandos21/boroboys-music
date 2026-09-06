@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.api.routes import auth
 from app.core.config import Settings
 from app.core.security import decrypt, encrypt, hash_secret, new_secret, secrets_match
+from app.db.models import PlatformRole
 from app.main import app
 
 
@@ -35,3 +36,35 @@ def test_configured_oidc_admin_claim_accepts_list_and_rejects_other_values() -> 
 
     assert auth._is_claim_admin(settings, {"roles": ["member", "music-admin"]})
     assert not auth._is_claim_admin(settings, {"roles": "member"})
+
+
+def test_first_provisioned_user_becomes_admin_without_provider_role_mapping() -> None:
+    settings = Settings()
+
+    assert (
+        auth._provisioned_platform_role(settings, "first-user", {}, existing_user=False)
+        is PlatformRole.ADMIN
+    )
+    assert (
+        auth._provisioned_platform_role(settings, "later-user", {}, existing_user=True)
+        is PlatformRole.MEMBER
+    )
+
+
+def test_first_user_bootstrap_can_be_disabled_without_disabling_claim_mapping() -> None:
+    settings = Settings(
+        oidc_bootstrap_first_user_admin=False,
+        oidc_admin_claim="roles",
+        oidc_admin_values="music-admin",
+    )
+
+    assert (
+        auth._provisioned_platform_role(settings, "first-user", {}, existing_user=False)
+        is PlatformRole.MEMBER
+    )
+    assert (
+        auth._provisioned_platform_role(
+            settings, "role-admin", {"roles": ["music-admin"]}, existing_user=True
+        )
+        is PlatformRole.ADMIN
+    )

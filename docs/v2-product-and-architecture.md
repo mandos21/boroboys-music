@@ -226,17 +226,22 @@ OIDC_CLIENT_ID=
 OIDC_CLIENT_SECRET=
 OIDC_SCOPES=openid profile email
 OIDC_AUTO_PROVISION_USERS=true
+OIDC_BOOTSTRAP_FIRST_USER_ADMIN=true
 OIDC_REQUIRE_VERIFIED_EMAIL=false
-OIDC_ADMIN_CLAIM=roles
-OIDC_ADMIN_VALUES=music-admin
 OIDC_POST_LOGOUT_REDIRECT_URL=https://music.example.net/
+# Optional alternative administrator mappings:
+OIDC_ADMIN_CLAIM=
+OIDC_ADMIN_VALUES=
 ```
 
 `OIDC_AUTO_PROVISION_USERS` creates a local application user on a successful first
-login. It does **not** make that user a member of any contributor group. Disabled
-auto-provisioning turns unknown authenticated identities into a clear access-denied
-state. Claim-to-admin mapping is optional and only grants platform administration;
-series and round roles remain local domain data.
+login. When `OIDC_BOOTSTRAP_FIRST_USER_ADMIN` is enabled (the default), the first
+such user on an empty database becomes the platform administrator; no provider
+group, role, or subject setup is required. It does **not** make that user a member
+of any contributor group. Disabled auto-provisioning turns unknown authenticated
+identities into a clear access-denied state. Claim-to-admin mapping is optional and
+only grants platform administration; series and round roles remain local domain
+data.
 
 Logout clears the local session, then uses the provider's advertised end-session
 endpoint when available. The post-logout destination is a configured, validated
@@ -563,9 +568,13 @@ make typecheck
 ```
 
 Production configuration comes from deployment-managed environment/secrets, not a
-web setup wizard. The first platform administrator is established through a
-documented CLI command or an OIDC claim mapping. Compose must mount persistent
-Postgres storage, have explicit health checks, and run API/worker separately.
+web setup wizard. By default, the first successfully provisioned OIDC identity on
+an empty application database becomes the platform administrator. This decision is
+serialized by a PostgreSQL advisory transaction lock, so concurrent first logins
+cannot create multiple bootstrap admins. Deployments may disable
+`OIDC_BOOTSTRAP_FIRST_USER_ADMIN` and instead use an OIDC claim mapping or a
+documented immutable subject allow-list. Compose must mount persistent Postgres
+storage, have explicit health checks, and run API/worker separately.
 
 Back up PostgreSQL regularly and test restoration. Provider credentials are part of
 the encrypted database backup and require the matching key material during disaster

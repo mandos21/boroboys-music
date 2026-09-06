@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import DbSession, get_current_session, get_current_user, require_csrf
 from app.auth.oidc import OidcClient, OidcError
@@ -18,6 +18,9 @@ from app.core.security import decrypt, encrypt, hash_secret, new_secret, secrets
 from app.db.models import OidcLoginAttempt, PlatformRole, ServerSession, User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Serializes the one-time empty-database admin bootstrap across API instances.
+_INITIAL_ADMIN_LOCK_ID = 4_061_173_091
 
 
 @router.get("/login")
@@ -115,6 +118,9 @@ async def callback(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="a verified email is required"
         )
+    # The advisory transaction lock prevents two simultaneous first logins from
+    # both observing an empty users table and receiving administrator access.
+    db.execute(select(func.pg_advisory_xact_lock(_INITIAL_ADMIN_LOCK_ID)))
     user = db.scalar(
         select(User).where(
             User.oidc_issuer == identity.issuer, User.oidc_subject == identity.subject
@@ -125,16 +131,14 @@ async def callback(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="account provisioning is disabled"
             )
+        existing_user = db.scalar(select(User.id).limit(1)) is not None
         user = User(
             oidc_issuer=identity.issuer,
             oidc_subject=identity.subject,
             email=identity.email,
             display_name=identity.display_name,
-            platform_role=(
-                PlatformRole.ADMIN
-                if _is_claim_admin(settings, identity.claims)
-                or identity.subject in settings.bootstrap_admin_subjects
-                else PlatformRole.MEMBER
+            platform_role=_provisioned_platform_role(
+                settings, identity.subject, identity.claims, existing_user
             ),
         )
         db.add(user)
@@ -252,3 +256,23 @@ def _is_claim_admin(settings: object, claims: dict[str, object]) -> bool:
     value = claims.get(settings.oidc_admin_claim)
     values = value if isinstance(value, list) else [value]
     return bool(settings.oidc_admin_claim_values.intersection(str(item) for item in values))
+
+
+def _provisioned_platform_role(
+    settings: object,
+    subject: str,
+    claims: dict[str, object],
+    existing_user: bool,
+) -> PlatformRole:
+    """Determine a local role only when an OIDC identity is first provisioned."""
+    from app.core.config import Settings
+
+    if not isinstance(settings, Settings):
+        return PlatformRole.MEMBER
+    if (
+        (settings.oidc_bootstrap_first_user_admin and not existing_user)
+        or _is_claim_admin(settings, claims)
+        or subject in settings.bootstrap_admin_subjects
+    ):
+        return PlatformRole.ADMIN
+    return PlatformRole.MEMBER
