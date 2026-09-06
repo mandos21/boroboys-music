@@ -44,9 +44,19 @@ not prove the backup contained the application data.
 ## Credential-key rotation
 
 Credential records carry a key version. Rotation is a two-stage deploy: add the
-new key to the deployment secret store, run a one-off re-encryption job, verify that
-every credential has the new version, then remove the old key only after a verified
-backup. Never rotate the only key before the re-encryption step has succeeded.
+new key and a new `CREDENTIAL_ENCRYPTION_KEY_VERSION` to the deployment secret
+store, then run the one-off re-encryption command while the previous key is still
+available only in an environment variable:
+
+```sh
+OLD_CREDENTIAL_ENCRYPTION_KEY="$PREVIOUS_KEY" \
+poetry run python -m app.cli.rotate_credentials --from-version=v1
+```
+
+The command re-encrypts and version-tags each matching row in one database
+transaction. Verify that every credential has the destination version, perform a
+verified backup, and only then remove the old key. Never rotate the only key before
+the re-encryption step has succeeded.
 
 ## Incident signals
 

@@ -165,7 +165,7 @@ def complete_spotify_link(
             ExternalCredential(
                 external_account_id=account.id,
                 ciphertext=ciphertext,
-                key_version="v1",
+                key_version=settings.credential_encryption_key_version,
                 expires_at=spotify.token_expiry(token),
             )
         )
@@ -261,7 +261,9 @@ def complete_lastfm_link(
     if credential is None:
         db.add(
             ExternalCredential(
-                external_account_id=account.id, ciphertext=ciphertext, key_version="v1"
+                external_account_id=account.id,
+                ciphertext=ciphertext,
+                key_version=settings.credential_encryption_key_version,
             )
         )
     else:

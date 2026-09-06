@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     )
     session_secret: SecretStr = SecretStr("development-only-change-me")
     credential_encryption_key: SecretStr = SecretStr("development-only-change-me")
+    credential_encryption_key_version: str = "v1"
     oidc_issuer_url: HttpUrl | None = None
     oidc_client_id: str | None = None
     oidc_client_secret: SecretStr | None = None
