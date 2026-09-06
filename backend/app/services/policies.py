@@ -9,7 +9,14 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import EvaluationDecision, Round, Submission, SubmissionStatus
+from app.db.models import (
+    EvaluationDecision,
+    Round,
+    RoundStatus,
+    Submission,
+    SubmissionStatus,
+    Track,
+)
 
 
 @dataclass(frozen=True)
@@ -47,7 +54,7 @@ def evaluate_submission(
                         result={"existingSubmissionId": str(duplicate)},
                     )
                 )
-        elif kind in {"duplicate_in_series", "no_recent_series_repeat"}:
+        elif kind == "duplicate_in_series":
             duplicate = db.scalar(
                 select(Submission.id)
                 .join(Round, Submission.round_id == Round.id)
@@ -66,6 +73,62 @@ def evaluate_submission(
                         decision=_decision(policy),
                         message="This track has already appeared in this series.",
                         result={"existingSubmissionId": str(duplicate)},
+                    )
+                )
+        elif kind == "no_recent_series_repeat":
+            lookback_rounds = _positive_int(policy.get("lookback_rounds"), default=1)
+            recent_rounds = select(Round.id).where(
+                Round.series_id == round_.series_id,
+                Round.status == RoundStatus.PUBLISHED,
+                Round.published_sequence.is_not(None),
+            ).order_by(Round.published_sequence.desc()).limit(lookback_rounds)
+            duplicate = db.scalar(
+                select(Submission.id)
+                .where(
+                    Submission.round_id.in_(recent_rounds),
+                    Submission.track_id == track_id,
+                    Submission.status == SubmissionStatus.ACCEPTED,
+                )
+                .limit(1)
+            )
+            if duplicate:
+                results.append(
+                    PolicyResult(
+                        kind=kind,
+                        version="1",
+                        decision=_decision(policy),
+                        message=(
+                            "This track appeared in one of the last "
+                            f"{lookback_rounds} published rounds."
+                        ),
+                        result={
+                            "existingSubmissionId": str(duplicate),
+                            "lookbackRounds": lookback_rounds,
+                        },
+                    )
+                )
+        elif kind == "explicit_content":
+            track = db.get(Track, track_id)
+            if track is not None and track.provider_metadata.get("explicit") is True:
+                results.append(
+                    PolicyResult(
+                        kind=kind,
+                        version="1",
+                        decision=_decision(policy),
+                        message="This track is marked explicit by Spotify.",
+                        result={"explicit": True},
+                    )
+                )
+        elif kind == "track_availability":
+            track = db.get(Track, track_id)
+            if track is not None and track.provider_metadata.get("isPlayable") is False:
+                results.append(
+                    PolicyResult(
+                        kind=kind,
+                        version="1",
+                        decision=_decision(policy),
+                        message="Spotify reports this track is unavailable to the current account.",
+                        result={"isPlayable": False},
                     )
                 )
         elif kind:
@@ -87,3 +150,7 @@ def _decision(policy: dict[str, Any]) -> EvaluationDecision:
         return EvaluationDecision(value)
     except ValueError:
         return EvaluationDecision.REJECT
+
+
+def _positive_int(value: object, default: int) -> int:
+    return value if isinstance(value, int) and value > 0 else default

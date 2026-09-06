@@ -168,7 +168,10 @@ def search_tracks(
             "artworkUrl": (item.get("album", {}).get("images") or [{}])[0].get("url")
             if isinstance(item.get("album"), dict)
             else None,
-            "providerMetadata": {"explicit": item.get("explicit", False)},
+            "providerMetadata": {
+                "explicit": item.get("explicit", False),
+                "isPlayable": item.get("is_playable", True),
+            },
         }
         for item in matches
         if isinstance(item.get("id"), str) and isinstance(item.get("name"), str)
