@@ -506,6 +506,7 @@ def get_publication_status(
         "id": str(publication.id),
         "state": publication.state.value,
         "isImported": publication.is_imported,
+        "retirementRequested": publication.retirement_requested,
         "spotifyPlaylistId": publication.spotify_playlist_id,
         "attemptCount": publication.attempt_count,
         "lastError": publication.last_error,
