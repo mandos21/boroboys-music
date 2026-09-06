@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -13,13 +12,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
-from app.core.config import get_settings
-from app.core.security import decrypt
 from app.db.models import (
     EvaluationDecision,
     EvidenceVisibility,
     ExternalAccount,
-    ExternalCredential,
     ExternalProvider,
     ListeningEvidence,
     PlatformRole,
@@ -35,6 +31,7 @@ from app.db.models import (
 )
 from app.services import spotify
 from app.services.policies import evaluate_submission
+from app.services.publications import get_spotify_access_token
 from app.tasks import defer_evidence_refresh
 
 router = APIRouter(prefix="/rounds", tags=["rounds"])
@@ -131,24 +128,9 @@ def search_tracks(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Spotify account is not linked"
         )
-    credential = db.scalar(
-        select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
-    )
-    if credential is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Spotify account needs reauthorization"
-        )
     try:
-        payload = json.loads(
-            decrypt(
-                credential.ciphertext, get_settings().credential_encryption_key.get_secret_value()
-            )
-        )
-        access_token = payload.get("access_token") if isinstance(payload, dict) else None
-        if not isinstance(access_token, str):
-            raise ValueError
-        matches = spotify.search_tracks(access_token, query)
-    except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
+        matches = spotify.search_tracks(get_spotify_access_token(db, account.id), query)
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="Spotify search failed"
         ) from None

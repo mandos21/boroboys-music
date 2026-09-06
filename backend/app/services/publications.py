@@ -154,7 +154,9 @@ def import_historical_playlist(
     ):
         raise PublicationError("a connected Spotify publisher is required")
     try:
-        snapshot = spotify.playlist_snapshot(_access_token(db, publisher.id), spotify_playlist_id)
+        snapshot = spotify.playlist_snapshot(
+            get_spotify_access_token(db, publisher.id), spotify_playlist_id
+        )
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError) as error:
         raise PublicationError("Spotify playlist could not be imported") from error
     sequence = (
@@ -227,7 +229,7 @@ def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
         _fail(db, publication, round_, "publication prerequisites are unavailable")
         return
     try:
-        token = _access_token(db, account.id)
+        token = get_spotify_access_token(db, account.id)
         if publication.spotify_playlist_id is None:
             publication.spotify_playlist_id = spotify.create_playlist(
                 token, account.provider_subject, round_.title, "Published by Music Rounds"
@@ -275,7 +277,7 @@ def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
         return
     try:
         spotify.retire_playlist(
-            _access_token(db, publication.publisher_account_id),
+            get_spotify_access_token(db, publication.publisher_account_id),
             publication.spotify_playlist_id,
             _publication_uris(db, publication.id),
         )
@@ -298,7 +300,7 @@ def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
         db.commit()
 
 
-def _access_token(db: Session, account_id: uuid.UUID) -> str:
+def get_spotify_access_token(db: Session, account_id: uuid.UUID) -> str:
     credential = db.scalar(
         select(ExternalCredential).where(ExternalCredential.external_account_id == account_id)
     )
