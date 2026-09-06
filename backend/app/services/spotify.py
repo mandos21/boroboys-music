@@ -14,7 +14,7 @@ from app.core.config import Settings
 
 SPOTIFY_ACCOUNTS = "https://accounts.spotify.com"
 SPOTIFY_API = "https://api.spotify.com/v1"
-SCOPES = "playlist-modify-private playlist-modify-public user-read-private"
+SCOPES = "playlist-modify-private playlist-modify-public playlist-read-private user-read-private"
 
 
 class SpotifyError(Exception):
@@ -85,6 +85,44 @@ def search_tracks(access_token: str, query: str) -> list[dict[str, Any]]:
     payload = response.json()
     tracks = payload.get("tracks", {}).get("items", []) if isinstance(payload, dict) else []
     return [item for item in tracks if isinstance(item, dict)]
+
+
+def playlist_snapshot(access_token: str, playlist_id: str) -> dict[str, Any]:
+    """Read playlist metadata and ordered track snapshots for historical import."""
+    playlist_response = httpx.get(
+        f"{SPOTIFY_API}/playlists/{playlist_id}", headers=_headers(access_token), timeout=15.0
+    )
+    playlist_response.raise_for_status()
+    playlist = playlist_response.json()
+    if not isinstance(playlist, dict) or not isinstance(playlist.get("name"), str):
+        raise SpotifyError("Spotify returned an invalid playlist")
+    items: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        response = httpx.get(
+            f"{SPOTIFY_API}/playlists/{playlist_id}/items",
+            headers=_headers(access_token),
+            params={"limit": 50, "offset": offset, "additional_types": "track"},
+            timeout=15.0,
+        )
+        response.raise_for_status()
+        page = response.json()
+        if not isinstance(page, dict) or not isinstance(page.get("items"), list):
+            raise SpotifyError("Spotify returned invalid playlist items")
+        for item in page["items"]:
+            track = item.get("track") if isinstance(item, dict) else None
+            if (
+                isinstance(track, dict)
+                and track.get("type") == "track"
+                and isinstance(track.get("id"), str)
+                and isinstance(track.get("name"), str)
+                and isinstance(track.get("uri"), str)
+            ):
+                items.append(track)
+        if not page.get("next"):
+            break
+        offset += len(page["items"])
+    return {"id": playlist_id, "name": playlist["name"], "items": items}
 
 
 def create_playlist(access_token: str, user_id: str, name: str, description: str) -> str:

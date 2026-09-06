@@ -379,6 +379,7 @@ class Publication(UUIDTimestampMixin, Base):
     )
     spotify_playlist_id: Mapped[str | None] = mapped_column(String(128))
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    is_imported: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_error: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)

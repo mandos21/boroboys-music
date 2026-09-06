@@ -26,7 +26,12 @@ from app.db.models import (
     SeriesAdmin,
     User,
 )
-from app.services.publications import PublicationError, start_publication, start_unpublish
+from app.services.publications import (
+    PublicationError,
+    import_historical_playlist,
+    start_publication,
+    start_unpublish,
+)
 from app.tasks import defer_publication, defer_retirement
 
 router = APIRouter(prefix="/admin", tags=["administration"], dependencies=[Depends(require_csrf)])
@@ -97,6 +102,27 @@ class PublishRequest(BaseModel):
     publisher_account_id: uuid.UUID
 
 
+class PlaylistImportRequest(BaseModel):
+    publisher_account_id: uuid.UUID
+    spotify_playlist_id: str = Field(min_length=1, max_length=128)
+    opens_at: datetime
+    closes_at: datetime
+    published_at: datetime
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def valid_timeline(self) -> PlaylistImportRequest:
+        if (
+            self.opens_at.tzinfo is None
+            or self.closes_at.tzinfo is None
+            or self.published_at.tzinfo is None
+        ):
+            raise ValueError("import timestamps must include an offset")
+        if self.opens_at >= self.closes_at or self.closes_at > self.published_at:
+            raise ValueError("import timeline must satisfy opens < closes <= published")
+        return self
+
+
 @router.post("/series", status_code=status.HTTP_201_CREATED)
 def create_series(
     payload: SeriesCreate,
@@ -110,6 +136,33 @@ def create_series(
     db.add(SeriesAdmin(series_id=series.id, user_id=user.id))
     db.commit()
     return {"id": str(series.id), "slug": series.slug}
+
+
+@router.post("/series/{series_id}/import-spotify-playlist", status_code=status.HTTP_201_CREATED)
+def import_spotify_playlist(
+    series_id: uuid.UUID,
+    payload: PlaylistImportRequest,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    _require_series_admin(db, user, series_id)
+    try:
+        round_ = import_historical_playlist(
+            db,
+            series_id=series_id,
+            publisher_account_id=payload.publisher_account_id,
+            spotify_playlist_id=payload.spotify_playlist_id,
+            opens_at=payload.opens_at,
+            closes_at=payload.closes_at,
+            published_at=payload.published_at,
+            actor_id=user.id,
+            title=payload.title,
+        )
+        db.commit()
+    except PublicationError as error:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    return {"roundId": str(round_.id)}
 
 
 @router.post(

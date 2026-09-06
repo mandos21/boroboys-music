@@ -17,6 +17,7 @@ from app.db.models import (
     ExternalCredential,
     ExternalProvider,
     PlatformRole,
+    Publication,
     PublicationItem,
     PublicationState,
     Round,
@@ -29,7 +30,13 @@ from app.db.models import (
 )
 from app.db.session import get_session_factory
 from app.services import spotify
-from app.services.publications import execute_publication, start_publication
+from app.services.publications import (
+    PublicationError,
+    execute_publication,
+    import_historical_playlist,
+    start_publication,
+    start_unpublish,
+)
 
 
 def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -158,3 +165,90 @@ def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.Monke
             )
             == 1
         )
+
+
+def test_historical_playlist_import_preserves_order_without_remote_retirement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    timestamp = datetime.now(UTC)
+    with get_session_factory()() as db:
+        admin = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"importer-{suffix}",
+            platform_role=PlatformRole.ADMIN,
+        )
+        series = Series(
+            name=f"Import series {suffix}",
+            slug=f"import-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((admin, series))
+        db.flush()
+        account = ExternalAccount(
+            user_id=admin.id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject=f"importer-{suffix}",
+        )
+        db.add(account)
+        db.flush()
+        db.add(
+            ExternalCredential(
+                external_account_id=account.id,
+                ciphertext=encrypt(
+                    json.dumps({"access_token": "test-token"}),
+                    get_settings().credential_encryption_key.get_secret_value(),
+                ),
+                key_version="v1",
+            )
+        )
+        db.commit()
+
+        item = {
+            "id": f"import-track-{suffix}",
+            "name": "Imported track",
+            "uri": f"spotify:track:import{suffix}",
+            "type": "track",
+            "artists": [{"name": "The Archivists"}],
+            "album": {"name": "An old album", "images": []},
+            "explicit": False,
+            "is_playable": True,
+        }
+        monkeypatch.setattr(
+            spotify,
+            "playlist_snapshot",
+            lambda _token, _playlist_id: {
+                "id": "old-playlist",
+                "name": "Old playlist",
+                "items": [item, item],
+            },
+        )
+        imported = import_historical_playlist(
+            db,
+            series_id=series.id,
+            publisher_account_id=account.id,
+            spotify_playlist_id=f"old-playlist-{suffix}",
+            opens_at=timestamp - timedelta(days=3),
+            closes_at=timestamp - timedelta(days=2),
+            published_at=timestamp - timedelta(days=1),
+            actor_id=admin.id,
+        )
+        db.commit()
+
+        publication = db.scalar(select(Publication).where(Publication.round_id == imported.id))
+        assert publication is not None
+        assert imported.status is RoundStatus.PUBLISHED
+        assert publication.is_imported is True
+        imported_items = list(
+            db.scalars(
+                select(PublicationItem)
+                .where(PublicationItem.publication_id == publication.id)
+                .order_by(PublicationItem.position)
+            )
+        )
+        assert len(imported_items) == 2
+        assert [item.position for item in imported_items] == [1, 2]
+        assert all(item.contributor_id is None and item.submission_id is None for item in imported_items)
+        with pytest.raises(PublicationError, match="historically imported"):
+            start_unpublish(db, imported.id)

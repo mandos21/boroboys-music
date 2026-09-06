@@ -56,6 +56,59 @@ def test_add_items_batches_at_spotify_limit(monkeypatch: pytest.MonkeyPatch) -> 
     assert [len(batch) for batch in batches] == [100, 100, 1]
 
 
+def test_playlist_snapshot_pages_tracks_and_ignores_non_tracks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_get(url: str, **kwargs: object) -> FakeResponse:
+        calls.append({"url": url, **kwargs})
+        params = kwargs.get("params")
+        if params is None:
+            return FakeResponse({"name": "Archive"})
+        assert isinstance(params, dict)
+        if params["offset"] == 0:
+            return FakeResponse(
+                {
+                    "items": [
+                        {
+                            "track": {
+                                "type": "track",
+                                "id": "first",
+                                "name": "First",
+                                "uri": "spotify:track:first",
+                            }
+                        },
+                        {"track": {"type": "episode", "id": "episode"}},
+                    ],
+                    "next": "next-page",
+                }
+            )
+        return FakeResponse(
+            {
+                "items": [
+                    {
+                        "track": {
+                            "type": "track",
+                            "id": "second",
+                            "name": "Second",
+                            "uri": "spotify:track:second",
+                        }
+                    }
+                ],
+                "next": None,
+            }
+        )
+
+    monkeypatch.setattr(spotify.httpx, "get", fake_get)
+
+    snapshot = spotify.playlist_snapshot("token", "archive-id")
+
+    assert snapshot["name"] == "Archive"
+    assert [track["id"] for track in snapshot["items"]] == ["first", "second"]
+    assert [call.get("params", {}).get("offset") for call in calls[1:]] == [0, 2]
+
+
 def test_refresh_token_uses_confidential_client_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     observed: dict[str, object] = {}
 

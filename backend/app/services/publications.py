@@ -22,6 +22,7 @@ from app.db.models import (
     PublicationState,
     Round,
     RoundStatus,
+    Series,
     Submission,
     SubmissionStatus,
     Track,
@@ -121,9 +122,93 @@ def start_unpublish(db: Session, round_id: uuid.UUID) -> Publication:
     )
     if publication is None:
         raise PublicationError("publication not found")
+    if publication.is_imported:
+        raise PublicationError("historically imported playlists cannot be retired")
     publication.state = PublicationState.UNPUBLISHING
     round_.status = RoundStatus.UNPUBLISHING
     return publication
+
+
+def import_historical_playlist(
+    db: Session,
+    series_id: uuid.UUID,
+    publisher_account_id: uuid.UUID,
+    spotify_playlist_id: str,
+    opens_at: datetime,
+    closes_at: datetime,
+    published_at: datetime,
+    actor_id: uuid.UUID,
+    title: str | None = None,
+) -> Round:
+    """Create immutable local history from an existing, accessible Spotify playlist."""
+    series = db.scalar(select(Series).where(Series.id == series_id).with_for_update())
+    if series is None:
+        raise PublicationError("series not found")
+    if db.scalar(select(Publication.id).where(Publication.spotify_playlist_id == spotify_playlist_id)):
+        raise PublicationError("Spotify playlist has already been imported or published")
+    publisher = db.get(ExternalAccount, publisher_account_id)
+    if (
+        publisher is None
+        or publisher.provider is not ExternalProvider.SPOTIFY
+        or not publisher.is_active
+    ):
+        raise PublicationError("a connected Spotify publisher is required")
+    try:
+        snapshot = spotify.playlist_snapshot(_access_token(db, publisher.id), spotify_playlist_id)
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError) as error:
+        raise PublicationError("Spotify playlist could not be imported") from error
+    sequence = (
+        db.scalar(select(func.max(Round.published_sequence)).where(Round.series_id == series.id))
+        or 0
+    ) + 1
+    round_ = Round(
+        series_id=series.id,
+        title=(title or str(snapshot["name"]))[:200],
+        timezone=series.timezone,
+        submission_limit=0,
+        opens_at=opens_at,
+        closes_at=closes_at,
+        publish_at=published_at,
+        status=RoundStatus.PUBLISHED,
+        publisher_account_id=publisher.id,
+        policy_snapshot=[],
+        published_sequence=sequence,
+    )
+    db.add(round_)
+    db.flush()
+    publication = Publication(
+        round_id=round_.id,
+        publisher_account_id=publisher.id,
+        state=PublicationState.PUBLISHED,
+        spotify_playlist_id=spotify_playlist_id,
+        idempotency_key=str(uuid.uuid4()),
+        is_imported=True,
+        published_at=published_at,
+    )
+    db.add(publication)
+    db.flush()
+    for position, raw_track in enumerate(snapshot["items"], start=1):
+        track = _import_track(db, raw_track)
+        db.add(
+            PublicationItem(
+                publication_id=publication.id,
+                submission_id=None,
+                track_id=track.id,
+                contributor_id=None,
+                position=position,
+                published_at=published_at,
+            )
+        )
+    db.add(
+        AuditEvent(
+            actor_id=actor_id,
+            action="publication.imported",
+            target_type="publication",
+            target_id=publication.id,
+            details={"roundId": str(round_.id), "playlistId": spotify_playlist_id},
+        )
+    )
+    return round_
 
 
 def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
@@ -249,6 +334,47 @@ def _publication_uris(db: Session, publication_id: uuid.UUID) -> list[str]:
             .order_by(PublicationItem.position)
         )
     )
+
+
+def _import_track(db: Session, raw_track: dict[str, object]) -> Track:
+    spotify_track_id = raw_track.get("id")
+    if not isinstance(spotify_track_id, str):
+        raise PublicationError("Spotify playlist included a malformed track")
+    track = db.scalar(select(Track).where(Track.spotify_track_id == spotify_track_id))
+    if track is not None:
+        return track
+    artists = raw_track.get("artists")
+    artist = ", ".join(
+        item["name"]
+        for item in artists
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    ) if isinstance(artists, list) else "Unknown artist"
+    album_data = raw_track.get("album")
+    album = album_data.get("name") if isinstance(album_data, dict) else None
+    artwork_url = None
+    if isinstance(album_data, dict) and isinstance(album_data.get("images"), list):
+        images = album_data["images"]
+        if images and isinstance(images[0], dict) and isinstance(images[0].get("url"), str):
+            artwork_url = images[0]["url"]
+    name = raw_track.get("name")
+    uri = raw_track.get("uri")
+    if not isinstance(name, str) or not isinstance(uri, str):
+        raise PublicationError("Spotify playlist included a malformed track")
+    track = Track(
+        spotify_track_id=spotify_track_id,
+        name=name[:500],
+        artist=artist[:500],
+        album=album[:500] if isinstance(album, str) else None,
+        spotify_uri=uri,
+        artwork_url=artwork_url,
+        provider_metadata={
+            "explicit": raw_track.get("explicit") is True,
+            "isPlayable": raw_track.get("is_playable") is not False,
+        },
+    )
+    db.add(track)
+    db.flush()
+    return track
 
 
 def _unpublished_item_batches(
