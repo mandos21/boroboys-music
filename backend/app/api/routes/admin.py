@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -13,6 +13,7 @@ from sqlalchemy import select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.db.models import (
+    AuditEvent,
     ContributorGroup,
     ContributorGroupMember,
     PlatformRole,
@@ -254,6 +255,44 @@ def add_round_member(
     else:
         membership.submission_limit_override = payload.submission_limit_override
         membership.removed_at = None
+    db.commit()
+
+
+@router.delete(
+    "/rounds/{round_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
+)
+def remove_round_member(
+    round_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    round_ = db.get(Round, round_id)
+    if round_ is None:
+        raise _not_found("round")
+    _require_series_admin(db, user, round_.series_id)
+    if round_.status not in {RoundStatus.DRAFT, RoundStatus.SCHEDULED, RoundStatus.OPEN}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="round membership is frozen"
+        )
+    membership = db.scalar(
+        select(RoundMember).where(RoundMember.round_id == round_id, RoundMember.user_id == user_id)
+    )
+    if membership is None or membership.removed_at is not None:
+        return
+    membership.removed_at = datetime.now(UTC)
+    db.add(
+        AuditEvent(
+            actor_id=user.id,
+            action="round_member.removed",
+            target_type="round_member",
+            target_id=membership.id,
+            details={"roundId": str(round_id), "userId": str(user_id)},
+        )
+    )
     db.commit()
 
 
