@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap db-up db-down migrate task-schema api worker web test lint typecheck verify
+.PHONY: help bootstrap db-up db-down migrate task-schema api worker web api-contract test lint typecheck verify
 
 help: ## Show commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-16s %s\n", $$1, $$2}'
@@ -29,6 +29,10 @@ worker: ## Run Procrastinate worker
 
 web: ## Run Vite
 	cd frontend && npm run dev
+
+api-contract: ## Regenerate OpenAPI JSON and frontend API types
+	cd backend && poetry run python scripts/generate_openapi.py > openapi.json
+	cd frontend && npm run generate:api
 
 test: ## Run tests
 	cd backend && poetry run pytest

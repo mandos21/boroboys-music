@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { api, post } from "../../api/client";
+import type { components } from "../../api/schema";
 
 type Round = {
   id: string;
@@ -56,6 +57,22 @@ type SubmissionResult = {
   policyResults: PolicyResult[];
 };
 
+type TrackInput = components["schemas"]["TrackInput"];
+type TrackEvaluationRequest = components["schemas"]["TrackEvaluationRequest"];
+type SubmissionCreate = components["schemas"]["SubmissionCreate"];
+
+function asTrackInput(track: Track): TrackInput {
+  return {
+    spotify_track_id: track.spotifyTrackId,
+    name: track.name,
+    artist: track.artist,
+    album: track.album,
+    spotify_uri: track.spotifyUri,
+    artwork_url: track.artworkUrl,
+    provider_metadata: track.providerMetadata,
+  };
+}
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
@@ -85,7 +102,10 @@ export function SubmissionPage() {
     enabled: Boolean(roundId) && deferredQuery.length >= 2,
   });
   const evaluation = useMutation({
-    mutationFn: (track: Track) => post<Evaluation>(`/rounds/${roundId}/evaluate-track`, { track }),
+    mutationFn: (track: Track) => {
+      const request: TrackEvaluationRequest = { track: asTrackInput(track) };
+      return post<Evaluation>(`/rounds/${roundId}/evaluate-track`, request);
+    },
   });
   const evidence = useQuery({
     queryKey: ["evidence", roundId, evaluation.data?.trackId],
@@ -93,11 +113,15 @@ export function SubmissionPage() {
     enabled: Boolean(roundId && evaluation.data?.trackId),
   });
   const submission = useMutation({
-    mutationFn: () => post<SubmissionResult>(`/rounds/${roundId}/submissions`, {
-      track: selected,
-      note: note || null,
-      confirmWarnings,
-    }),
+    mutationFn: () => {
+      if (!selected) throw new Error("Select a track before submitting.");
+      const request: SubmissionCreate = {
+        track: asTrackInput(selected),
+        note: note || null,
+        confirm_warnings: confirmWarnings,
+      };
+      return post<SubmissionResult>(`/rounds/${roundId}/submissions`, request);
+    },
     onSuccess: (result) => {
       if (result.accepted) navigate(`/rounds/${roundId}`);
     },

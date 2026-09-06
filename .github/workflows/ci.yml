@@ -37,6 +37,7 @@ jobs:
       - run: poetry run alembic upgrade head
       - run: poetry run alembic check
       - run: poetry run procrastinate --app=app.tasks.app schema --apply
+      - run: poetry run python scripts/generate_openapi.py > /tmp/openapi.json && diff -u openapi.json /tmp/openapi.json
       - run: poetry run pytest
 
   frontend:
@@ -49,6 +50,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
       - run: npm ci
+      - run: npm run generate:api && git diff --exit-code -- src/api/schema.ts
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
