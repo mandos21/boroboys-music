@@ -40,3 +40,11 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export function post<T>(path: string, payload: unknown): Promise<T> {
   return api<T>(path, { method: "POST", body: JSON.stringify(payload) });
 }
+
+export function patch<T>(path: string, payload: unknown): Promise<T> {
+  return api<T>(path, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function del(path: string): Promise<void> {
+  return api<void>(path, { method: "DELETE" });
+}

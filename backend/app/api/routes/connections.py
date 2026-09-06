@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -26,13 +26,37 @@ from app.db.models import (
 )
 from app.services import lastfm, spotify
 
-router = APIRouter(
-    prefix="/connections", tags=["connections"], dependencies=[Depends(require_csrf)]
-)
+router = APIRouter(prefix="/connections", tags=["connections"])
 
 
 class VisibilityUpdate(BaseModel):
     visibility: EvidenceVisibility
+
+
+@router.get("")
+def list_connections(
+    db: DbSession, user: Annotated[User, Depends(get_current_user)]
+) -> list[dict[str, object]]:
+    accounts = list(
+        db.scalars(
+            select(ExternalAccount)
+            .where(ExternalAccount.user_id == user.id)
+            .order_by(ExternalAccount.provider, ExternalAccount.created_at)
+        )
+    )
+    return [
+        {
+            "id": str(account.id),
+            "provider": account.provider.value,
+            "displayName": account.display_name,
+            "visibility": account.evidence_visibility.value,
+            "isActive": account.is_active,
+            "disconnectedAt": account.disconnected_at.isoformat()
+            if account.disconnected_at
+            else None,
+        }
+        for account in accounts
+    ]
 
 
 @router.get("/spotify/login")
@@ -124,6 +148,14 @@ def complete_spotify_link(
         )
         db.add(account)
         db.flush()
+    else:
+        account.is_active = True
+        account.disconnected_at = None
+        account.display_name = (
+            profile.get("display_name")
+            if isinstance(profile.get("display_name"), str)
+            else profile["id"]
+        )
     credential = db.scalar(
         select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
     )
@@ -218,6 +250,10 @@ def complete_lastfm_link(
         )
         db.add(account)
         db.flush()
+    else:
+        account.is_active = True
+        account.disconnected_at = None
+        account.display_name = session["username"]
     credential = db.scalar(
         select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
     )
@@ -234,7 +270,7 @@ def complete_lastfm_link(
     return RedirectResponse(f"{str(settings.app_base_url).rstrip('/')}/", status_code=303)
 
 
-@router.patch("/{account_id}/visibility")
+@router.patch("/{account_id}/visibility", dependencies=[Depends(require_csrf)])
 def update_visibility(
     account_id: uuid.UUID,
     payload: VisibilityUpdate,
@@ -249,3 +285,30 @@ def update_visibility(
     account.evidence_visibility = payload.visibility
     db.commit()
     return {"id": str(account.id), "visibility": account.evidence_visibility.value}
+
+
+@router.delete(
+    "/{account_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
+    dependencies=[Depends(require_csrf)],
+)
+def disconnect_account(
+    account_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    account = db.get(ExternalAccount, account_id)
+    if account is None or account.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="linked account not found"
+        )
+    credential = db.scalar(
+        select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
+    )
+    if credential is not None:
+        db.delete(credential)
+    account.is_active = False
+    account.disconnected_at = datetime.now(UTC)
+    db.commit()

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, Route, Routes, useParams } from "react-router";
 
 import { api } from "../api/client";
+import { ConnectionsPage } from "../features/connections/ConnectionsPage";
 import { SubmissionPage } from "../features/submissions/SubmissionPage";
 
 type Session = {
@@ -24,7 +25,7 @@ function HomePage() {
     <main className="shell">
       <header className="topbar">
         <div><p className="eyebrow">Music Rounds</p><h1>Welcome back, {currentUser.displayName ?? "listener"}.</h1></div>
-        <span className="role">{currentUser.platformRole}</span>
+        <div className="topbar-actions"><Link to="/settings/connections">Connections</Link><span className="role">{currentUser.platformRole}</span></div>
       </header>
       <section className="panel">
         <h2>Your rounds</h2>
@@ -73,6 +74,7 @@ export function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/rounds/:roundId" element={<RoundPage />} />
       <Route path="/rounds/:roundId/submit" element={<SubmissionPage />} />
+      <Route path="/settings/connections" element={<ConnectionsPage />} />
       <Route path="/signed-out" element={<SignedOutPage />} />
     </Routes>
   );
