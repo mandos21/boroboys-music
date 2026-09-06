@@ -53,4 +53,5 @@ jobs:
       - run: npm run generate:api && git diff --exit-code -- src/api/schema.ts
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run test -- --run
       - run: npm run build

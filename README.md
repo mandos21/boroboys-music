@@ -17,10 +17,13 @@ key rotation, are in [docs/operations.md](docs/operations.md).
 
 ## Status
 
-The v2 rebuild is in active development. The current branch includes the initial
-domain schema, generic OIDC sessions, core administration, contributor submissions,
-and the foundations for listening evidence and publication. It is not ready for a
-live round yet; the implementation contract remains the authoritative roadmap.
+The v2 rebuild has the planned application workflows: generic OIDC sessions, core
+administration, submissions and policy evaluation, Last.fm evidence caching, and
+durable Spotify publication. Operational checks—including migration drift,
+credential rotation, backup restoration, API-contract generation, and local
+PostgreSQL integration coverage—are in place. It still needs the configured live
+OIDC/provider verification and a small real-round rehearsal before first use; the
+implementation contract remains the authoritative checklist.
 
 ## Developer commands
 
