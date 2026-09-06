@@ -627,6 +627,36 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * CalendarRoundPlan
+         * @description A monthly calendar rule in the series timezone.
+         *
+         *     Limiting the day to 1–28 gives every configured rule a valid date, including
+         *     February, while still covering ordinary monthly schedules.
+         */
+        CalendarRoundPlan: {
+            /** Duration Days */
+            duration_days: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "calendar";
+            /** Open Day */
+            open_day: number;
+            /**
+             * Publish Delay Minutes
+             * @default 0
+             */
+            publish_delay_minutes: number;
+            /** Submission Limit */
+            submission_limit?: number | null;
+            /**
+             * Title Template
+             * @default {year}-{month:02d}
+             */
+            title_template: string;
+        };
+        /**
          * EvidenceVisibility
          * @enum {string}
          */
@@ -683,8 +713,8 @@ export interface components {
             /** Duration Hours */
             duration_hours: number;
             /**
-             * Kind
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             kind: "rolling";
             /**
@@ -755,7 +785,8 @@ export interface components {
             description?: string | null;
             /** Name */
             name: string;
-            round_plan?: components["schemas"]["RollingRoundPlan"] | null;
+            /** Round Plan */
+            round_plan?: (components["schemas"]["RollingRoundPlan"] | components["schemas"]["CalendarRoundPlan"]) | null;
             /** Slug */
             slug: string;
             /**

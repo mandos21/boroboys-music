@@ -2,7 +2,7 @@
 .admin-create { margin-bottom: 2rem; }
 .admin-create form, .admin-round-form { display: grid; gap: .9rem; }
 .admin-create label, .admin-round-form label, .inline-form label { color: #334155; display: grid; font-size: .9rem; font-weight: 700; gap: .35rem; }
-.admin-create input, .admin-round-form input, .admin-round-form select, .admin-round-form textarea, .inline-form input { border: 1px solid #b8c4d8; border-radius: .65rem; font: inherit; padding: .65rem; }
+.admin-create input, .admin-create select, .admin-round-form input, .admin-round-form select, .admin-round-form textarea, .inline-form input { border: 1px solid #b8c4d8; border-radius: .65rem; font: inherit; padding: .65rem; }
 .rolling-plan { border: 1px solid #dbe1ec; border-radius: .65rem; display: grid; gap: .7rem; margin: 0; padding: 1rem; }
 .rolling-plan legend { color: #334155; font-size: .9rem; font-weight: 700; padding: 0 .25rem; }
 .check-label { align-items: center; display: flex !important; gap: .55rem; }

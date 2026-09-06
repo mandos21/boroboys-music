@@ -1,6 +1,61 @@
 {
   "components": {
     "schemas": {
+      "CalendarRoundPlan": {
+        "description": "A monthly calendar rule in the series timezone.\n\nLimiting the day to 1\u201328 gives every configured rule a valid date, including\nFebruary, while still covering ordinary monthly schedules.",
+        "properties": {
+          "duration_days": {
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Duration Days",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "calendar",
+            "title": "Kind",
+            "type": "string"
+          },
+          "open_day": {
+            "maximum": 28.0,
+            "minimum": 1.0,
+            "title": "Open Day",
+            "type": "integer"
+          },
+          "publish_delay_minutes": {
+            "default": 0,
+            "maximum": 43200.0,
+            "minimum": 0.0,
+            "title": "Publish Delay Minutes",
+            "type": "integer"
+          },
+          "submission_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Limit"
+          },
+          "title_template": {
+            "default": "{year}-{month:02d}",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title Template",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "open_day",
+          "duration_days"
+        ],
+        "title": "CalendarRoundPlan",
+        "type": "object"
+      },
       "EvidenceVisibility": {
         "enum": [
           "round_members",
@@ -288,12 +343,27 @@
           "round_plan": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/RollingRoundPlan"
+                "discriminator": {
+                  "mapping": {
+                    "calendar": "#/components/schemas/CalendarRoundPlan",
+                    "rolling": "#/components/schemas/RollingRoundPlan"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RollingRoundPlan"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarRoundPlan"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Round Plan"
           },
           "slug": {
             "maxLength": 100,

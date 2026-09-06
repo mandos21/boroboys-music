@@ -57,6 +57,12 @@ publishes) and calendar timelines (for example, the next calendar month). The pl
 creates the next round automatically; administrators do not need to approve each
 ordinary round individually.
 
+The initial calendar plan is deliberately small and predictable: an administrator
+chooses a day `1` through `28` (valid in every month), a submission-window length,
+an optional publication delay, and a title template. It preserves the predecessor's
+local opening time in the series timezone. More elaborate recurrence rules remain
+a later extension rather than an implicit, hard-to-audit scheduler.
+
 ### 2.2 Series organize history and defaults
 
 A **series** groups related rounds, such as `Boro Boys Monthly`. It provides a
@@ -355,8 +361,8 @@ and starts the successor round. For a rolling plan, its open time is the success
 publication time and its close time is calculated from the configured duration. For
 a calendar plan, dates are calculated from the configured timezone/calendar rule;
 if publication is late enough that the successor would already be closed, the
-worker creates a `scheduled` exception requiring an administrator to resolve the
-dates rather than silently producing a zero-length round.
+worker skips expired windows and creates the current open window or next scheduled
+window rather than backdating a zero-length round.
 
 ## 8. Submission, restrictions, and listening evidence
 

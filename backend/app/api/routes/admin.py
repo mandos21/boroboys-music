@@ -45,13 +45,31 @@ class RollingRoundPlan(BaseModel):
     title_template: str = Field(default="{previous_title} — next", min_length=1, max_length=200)
 
 
+class CalendarRoundPlan(BaseModel):
+    """A monthly calendar rule in the series timezone.
+
+    Limiting the day to 1–28 gives every configured rule a valid date, including
+    February, while still covering ordinary monthly schedules.
+    """
+
+    kind: Literal["calendar"]
+    open_day: int = Field(ge=1, le=28)
+    duration_days: int = Field(ge=1, le=366)
+    publish_delay_minutes: int = Field(default=0, ge=0, le=43_200)
+    submission_limit: int | None = Field(default=None, ge=0)
+    title_template: str = Field(default="{year}-{month:02d}", min_length=1, max_length=200)
+
+
+RoundPlan = Annotated[RollingRoundPlan | CalendarRoundPlan, Field(discriminator="kind")]
+
+
 class SeriesCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     slug: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=100)
     description: str | None = None
     timezone: str = "UTC"
     default_policies: list[dict[str, Any]] = Field(default_factory=list)
-    round_plan: RollingRoundPlan | None = None
+    round_plan: RoundPlan | None = None
     auto_start_next_round: bool = True
 
     @field_validator("timezone")
