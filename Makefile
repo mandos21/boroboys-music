@@ -3,7 +3,7 @@
 POETRY_VERSION ?= 2.1.1
 POETRY ?= $(shell command -v poetry 2>/dev/null || printf '%s/.local/bin/poetry' "$(HOME)")
 
-.PHONY: help setup dev-setup bootstrap db-up db-down migrate task-schema api worker web api-contract test lint typecheck verify docker-env docker-build docker-up docker-down docker-logs
+.PHONY: help setup dev-setup bootstrap db-up db-down migrate task-schema api worker web api-contract test lint typecheck verify history-dry-run history-import docker-env docker-build docker-up docker-down docker-logs
 
 help: ## Show commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-16s %s\n", $$1, $$2}'
@@ -65,6 +65,19 @@ typecheck: ## Run type checks
 verify: ## Run the local release-quality gate (PostgreSQL must be running)
 	cd backend && "$(POETRY)" run alembic upgrade head && "$(POETRY)" run alembic check && "$(POETRY)" run procrastinate --app=app.tasks.app schema --apply && "$(POETRY)" run ruff check . && "$(POETRY)" run mypy app && "$(POETRY)" run pytest
 	cd frontend && npm run lint && npm run typecheck && npm run build
+
+history-dry-run: ## Validate a private history bundle (requires SERIES_SLUG, PUBLISHER_ACCOUNT_ID, IDENTITY_MAP)
+	@test -n "$(SERIES_SLUG)" || (echo "SERIES_SLUG is required" >&2; exit 2)
+	@test -n "$(PUBLISHER_ACCOUNT_ID)" || (echo "PUBLISHER_ACCOUNT_ID is required" >&2; exit 2)
+	@test -n "$(IDENTITY_MAP)" || (echo "IDENTITY_MAP is required" >&2; exit 2)
+	cd backend && "$(POETRY)" run python -m app.cli.import_historical_playlists --series-slug "$(SERIES_SLUG)" --publisher-account-id "$(PUBLISHER_ACCOUNT_ID)" --playlist-dir ../playlist_rounds --identity-map "$(IDENTITY_MAP)" --dry-run
+
+history-import: ## Import private history (also set CONFIRM_HISTORICAL_IMPORT=yes)
+	@test "$(CONFIRM_HISTORICAL_IMPORT)" = "yes" || (echo "Set CONFIRM_HISTORICAL_IMPORT=yes after reviewing history-dry-run" >&2; exit 2)
+	@test -n "$(SERIES_SLUG)" || (echo "SERIES_SLUG is required" >&2; exit 2)
+	@test -n "$(PUBLISHER_ACCOUNT_ID)" || (echo "PUBLISHER_ACCOUNT_ID is required" >&2; exit 2)
+	@test -n "$(IDENTITY_MAP)" || (echo "IDENTITY_MAP is required" >&2; exit 2)
+	cd backend && "$(POETRY)" run python -m app.cli.import_historical_playlists --series-slug "$(SERIES_SLUG)" --publisher-account-id "$(PUBLISHER_ACCOUNT_ID)" --playlist-dir ../playlist_rounds --identity-map "$(IDENTITY_MAP)"
 
 docker-env: ## Create a local Docker environment file if needed
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example; review local secrets before starting"; fi

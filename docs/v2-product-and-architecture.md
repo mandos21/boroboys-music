@@ -449,9 +449,15 @@ and returns the round to `closed`. Existing submissions stay frozen until a seri
 administrator explicitly edits them. Any remote failure leaves `unpublishing` with
 a retryable task; it must never falsely claim the playlist was removed.
 
-Importing historical playlists creates a published round and publication snapshot.
-It does not infer or mutate old live submissions unless an administrator explicitly
-maps attribution during import.
+Historical imports are a private, dry-run-first CLI workflow rather than a browser
+administration action. A source bundle contains one CSV per playlist, named by its
+Spotify playlist ID, plus a local email-to-immutable-OIDC-subject mapping. The
+importer never calls Spotify: it preserves the source playlist order, repeated
+tracks, submitted timestamps, and contributor attribution in published rounds,
+submissions, and membership snapshots. It refuses the whole transaction when an
+identity is unmapped, a playlist ID is already present, or the selected Spotify
+publisher is not owned by a series administrator. Imported publications remain
+immutable and cannot be retired remotely.
 
 ## 10. API design
 

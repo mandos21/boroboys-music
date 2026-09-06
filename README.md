@@ -54,6 +54,38 @@ The local frontend is at `http://localhost:5173`; API health is at
 `http://localhost:8000/api/v1/health`. OIDC and provider integrations remain
 disabled until their values are filled in `.env`.
 
+## Historical playlist import
+
+The private historical bundle is deliberately ignored by Git. It contains one
+CSV named after each Spotify playlist ID and a local tab-separated mapping of
+historical email addresses to immutable OIDC subjects. The importer never calls
+Spotify: it reconstructs the ordered published playlist, repeated entries,
+submission timestamps, and per-round contributor limits from that bundle.
+
+First create the target series, add the owner of the publishing Spotify account
+as a series administrator, and link that Spotify account. Then validate the
+entire bundle before writing anything:
+
+```text
+make history-dry-run SERIES_SLUG=your-series \
+  PUBLISHER_ACCOUNT_ID=your-spotify-account-uuid \
+  IDENTITY_MAP=/private/path/email-to-oidc-subject.tsv
+```
+
+The dry run refuses missing identity mappings, duplicate playlist IDs already in
+the database, or a publisher that is not a series administrator. When its report
+is correct, run the same command as an explicit, one-time transaction:
+
+```text
+make history-import CONFIRM_HISTORICAL_IMPORT=yes SERIES_SLUG=your-series \
+  PUBLISHER_ACCOUNT_ID=your-spotify-account-uuid \
+  IDENTITY_MAP=/private/path/email-to-oidc-subject.tsv
+```
+
+The source directory defaults to the ignored `playlist_rounds/` directory at the
+repository root. Imported playlists are immutable historical publications and
+cannot be retired remotely.
+
 ## Docker development stack
 
 Docker does not require Poetry, Python, Node.js, or npm on the host. After
