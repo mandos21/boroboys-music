@@ -8,6 +8,8 @@ previous prototype remains in `main` branch history.
 
 Operational procedures, including the required backup/restore drill and credential
 key rotation, are in [docs/operations.md](docs/operations.md).
+The final deployment and small-group rehearsal are documented in
+[docs/first-live-run.md](docs/first-live-run.md).
 
 ## Layout
 
