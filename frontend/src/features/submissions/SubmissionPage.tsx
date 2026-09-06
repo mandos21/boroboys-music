@@ -1,8 +1,8 @@
 import { useDeferredValue, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
-import { api, post } from "../../api/client";
+import { api, patch, post } from "../../api/client";
 import type { components } from "../../api/schema";
 
 type Round = {
@@ -90,6 +90,8 @@ function SearchResult({ track, onSelect }: { track: Track; onSelect: (track: Tra
 export function SubmissionPage() {
   const { roundId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const replaceId = searchParams.get("replace");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Track | null>(null);
   const [note, setNote] = useState("");
@@ -120,6 +122,13 @@ export function SubmissionPage() {
         note: note || null,
         confirm_warnings: confirmWarnings,
       };
+      if (replaceId) {
+        // Omitting note preserves the existing note during a track-only replacement.
+        return patch<SubmissionResult>(`/rounds/submissions/${replaceId}`, {
+          track: request.track,
+          confirm_warnings: request.confirm_warnings,
+        });
+      }
       return post<SubmissionResult>(`/rounds/${roundId}/submissions`, request);
     },
     onSuccess: (result) => {
@@ -144,7 +153,7 @@ export function SubmissionPage() {
   return (
     <main className="shell submission-shell">
       <Link className="back" to={`/rounds/${roundId}`}>← {round.data.title}</Link>
-      <header className="submission-heading"><p className="eyebrow">Your submission</p><h1>Choose a track.</h1><p>You have room for {evaluation.data?.limitRemaining ?? round.data.submissionLimit} submissions in this round.</p></header>
+      <header className="submission-heading"><p className="eyebrow">Your submission</p><h1>{replaceId ? "Replace your track." : "Choose a track."}</h1><p>{replaceId ? "The new track must pass the same round checks before it replaces your existing submission." : `You have room for ${evaluation.data?.limitRemaining ?? round.data.submissionLimit} submissions in this round.`}</p></header>
       <div className="submission-layout">
         <section className="panel search-panel">
           <label htmlFor="track-search">Search Spotify</label>
@@ -167,11 +176,11 @@ export function SubmissionPage() {
           {evidence.isFetching && <p className="field-hint">Loading cached listening evidence…</p>}
           {evidence.data && <div className="evidence"><h3>Group listening evidence</h3>{evidence.data.evidence.length === 0 ? <p className="field-hint">No shared Last.fm evidence is cached yet. It will refresh in the background.</p> : evidence.data.evidence.map((item) => <p key={item.accountId}><strong>{item.displayName ?? "A contributor"}</strong>: at least {item.playcount ?? 0} listens <small>observed {formatDate(item.fetchedAt)}</small></p>)}</div>}
           {evaluation.data?.requiresWarningConfirmation && <label className="confirmation"><input type="checkbox" checked={confirmWarnings} onChange={(event) => setConfirmWarnings(event.target.checked)} /> I understand the warning and want to submit this track.</label>}
-          <label className="note-label" htmlFor="submission-note">Optional note</label>
-          <textarea id="submission-note" value={note} maxLength={4000} onChange={(event) => setNote(event.target.value)} placeholder="Why this track?" />
+          {!replaceId && <><label className="note-label" htmlFor="submission-note">Optional note</label><textarea id="submission-note" value={note} maxLength={4000} onChange={(event) => setNote(event.target.value)} placeholder="Why this track?" /></>}
+          {replaceId && <p className="field-hint">Your existing note is preserved. You can edit it from the round page.</p>}
           {submission.isError && <p className="error-message" role="alert">{submission.error.message}</p>}
           {submission.data && !submission.data.accepted && <p className="error-message" role="alert">{submission.data.requiresWarningConfirmation ? "Confirm the warning before submitting." : "This track cannot be submitted under the current rules."}</p>}
-          <button className="button" type="button" disabled={!canSubmit || (evaluation.data?.requiresWarningConfirmation && !confirmWarnings)} onClick={() => submission.mutate()}>{submission.isPending ? "Submitting…" : "Submit track"}</button>
+          <button className="button" type="button" disabled={!canSubmit || (evaluation.data?.requiresWarningConfirmation && !confirmWarnings)} onClick={() => submission.mutate()}>{submission.isPending ? "Submitting…" : replaceId ? "Replace track" : "Submit track"}</button>
         </section>
       </div>
     </main>
