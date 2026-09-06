@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, Route, Routes, useParams } from "react-router";
 
 import { api } from "../api/client";
-import { AdminIndexPage, AdminSeriesPage } from "../features/admin/AdminPages";
+import { AdminIndexPage, AdminRoundPage, AdminSeriesPage } from "../features/admin/AdminPages";
 import { ConnectionsPage } from "../features/connections/ConnectionsPage";
 import { SubmissionPage } from "../features/submissions/SubmissionPage";
 
@@ -78,6 +78,7 @@ export function App() {
       <Route path="/settings/connections" element={<ConnectionsPage />} />
       <Route path="/admin" element={<AdminIndexPage />} />
       <Route path="/admin/series/:seriesId" element={<AdminSeriesPage />} />
+      <Route path="/admin/rounds/:roundId" element={<AdminRoundPage />} />
       <Route path="/signed-out" element={<SignedOutPage />} />
     </Routes>
   );

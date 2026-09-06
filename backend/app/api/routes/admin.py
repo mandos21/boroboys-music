@@ -372,6 +372,40 @@ def create_round(
     return {"id": str(round_.id)}
 
 
+@router.get("/rounds/{round_id}")
+def get_round_for_administration(
+    round_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    round_ = db.get(Round, round_id)
+    if round_ is None:
+        raise _not_found("round")
+    _require_series_admin(db, user, round_.series_id)
+    members = list(
+        db.execute(
+            select(RoundMember, User)
+            .join(User, User.id == RoundMember.user_id)
+            .where(RoundMember.round_id == round_.id)
+            .order_by(RoundMember.removed_at.is_not(None), User.display_name, User.email, User.id)
+        )
+    )
+    return {
+        **_round_summary(round_),
+        "seriesId": str(round_.series_id),
+        "timezone": round_.timezone,
+        "policySnapshot": round_.policy_snapshot,
+        "members": [
+            {
+                **_user_summary(member_user),
+                "submissionLimitOverride": membership.submission_limit_override,
+                "removedAt": membership.removed_at.isoformat() if membership.removed_at else None,
+            }
+            for membership, member_user in members
+        ],
+    }
+
+
 @router.put(
     "/rounds/{round_id}/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,

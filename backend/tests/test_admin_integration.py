@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from app.api.routes.admin import (
+    get_round_for_administration,
     get_series_for_administration,
     list_series_for_administration,
     search_users_for_series,
@@ -13,6 +15,9 @@ from app.db.models import (
     ContributorGroup,
     ContributorGroupMember,
     PlatformRole,
+    Round,
+    RoundMember,
+    RoundStatus,
     Series,
     SeriesAdmin,
     User,
@@ -85,4 +90,83 @@ def test_series_admin_reads_only_assigned_series_and_searches_active_users() -> 
                 "displayName": "Matched Member",
                 "email": member.email,
             }
+        ]
+
+
+def test_round_administration_exposes_member_limit_overrides_and_removals() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        admin = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"round-admin-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        active = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"round-active-{suffix}",
+            display_name="Active contributor",
+            platform_role=PlatformRole.MEMBER,
+        )
+        removed = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"round-removed-{suffix}",
+            display_name="Removed contributor",
+            platform_role=PlatformRole.MEMBER,
+        )
+        series = Series(
+            name=f"Round-admin series {suffix}",
+            slug=f"round-admin-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((admin, active, removed, series))
+        db.flush()
+        round_ = Round(
+            series_id=series.id,
+            title=f"Round detail {suffix}",
+            timezone="UTC",
+            submission_limit=2,
+            opens_at=now + timedelta(days=1),
+            closes_at=now + timedelta(days=2),
+            publish_at=now + timedelta(days=3),
+            status=RoundStatus.SCHEDULED,
+            policy_snapshot=[],
+        )
+        db.add_all((SeriesAdmin(series_id=series.id, user_id=admin.id), round_))
+        db.flush()
+        db.add_all(
+            (
+                RoundMember(
+                    round_id=round_.id,
+                    user_id=active.id,
+                    submission_limit_override=4,
+                ),
+                RoundMember(
+                    round_id=round_.id,
+                    user_id=removed.id,
+                    removed_at=now,
+                ),
+            )
+        )
+        db.commit()
+
+        detail = get_round_for_administration(round_.id, db, admin)
+        assert detail["submissionLimit"] == 2
+        assert detail["seriesId"] == str(series.id)
+        assert detail["members"] == [
+            {
+                "id": str(active.id),
+                "displayName": "Active contributor",
+                "email": None,
+                "submissionLimitOverride": 4,
+                "removedAt": None,
+            },
+            {
+                "id": str(removed.id),
+                "displayName": "Removed contributor",
+                "email": None,
+                "submissionLimitOverride": None,
+                "removedAt": now.isoformat(),
+            },
         ]
