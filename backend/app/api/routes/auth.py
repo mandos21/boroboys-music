@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 
 from app.api.deps import DbSession, get_current_session, get_current_user, require_csrf
 from app.auth.oidc import OidcClient, OidcError
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.security import decrypt, encrypt, hash_secret, new_secret, secrets_match
 from app.db.models import OidcLoginAttempt, PlatformRole, ServerSession, User
 
@@ -30,13 +30,9 @@ async def login(
 ) -> RedirectResponse:
     settings = get_settings()
     if not settings.oidc_is_configured:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OIDC is not configured"
-        )
+        return _login_error_redirect(settings, "oidc-unavailable")
     if not _is_safe_return_path(return_path):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid return path"
-        )
+        return _login_error_redirect(settings, "invalid-request")
 
     state, nonce, code_verifier = new_secret(), new_secret(), new_secret()
     attempt = OidcLoginAttempt(
@@ -53,12 +49,10 @@ async def login(
     db.commit()
     try:
         redirect_url = await OidcClient(settings).authorization_url(state, nonce, code_verifier)
-    except (httpx.HTTPError, OidcError) as error:
+    except (httpx.HTTPError, OidcError):
         db.delete(attempt)
         db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OIDC unavailable"
-        ) from error
+        return _login_error_redirect(settings, "oidc-unavailable")
     return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -71,13 +65,9 @@ async def callback(
 ) -> RedirectResponse:
     settings = get_settings()
     if error:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="OIDC login was denied"
-        )
+        return _login_error_redirect(settings, "denied")
     if not code or not state:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="missing OIDC callback data"
-        )
+        return _login_error_redirect(settings, "invalid-request")
 
     attempt = db.scalar(
         select(OidcLoginAttempt)
@@ -89,9 +79,7 @@ async def callback(
         .with_for_update()
     )
     if attempt is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid or expired OIDC state"
-        )
+        return _login_error_redirect(settings, "expired-request")
     attempt.consumed_at = datetime.now(UTC)
     db.commit()
 
@@ -109,15 +97,11 @@ async def callback(
             ),
             nonce,
         )
-    except (httpx.HTTPError, OidcError) as exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="OIDC callback validation failed"
-        ) from exception
+    except (httpx.HTTPError, OidcError):
+        return _login_error_redirect(settings, "verification-failed")
 
     if settings.oidc_require_verified_email and not identity.email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="a verified email is required"
-        )
+        return _login_error_redirect(settings, "email-verification-required")
     # The advisory transaction lock prevents two simultaneous first logins from
     # both observing an empty users table and receiving administrator access.
     db.execute(select(func.pg_advisory_xact_lock(_INITIAL_ADMIN_LOCK_ID)))
@@ -128,9 +112,7 @@ async def callback(
     )
     if user is None:
         if not settings.oidc_auto_provision_users:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="account provisioning is disabled"
-            )
+            return _login_error_redirect(settings, "provisioning-disabled")
         existing_user = db.scalar(select(User.id).limit(1)) is not None
         user = User(
             oidc_issuer=identity.issuer,
@@ -144,7 +126,7 @@ async def callback(
         db.add(user)
         db.flush()
     elif not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account is inactive")
+        return _login_error_redirect(settings, "account-inactive")
     else:
         user.email = identity.email
         user.display_name = identity.display_name
@@ -236,6 +218,14 @@ def _set_session_cookies(response: Response, session_token: str, csrf_token: str
 
 def _csrf_cookie_name() -> str:
     return f"{get_settings().session_cookie_name}_csrf"
+
+
+def _login_error_redirect(settings: Settings, reason: str) -> RedirectResponse:
+    """Keep browser-facing OIDC failures in the application UI, not raw API JSON."""
+    return RedirectResponse(
+        f"{str(settings.app_base_url).rstrip('/')}/auth/error?{urlencode({'reason': reason})}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 def _is_safe_return_path(value: str) -> bool:

@@ -1,12 +1,12 @@
+import asyncio
+
 import pytest
-from fastapi.testclient import TestClient
 
 from app.api.routes import auth
 from app.auth.oidc import _claims_match_provider
 from app.core.config import Settings
 from app.core.security import decrypt, encrypt, hash_secret, new_secret, secrets_match
 from app.db.models import PlatformRole
-from app.main import app
 
 
 def test_opaque_secrets_are_random_hashable_and_encryptable() -> None:
@@ -18,13 +18,21 @@ def test_opaque_secrets_are_random_hashable_and_encryptable() -> None:
     assert decrypt(encrypt(first, "test-key"), "test-key") == first
 
 
-def test_login_reports_disabled_oidc_without_touching_the_database(monkeypatch: object) -> None:
-    monkeypatch.setattr(auth, "get_settings", lambda: Settings())  # type: ignore[attr-defined]
+def test_login_redirects_disabled_oidc_to_a_recoverable_ui_without_touching_database(
+    monkeypatch: object,
+) -> None:
+    settings = Settings(
+        oidc_issuer_url=None,
+        oidc_client_id=None,
+        oidc_client_secret=None,
+    )
+    monkeypatch.setattr(auth, "get_settings", lambda: settings)  # type: ignore[attr-defined]
 
-    response = TestClient(app).get("/api/v1/auth/login", follow_redirects=False)
+    # The disabled branch must return before it needs a database session.
+    response = asyncio.run(auth.login(db=None))  # type: ignore[arg-type]
 
-    assert response.status_code == 503
-    assert response.json()["detail"] == "OIDC is not configured"
+    assert response.status_code == 303
+    assert response.headers["location"] == "http://localhost:5173/auth/error?reason=oidc-unavailable"
 
 
 def test_return_path_must_stay_within_the_frontend() -> None:
@@ -93,7 +101,12 @@ def test_multi_audience_id_tokens_require_this_client_as_the_authorized_party() 
 
 def test_production_configuration_rejects_default_secret_material() -> None:
     with pytest.raises(ValueError, match="SESSION_SECRET"):
-        Settings(app_env="production", app_base_url="https://music.example.test")
+        Settings(
+            app_env="production",
+            app_base_url="https://music.example.test",
+            session_secret="development-only-change-me",
+            credential_encryption_key="development-only-change-me",
+        )
 
     production = Settings(
         app_env="production",

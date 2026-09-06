@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Disc3, Eye, Headphones, Link2, ShieldCheck, Unplug } from "lucide-react";
 import { Link } from "react-router";
 
 import { api, del, patch } from "../../api/client";
+import { StatePanel } from "../../components/ui/StatePanel";
 import "./connections.css";
 
 type Connection = {
@@ -13,10 +15,18 @@ type Connection = {
   disconnectedAt: string | null;
 };
 
-const providerName: Record<Connection["provider"], string> = {
-  spotify: "Spotify",
-  lastfm: "Last.fm",
-};
+const providerInfo = {
+  spotify: {
+    description: "Search for tracks while submitting and choose a publisher for finished rounds.",
+    icon: Disc3,
+    name: "Spotify",
+  },
+  lastfm: {
+    description: "Optionally share cached listening history with people in your rounds.",
+    icon: Headphones,
+    name: "Last.fm",
+  },
+} as const;
 
 export function ConnectionsPage() {
   const queryClient = useQueryClient();
@@ -43,37 +53,57 @@ export function ConnectionsPage() {
   return (
     <main className="shell settings-shell">
       <Link className="back" to="/">← Your rounds</Link>
-      <header className="submission-heading">
-        <p className="eyebrow">Account settings</p>
-        <h1>Connected services</h1>
-        <p>Spotify enables track search and publishing. Last.fm can share listening evidence using the privacy choice below.</p>
+      <header className="page-heading settings-heading">
+        <div>
+          <p className="eyebrow">Account settings</p>
+          <h1>Connected services</h1>
+          <p>Bring the services you already use into your rounds. You stay in control of what is connected and what listening evidence is shared.</p>
+        </div>
       </header>
-      {connections.isLoading && <p>Loading connections…</p>}
-      {connections.isError && <p className="error-message" role="alert">Connections could not be loaded. Please try again.</p>}
-      <div className="connection-grid">
-        {(["spotify", "lastfm"] as const).map((provider) => {
-          const connection = active.get(provider);
-          return (
-            <section className="panel connection-card" key={provider}>
-              <div>
-                <p className="eyebrow">{providerName[provider]}</p>
-                <h2>{connection ? connection.displayName ?? "Connected" : "Not connected"}</h2>
-              </div>
-              {!connection && <a className="button" href={`/api/v1/connections/${provider}/login`}>Connect {providerName[provider]}</a>}
-              {connection?.provider === "lastfm" && (
-                <label className="connection-field">Listening evidence visibility
-                  <select value={connection.visibility} onChange={(event) => visibility.mutate({ id: connection.id, value: event.target.value as Connection["visibility"] })}>
-                    <option value="round_members">Members in shared rounds</option>
-                    <option value="series_admins">Series administrators only</option>
-                    <option value="private">Only me</option>
-                  </select>
-                </label>
-              )}
-              {connection && <button className="text-button danger" type="button" disabled={disconnect.isPending} onClick={() => disconnect.mutate(connection.id)}>Disconnect</button>}
-            </section>
-          );
-        })}
-      </div>
+      {connections.isLoading && <StatePanel kind="loading" title="Checking your connections">Looking for linked services.</StatePanel>}
+      {connections.isError && <StatePanel kind="error" title="We couldn’t load your connections">Please refresh the page and try again.</StatePanel>}
+      {!connections.isLoading && !connections.isError && (
+        <div className="connection-grid">
+          {(["spotify", "lastfm"] as const).map((provider) => {
+            const connection = active.get(provider);
+            const { description, icon: ProviderIcon, name } = providerInfo[provider];
+            return (
+              <section className={`panel connection-card ${connection ? "connection-active" : ""}`} key={provider}>
+                <div className="connection-card-heading">
+                  <span className="provider-icon" aria-hidden="true"><ProviderIcon size={22} /></span>
+                  <div>
+                    <p className="eyebrow">{name}</p>
+                    <h2>{connection ? connection.displayName ?? "Connected" : `Connect ${name}`}</h2>
+                  </div>
+                </div>
+                <p>{description}</p>
+                {connection ? (
+                  <div className="connection-controls">
+                    <p className="connection-state"><ShieldCheck aria-hidden="true" size={16} /> Connected and ready</p>
+                    {connection.provider === "lastfm" && (
+                      <label className="connection-field">
+                        <span><Eye aria-hidden="true" size={15} /> Listening evidence visibility</span>
+                        <select value={connection.visibility} onChange={(event) => visibility.mutate({ id: connection.id, value: event.target.value as Connection["visibility"] })} disabled={visibility.isPending}>
+                          <option value="round_members">Members in shared rounds</option>
+                          <option value="series_admins">Series administrators only</option>
+                          <option value="private">Only me</option>
+                        </select>
+                      </label>
+                    )}
+                    <button className="text-button danger connection-disconnect" type="button" disabled={disconnect.isPending} onClick={() => disconnect.mutate(connection.id)}>
+                      <Unplug aria-hidden="true" size={16} /> Disconnect {name}
+                    </button>
+                  </div>
+                ) : (
+                  <a className="button connection-button" href={`/api/v1/connections/${provider}/login`}>
+                    <Link2 aria-hidden="true" size={17} /> Connect {name}
+                  </a>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }

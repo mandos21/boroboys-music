@@ -1,66 +1,20 @@
-.topbar-actions {
-  align-items: center;
-  display: flex;
-  gap: 0.8rem;
-}
+.settings-shell { max-width: 66rem; }
+.settings-heading { margin-bottom: 2rem; }
+.connection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.connection-card { display: flex; min-height: 20rem; flex-direction: column; gap: 1rem; }
+.connection-card.connection-active { border-color: #cfe2ff; }
+.connection-card-heading { display: flex; align-items: center; gap: .8rem; }
+.connection-card-heading .eyebrow { margin-bottom: .3rem; }
+.connection-card h2 { font-size: 1.2rem; }
+.connection-card > p { margin: 0; color: #64748b; font-size: .9rem; line-height: 1.6; }
+.provider-icon { display: grid; width: 2.8rem; height: 2.8rem; flex: none; place-items: center; border-radius: .8rem; background: #ecf4ff; color: #2563eb; }
+.connection-controls { display: grid; gap: .9rem; margin-top: auto; }
+.connection-state { display: inline-flex; align-items: center; gap: .4rem; margin: 0; color: #15803d; font-size: .82rem; font-weight: 750; }
+.connection-field > span { display: inline-flex; align-items: center; gap: .35rem; }
+.connection-disconnect { display: inline-flex; align-items: center; gap: .35rem; width: fit-content; }
+.connection-button { width: fit-content; margin-top: auto; }
 
-.settings-shell {
-  max-width: 64rem;
-}
-
-.connection-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.connection-card {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  justify-content: space-between;
-  min-height: 16rem;
-}
-
-.connection-card h2 {
-  margin: 0;
-}
-
-.connection-field {
-  color: #334155;
-  display: grid;
-  font-size: 0.9rem;
-  font-weight: 700;
-  gap: 0.45rem;
-}
-
-.connection-field select {
-  border: 1px solid #b8c4d8;
-  border-radius: 0.6rem;
-  font: inherit;
-  padding: 0.6rem;
-}
-
-.text-button {
-  align-self: flex-start;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 700;
-  padding: 0.2rem 0;
-}
-
-.text-button.danger {
-  color: #a12424;
-}
-
-@media (max-width: 40rem) {
-  .connection-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .topbar-actions {
-    margin-top: 0.75rem;
-  }
+@media (max-width: 44rem) {
+  .connection-grid { grid-template-columns: 1fr; }
+  .connection-card { min-height: 0; }
 }
