@@ -120,16 +120,21 @@ function SeriesPage() {
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/rounds/:roundId" element={<RoundPage />} />
-      <Route path="/rounds/:roundId/submit" element={<SubmissionPage />} />
-      <Route path="/series/:seriesId" element={<SeriesPage />} />
-      <Route path="/settings/connections" element={<ConnectionsPage />} />
-      <Route path="/admin" element={<AdminIndexPage />} />
-      <Route path="/admin/series/:seriesId" element={<AdminSeriesPage />} />
-      <Route path="/admin/rounds/:roundId" element={<AdminRoundPage />} />
-      <Route path="/signed-out" element={<SignedOutPage />} />
-    </Routes>
+    <>
+      <a className="skip-link" href="#main-content">Skip to main content</a>
+      <div id="main-content" tabIndex={-1}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/rounds/:roundId" element={<RoundPage />} />
+          <Route path="/rounds/:roundId/submit" element={<SubmissionPage />} />
+          <Route path="/series/:seriesId" element={<SeriesPage />} />
+          <Route path="/settings/connections" element={<ConnectionsPage />} />
+          <Route path="/admin" element={<AdminIndexPage />} />
+          <Route path="/admin/series/:seriesId" element={<AdminSeriesPage />} />
+          <Route path="/admin/rounds/:roundId" element={<AdminRoundPage />} />
+          <Route path="/signed-out" element={<SignedOutPage />} />
+        </Routes>
+      </div>
+    </>
   );
 }
