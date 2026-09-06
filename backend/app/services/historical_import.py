@@ -150,12 +150,8 @@ def validate_historical_import_target(
     if series is None:
         raise HistoricalImportError("series was not found")
     publisher = db.get(ExternalAccount, publisher_account_id)
-    if (
-        publisher is None
-        or publisher.provider is not ExternalProvider.SPOTIFY
-        or not publisher.is_active
-    ):
-        raise HistoricalImportError("an active Spotify publisher account is required")
+    if publisher is None or publisher.provider is not ExternalProvider.SPOTIFY:
+        raise HistoricalImportError("a Spotify publisher account is required")
     is_series_admin = db.scalar(
         select(SeriesAdmin.id).where(
             SeriesAdmin.series_id == series.id,
@@ -419,6 +415,16 @@ def _submission_counts(playlist: HistoricalPlaylistSource) -> Counter[str]:
     )
 
 
+def _resolved_submission_counts(
+    playlist: HistoricalPlaylistSource, users_by_email: dict[str, User]
+) -> Counter[uuid.UUID]:
+    return Counter(
+        users_by_email[email].id
+        for item in playlist.submissions
+        for email in item.contributor_emails
+    )
+
+
 def _load_or_create_users(
     db: Session,
     identity_map: dict[str, str],
@@ -426,8 +432,9 @@ def _load_or_create_users(
     issuer: str,
 ) -> dict[str, User]:
     users_by_subject: dict[str, User] = {}
-    for email in source_emails:
-        subject = identity_map[email]
+    for email, subject in identity_map.items():
+        if email not in source_emails:
+            continue
         user = users_by_subject.get(subject)
         if user is None:
             user = db.scalar(
@@ -453,7 +460,7 @@ def _import_round(
         series_id=series.id,
         title=plan.title,
         timezone=series.timezone,
-        submission_limit=max(_submission_counts(plan.playlist).values()),
+        submission_limit=max(_resolved_submission_counts(plan.playlist, users_by_email).values()),
         opens_at=plan.opens_at,
         closes_at=plan.closes_at,
         publish_at=plan.publish_at,

@@ -28,7 +28,7 @@ def main() -> int:
         "--publisher-account-id",
         type=uuid.UUID,
         required=True,
-        help="active Spotify account owned by a series administrator",
+        help="Spotify account owned by a series administrator",
     )
     parser.add_argument(
         "--playlist-dir",

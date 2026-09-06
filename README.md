@@ -62,8 +62,10 @@ historical email addresses to immutable OIDC subjects. The importer never calls
 Spotify: it reconstructs the ordered published playlist, repeated entries,
 submission timestamps, and per-round contributor limits from that bundle.
 
-First create the target series, add the owner of the publishing Spotify account
-as a series administrator, and link that Spotify account. Then validate the
+First create the target series and add the owner of the selected Spotify account
+as a series administrator. The historical import itself makes no Spotify calls,
+so its account may be an inactive credential-less historical anchor; use an active
+linked account later for live publication. Then validate the
 entire bundle before writing anything:
 
 ```text

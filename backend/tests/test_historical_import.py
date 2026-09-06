@@ -90,7 +90,7 @@ def test_import_materializes_a_published_snapshot_with_attributed_submissions(
             _row("other-track", "beta@example.test", "3/8/2023 10:00:00"),
             _row(
                 "shared-track",
-                "alpha@example.test; beta@example.test",
+                "alias-alpha@example.test; beta@example.test",
                 "3/9/2023 10:00:00; 3/10/2023 10:00:00",
             ),
         ],
@@ -99,6 +99,7 @@ def test_import_materializes_a_published_snapshot_with_attributed_submissions(
         tmp_path,
         {
             "alpha@example.test": "subject-alpha",
+            "alias-alpha@example.test": "subject-alpha",
             "beta@example.test": "subject-beta",
             "unused@example.test": "subject-unused",
         },
@@ -121,6 +122,7 @@ def test_import_materializes_a_published_snapshot_with_attributed_submissions(
             user_id=administrator.id,
             provider=ExternalProvider.SPOTIFY,
             provider_subject=f"publisher-{suffix}",
+            is_active=False,
         )
         db.add_all((publisher, SeriesAdmin(series_id=series.id, user_id=administrator.id)))
         db.commit()
@@ -148,6 +150,14 @@ def test_import_materializes_a_published_snapshot_with_attributed_submissions(
             )
         )
         assert len(submissions) == 5
+        canonical_user = db.scalar(
+            select(User).where(
+                User.oidc_issuer == "https://issuer.test",
+                User.oidc_subject == "subject-alpha",
+            )
+        )
+        assert canonical_user is not None
+        assert canonical_user.email == "alpha@example.test"
         assert (
             db.scalar(
                 select(User).where(
