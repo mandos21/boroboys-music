@@ -28,3 +28,10 @@ def test_return_path_must_stay_within_the_frontend() -> None:
     assert auth._is_safe_return_path("/rounds?series=rock")
     assert not auth._is_safe_return_path("https://attacker.example")
     assert not auth._is_safe_return_path("//attacker.example")
+
+
+def test_configured_oidc_admin_claim_accepts_list_and_rejects_other_values() -> None:
+    settings = Settings(oidc_admin_claim="roles", oidc_admin_values="music-admin,operator")
+
+    assert auth._is_claim_admin(settings, {"roles": ["member", "music-admin"]})
+    assert not auth._is_claim_admin(settings, {"roles": "member"})
