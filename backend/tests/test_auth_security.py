@@ -68,3 +68,7 @@ def test_first_user_bootstrap_can_be_disabled_without_disabling_claim_mapping() 
         )
         is PlatformRole.ADMIN
     )
+
+
+def test_oidc_scopes_preserve_openid_and_remove_duplicates() -> None:
+    assert Settings(oidc_scopes="email openid profile email").oidc_scope_string == "openid email profile"

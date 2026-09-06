@@ -47,7 +47,7 @@ class OidcClient:
                 "response_type": "code",
                 "client_id": self.settings.oidc_client_id,
                 "redirect_uri": str(self.settings.oidc_redirect_uri),
-                "scope": "openid profile email",
+                "scope": self.settings.oidc_scope_string,
                 "state": state,
                 "nonce": nonce,
                 "code_challenge": challenge,

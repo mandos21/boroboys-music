@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     oidc_client_id: str | None = None
     oidc_client_secret: SecretStr | None = None
     oidc_redirect_uri: HttpUrl = HttpUrl("http://localhost:8000/api/v1/auth/callback")
+    oidc_scopes: str = "openid profile email"
     oidc_auto_provision_users: bool = True
     oidc_bootstrap_first_user_admin: bool = True
     oidc_require_verified_email: bool = False
@@ -69,6 +70,12 @@ class Settings(BaseSettings):
         return frozenset(
             value.strip() for value in self.oidc_admin_values.split(",") if value.strip()
         )
+
+    @property
+    def oidc_scope_string(self) -> str:
+        """Normalize configured scopes while preserving OpenID Connect's required scope."""
+        scopes = [scope.strip() for scope in self.oidc_scopes.split() if scope.strip()]
+        return " ".join(dict.fromkeys(("openid", *scopes)))
 
 
 @lru_cache
