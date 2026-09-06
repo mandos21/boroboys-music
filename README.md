@@ -35,6 +35,7 @@ make web
 make test
 make lint
 make typecheck
+make verify
 ```
 
 Copy `.env.example` to `.env` before starting local services. Never commit secrets.

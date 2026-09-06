@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap db-up db-down migrate task-schema api worker web test lint typecheck
+.PHONY: help bootstrap db-up db-down migrate task-schema api worker web test lint typecheck verify
 
 help: ## Show commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-16s %s\n", $$1, $$2}'
@@ -41,3 +41,7 @@ lint: ## Run linters
 typecheck: ## Run type checks
 	cd backend && poetry run mypy app
 	cd frontend && npm run typecheck
+
+verify: ## Run the local release-quality gate (PostgreSQL must be running)
+	cd backend && poetry run alembic upgrade head && poetry run alembic check && poetry run ruff check . && poetry run mypy app && poetry run pytest
+	cd frontend && npm run lint && npm run typecheck && npm run build
