@@ -166,7 +166,9 @@ def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
         round_.status = RoundStatus.CLOSED
         db.commit()
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
-        _fail(db, publication, round_, "Spotify playlist retirement failed")
+        publication.attempt_count += 1
+        publication.last_error = "Spotify playlist retirement failed"
+        db.commit()
 
 
 def _access_token(db: Session, account_id: uuid.UUID) -> str:

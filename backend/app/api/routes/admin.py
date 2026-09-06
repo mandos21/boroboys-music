@@ -16,6 +16,8 @@ from app.db.models import (
     ContributorGroup,
     ContributorGroupMember,
     PlatformRole,
+    Publication,
+    PublicationState,
     Round,
     RoundMember,
     RoundStatus,
@@ -293,6 +295,34 @@ def unpublish_round_request(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     retire_round.defer(str(publication.id))
+    return {"publicationId": str(publication.id), "state": publication.state.value}
+
+
+@router.post("/publications/{publication_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+def retry_publication(
+    publication_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    publication = db.get(Publication, publication_id)
+    if publication is None:
+        raise _not_found("publication")
+    round_ = db.get(Round, publication.round_id)
+    if round_ is None:
+        raise _not_found("round")
+    _require_series_admin(db, user, round_.series_id)
+    if publication.state is PublicationState.FAILED:
+        publication.state = PublicationState.PUBLISHING
+        round_.status = RoundStatus.PUBLISHING
+        db.commit()
+        publish_round.defer(str(publication.id))
+    elif publication.state is PublicationState.UNPUBLISHING:
+        db.commit()
+        retire_round.defer(str(publication.id))
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="publication is not retryable"
+        )
     return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
