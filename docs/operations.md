@@ -17,8 +17,12 @@ retained alongside the backup in the deployment secret manager.
 Create a compressed logical backup from the production PostgreSQL instance:
 
 ```sh
-pg_dump --format=custom --no-owner "$DATABASE_URL" > music-rounds-$(date +%F).dump
+pg_dump --format=custom --no-owner "$POSTGRES_DSN" > music-rounds-$(date +%F).dump
 ```
+
+`POSTGRES_DSN` is a libpq connection URI (for example,
+`postgresql://user:password@host:5432/music_rounds`), not SQLAlchemy's
+`postgresql+psycopg://` application URL.
 
 To validate a backup, restore it into an empty disposable database and run the
 migration check:
@@ -26,11 +30,16 @@ migration check:
 ```sh
 createdb music_rounds_restore_check
 pg_restore --clean --if-exists --no-owner --dbname=music_rounds_restore_check music-rounds-YYYY-MM-DD.dump
-DATABASE_URL=postgresql+psycopg://.../music_rounds_restore_check make migrate
+DATABASE_URL=postgresql+psycopg://.../music_rounds_restore_check \
+PROCRASTINATE_DATABASE_URL=postgresql://.../music_rounds_restore_check \
+make migrate task-schema
 ```
 
 Record the backup date, PostgreSQL version, migration revision, and the key version
 that can decrypt credentials. Do not test restoration against the live database.
+The restore check should also confirm an expected application row count and the
+presence of Procrastinate's queue tables; a successful schema migration alone does
+not prove the backup contained the application data.
 
 ## Credential-key rotation
 
