@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     session_cookie_name: str = "music_rounds_session"
     session_lifetime_hours: int = 168
     lastfm_api_key: SecretStr | None = None
+    lastfm_shared_secret: SecretStr | None = None
+    lastfm_callback_url: HttpUrl = HttpUrl(
+        "http://localhost:8000/api/v1/connections/lastfm/callback"
+    )
     lastfm_evidence_refresh_hours: int = 24
     spotify_client_id: str | None = None
     spotify_client_secret: SecretStr | None = None
@@ -40,6 +44,10 @@ class Settings(BaseSettings):
     @property
     def spotify_is_configured(self) -> bool:
         return all((self.spotify_client_id, self.spotify_client_secret))
+
+    @property
+    def lastfm_is_configured(self) -> bool:
+        return all((self.lastfm_api_key, self.lastfm_shared_secret))
 
     @property
     def oidc_is_configured(self) -> bool:

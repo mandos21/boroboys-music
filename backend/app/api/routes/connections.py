@@ -10,7 +10,7 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
@@ -24,16 +24,11 @@ from app.db.models import (
     ExternalProvider,
     User,
 )
-from app.services import spotify
+from app.services import lastfm, spotify
 
 router = APIRouter(
     prefix="/connections", tags=["connections"], dependencies=[Depends(require_csrf)]
 )
-
-
-class LastfmLink(BaseModel):
-    username: str = Field(min_length=1, max_length=255)
-    visibility: EvidenceVisibility = EvidenceVisibility.ROUND_MEMBERS
 
 
 class VisibilityUpdate(BaseModel):
@@ -148,37 +143,95 @@ def complete_spotify_link(
     return RedirectResponse(f"{str(settings.app_base_url).rstrip('/')}/", status_code=303)
 
 
-@router.put("/lastfm", status_code=status.HTTP_201_CREATED)
-def link_lastfm(
-    payload: LastfmLink,
-    db: DbSession,
-    user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, str]:
+@router.get("/lastfm/login")
+def begin_lastfm_link(
+    db: DbSession, user: Annotated[User, Depends(get_current_user)]
+) -> RedirectResponse:
+    settings = get_settings()
+    if not settings.lastfm_is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Last.fm is not configured"
+        )
+    state = new_secret()
+    db.add(
+        ExternalLinkAttempt(
+            user_id=user.id,
+            provider=ExternalProvider.LASTFM,
+            state_hash=hash_secret(state),
+            code_verifier_ciphertext=encrypt(
+                state, settings.credential_encryption_key.get_secret_value()
+            ),
+            expires_at=datetime.now(UTC) + timedelta(minutes=10),
+        )
+    )
+    db.commit()
+    return RedirectResponse(lastfm.authorization_url(settings, state), status_code=303)
+
+
+@router.get("/lastfm/callback")
+def complete_lastfm_link(
+    db: DbSession, token: str | None = None, state: str | None = None
+) -> RedirectResponse:
+    if not token or not state:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Last.fm link was denied"
+        )
+    settings = get_settings()
+    attempt = db.scalar(
+        select(ExternalLinkAttempt)
+        .where(
+            ExternalLinkAttempt.state_hash == hash_secret(state),
+            ExternalLinkAttempt.provider == ExternalProvider.LASTFM,
+            ExternalLinkAttempt.expires_at > datetime.now(UTC),
+            ExternalLinkAttempt.consumed_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if attempt is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid Last.fm state"
+        )
+    attempt.consumed_at = datetime.now(UTC)
+    try:
+        session = lastfm.exchange_session(settings, token)
+    except (httpx.HTTPError, lastfm.LastfmError) as error:
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Last.fm link failed"
+        ) from error
     account = db.scalar(
         select(ExternalAccount).where(
             ExternalAccount.provider == ExternalProvider.LASTFM,
-            ExternalAccount.provider_subject == payload.username,
+            ExternalAccount.provider_subject == session["username"],
         )
     )
-    if account is not None and account.user_id != user.id:
+    if account is not None and account.user_id != attempt.user_id:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Last.fm account is already linked"
         )
     if account is None:
         account = ExternalAccount(
-            user_id=user.id,
+            user_id=attempt.user_id,
             provider=ExternalProvider.LASTFM,
-            provider_subject=payload.username,
-            display_name=payload.username,
-            evidence_visibility=payload.visibility,
+            provider_subject=session["username"],
+            display_name=session["username"],
         )
         db.add(account)
+        db.flush()
+    credential = db.scalar(
+        select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
+    )
+    ciphertext = encrypt(json.dumps(session), settings.credential_encryption_key.get_secret_value())
+    if credential is None:
+        db.add(
+            ExternalCredential(
+                external_account_id=account.id, ciphertext=ciphertext, key_version="v1"
+            )
+        )
     else:
-        account.evidence_visibility = payload.visibility
-        account.is_active = True
-        account.disconnected_at = None
+        credential.ciphertext = ciphertext
     db.commit()
-    return {"id": str(account.id), "provider": account.provider.value}
+    return RedirectResponse(f"{str(settings.app_base_url).rstrip('/')}/", status_code=303)
 
 
 @router.patch("/{account_id}/visibility")
