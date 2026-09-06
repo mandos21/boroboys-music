@@ -146,23 +146,27 @@ class OidcClient:
         except Exception as error:
             raise OidcError("ID token signature or standard claims validation failed") from error
 
-        expected_issuer = str(self.settings.oidc_issuer_url).rstrip("/")
-        expected_client_id = self.settings.oidc_client_id or ""
-        audience = claims.get("aud")
-        audiences = audience if isinstance(audience, list) else [audience]
-        authorized_party = claims.get("azp")
-        audience_is_ambiguous = len(audiences) > 1
-        if (
-            not hmac.compare_digest(str(claims.get("iss", "")).rstrip("/"), expected_issuer)
-            or expected_client_id not in audiences
-            or (
-                audience_is_ambiguous
-                and not hmac.compare_digest(str(authorized_party or ""), expected_client_id)
-            )
-            or not hmac.compare_digest(str(claims.get("nonce", "")), nonce)
-        ):
+        if not _claims_match_provider(self.settings, claims, nonce):
             raise OidcError("ID token issuer, audience, or nonce validation failed")
         return dict(claims)
+
+
+def _claims_match_provider(settings: Settings, claims: dict[str, Any], nonce: str) -> bool:
+    expected_issuer = str(settings.oidc_issuer_url).rstrip("/")
+    expected_client_id = settings.oidc_client_id or ""
+    audience = claims.get("aud")
+    audiences = audience if isinstance(audience, list) else [audience]
+    if not all(isinstance(value, str) for value in audiences):
+        return False
+    return (
+        hmac.compare_digest(str(claims.get("iss", "")).rstrip("/"), expected_issuer)
+        and expected_client_id in audiences
+        and (
+            len(audiences) == 1
+            or hmac.compare_digest(str(claims.get("azp") or ""), expected_client_id)
+        )
+        and hmac.compare_digest(str(claims.get("nonce", "")), nonce)
+    )
 
 
 def _display_name(claims: dict[str, Any]) -> str | None:

@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.routes import auth
+from app.auth.oidc import _claims_match_provider
 from app.core.config import Settings
 from app.core.security import decrypt, encrypt, hash_secret, new_secret, secrets_match
 from app.db.models import PlatformRole
@@ -73,6 +74,21 @@ def test_first_user_bootstrap_can_be_disabled_without_disabling_claim_mapping() 
 
 def test_oidc_scopes_preserve_openid_and_remove_duplicates() -> None:
     assert Settings(oidc_scopes="email openid profile email").oidc_scope_string == "openid email profile"
+
+
+def test_multi_audience_id_tokens_require_this_client_as_the_authorized_party() -> None:
+    settings = Settings(
+        oidc_issuer_url="https://issuer.example/realms/music",
+        oidc_client_id="music-rounds",
+    )
+    claims = {
+        "iss": "https://issuer.example/realms/music",
+        "aud": ["music-rounds", "another-client"],
+        "nonce": "expected-nonce",
+    }
+
+    assert not _claims_match_provider(settings, claims, "expected-nonce")
+    assert _claims_match_provider(settings, {**claims, "azp": "music-rounds"}, "expected-nonce")
 
 
 def test_production_configuration_rejects_default_secret_material() -> None:

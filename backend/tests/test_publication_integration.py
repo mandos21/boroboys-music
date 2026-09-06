@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import func, select
 
-from app.api.routes.admin import get_publication_status
+from app.api.routes.admin import _defer_or_mark_failed, get_publication_status
 from app.core.config import get_settings
 from app.core.security import encrypt
 from app.db.models import (
@@ -352,3 +353,117 @@ def test_only_latest_published_round_can_begin_unpublishing() -> None:
         assert queued.id == latest_publication.id
         assert queued.state is PublicationState.UNPUBLISHING
         assert latest.status is RoundStatus.UNPUBLISHING
+
+
+def test_concurrent_publication_requests_allocate_distinct_series_sequences() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        publisher = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"sequence-publisher-{suffix}",
+        )
+        series = Series(
+            name=f"Sequences {suffix}",
+            slug=f"sequences-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((publisher, series))
+        db.flush()
+        account = ExternalAccount(
+            user_id=publisher.id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject=f"sequence-publisher-{suffix}",
+        )
+        db.add(account)
+        db.flush()
+        db.add(
+            ExternalCredential(
+                external_account_id=account.id,
+                ciphertext=encrypt(
+                    json.dumps({"access_token": "test-token"}),
+                    get_settings().credential_encryption_key.get_secret_value(),
+                ),
+                key_version="v1",
+            )
+        )
+        rounds = [
+            Round(
+                series_id=series.id,
+                title=f"Concurrent {index} {suffix}",
+                timezone="UTC",
+                submission_limit=0,
+                opens_at=now - timedelta(days=2),
+                closes_at=now - timedelta(days=1),
+                publish_at=now - timedelta(hours=12),
+                status=RoundStatus.CLOSED,
+                policy_snapshot=[],
+            )
+            for index in range(2)
+        ]
+        db.add_all(rounds)
+        db.commit()
+        round_ids = [round_.id for round_ in rounds]
+        account_id, owner_id = account.id, publisher.id
+
+    def publish(round_id: uuid.UUID) -> int:
+        with get_session_factory()() as session:
+            start_publication(session, round_id, account_id, owner_id)
+            session.commit()
+            value = session.get(Round, round_id)
+            assert value is not None and value.published_sequence is not None
+            return value.published_sequence
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        sequences = list(executor.map(publish, round_ids))
+
+    assert sorted(sequences) == [1, 2]
+
+
+def test_enqueue_failure_marks_the_publication_failed_for_ui_retry() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        user = User(oidc_issuer="https://issuer.test", oidc_subject=f"queue-{suffix}")
+        series = Series(
+            name=f"Queue {suffix}", slug=f"queue-{suffix}", timezone="UTC", default_policies=[]
+        )
+        db.add_all((user, series))
+        db.flush()
+        account = ExternalAccount(
+            user_id=user.id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject=f"queue-{suffix}",
+        )
+        round_ = Round(
+            series_id=series.id,
+            title=f"Queue {suffix}",
+            timezone="UTC",
+            submission_limit=0,
+            opens_at=now - timedelta(days=2),
+            closes_at=now - timedelta(days=1),
+            publish_at=now - timedelta(hours=12),
+            status=RoundStatus.PUBLISHING,
+            policy_snapshot=[],
+        )
+        db.add_all((account, round_))
+        db.flush()
+        publication = Publication(
+            round_id=round_.id,
+            publisher_account_id=account.id,
+            state=PublicationState.PUBLISHING,
+            idempotency_key=f"queue-{suffix}",
+        )
+        db.add(publication)
+        db.commit()
+
+        def rejected(_: str) -> None:
+            raise RuntimeError("queue unavailable")
+
+        _defer_or_mark_failed(db, publication, round_, rejected)
+        db.refresh(publication)
+        db.refresh(round_)
+        assert publication.state is PublicationState.FAILED
+        assert round_.status is RoundStatus.FAILED
+        assert publication.last_error is not None and "Retry" in publication.last_error
