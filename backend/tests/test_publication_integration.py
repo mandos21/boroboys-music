@@ -103,6 +103,8 @@ def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.Monke
 
         publication = start_publication(db, round_.id, account.id)
         db.commit()
+        db.refresh(round_)
+        assert round_.publisher_account_id == account.id
         batches: list[list[str]] = []
 
         monkeypatch.setattr(spotify, "create_playlist", lambda *_: "playlist-id")

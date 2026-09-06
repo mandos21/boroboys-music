@@ -16,6 +16,7 @@ from app.db.models import (
     AuditEvent,
     ExternalAccount,
     ExternalCredential,
+    ExternalProvider,
     Publication,
     PublicationItem,
     PublicationState,
@@ -41,6 +42,17 @@ def start_publication(
         raise PublicationError("round must be closed before publication")
     if db.scalar(select(Publication).where(Publication.round_id == round_id)):
         raise PublicationError("round already has a publication")
+    publisher = db.get(ExternalAccount, publisher_account_id)
+    if (
+        publisher is None
+        or publisher.provider is not ExternalProvider.SPOTIFY
+        or not publisher.is_active
+    ):
+        raise PublicationError("a connected Spotify publisher is required")
+    if db.scalar(
+        select(ExternalCredential.id).where(ExternalCredential.external_account_id == publisher.id)
+    ) is None:
+        raise PublicationError("Spotify publisher needs reauthorization")
     sequence = (
         db.scalar(
             select(func.max(Round.published_sequence)).where(Round.series_id == round_.series_id)
@@ -74,6 +86,7 @@ def start_publication(
         for index, item in enumerate(submissions, start=1)
     )
     round_.status = RoundStatus.PUBLISHING
+    round_.publisher_account_id = publisher.id
     round_.published_sequence = sequence
     return publication
 
