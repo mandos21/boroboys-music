@@ -17,6 +17,7 @@ from app.db.session import get_session_factory
 from app.services.evidence import refresh_round_evidence
 from app.services.lifecycle import reconcile_rounds
 from app.services.publications import execute_publication, execute_retirement
+from app.services.worker_health import record_heartbeat
 
 settings = get_settings()
 app = App(connector=PsycopgConnector(conninfo=settings.procrastinate_database_url))
@@ -30,6 +31,17 @@ async def reconcile_schedules(timestamp: int) -> None:
     del timestamp
     with get_session_factory()() as db:
         reconcile_rounds(db)
+        db.commit()
+
+
+@app.periodic(cron="* * * * *", queue="scheduling")
+@app.task(queue="scheduling", queueing_lock="worker-heartbeat")
+async def record_worker_heartbeat(timestamp: int) -> None:
+    """Provide an independently queryable worker liveness signal every minute."""
+
+    del timestamp
+    with get_session_factory()() as db:
+        record_heartbeat(db)
         db.commit()
 
 

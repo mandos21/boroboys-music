@@ -10,7 +10,10 @@ retained alongside the backup in the deployment secret manager.
 2. Apply Alembic migrations before starting an updated worker: `make migrate`.
 3. Apply the Procrastinate schema when its library version changes:
    `make task-schema`.
-4. Start API and worker as separate processes, then check `/api/v1/health`.
+4. Start API and worker as separate processes, then check `/api/v1/health` and
+   `/api/v1/health/worker`. The worker endpoint becomes healthy after its first
+   one-minute heartbeat and reports degraded when the heartbeat is older than two
+   minutes.
 
 ## Backup and restore drill
 

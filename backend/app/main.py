@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from time import perf_counter
 
 from fastapi import FastAPI, Request, Response
@@ -11,6 +11,9 @@ from prometheus_client import Counter, Histogram, make_asgi_app
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.db.models import WorkerHeartbeat
+from app.db.session import get_session_factory
+from app.services.worker_health import HEARTBEAT_NAME
 from app.tasks import app as task_app
 
 HTTP_REQUESTS = Counter(
@@ -68,6 +71,26 @@ def create_app() -> FastAPI:
     @app.get("/api/v1/health", tags=["health"])
     async def health() -> dict[str, str]:
         return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
+
+    @app.get("/api/v1/health/worker", tags=["health"])
+    def worker_health() -> Response:
+        with get_session_factory()() as db:
+            heartbeat = db.get(WorkerHeartbeat, HEARTBEAT_NAME)
+        now = datetime.now(UTC)
+        if heartbeat is None or heartbeat.observed_at < now - timedelta(minutes=2):
+            return Response(
+                content='{"status":"degraded","detail":"worker heartbeat is stale"}',
+                status_code=503,
+                media_type="application/json",
+            )
+        return Response(
+            content=(
+                '{"status":"ok","observedAt":"'
+                f"{heartbeat.observed_at.isoformat()}"
+                '"}'
+            ),
+            media_type="application/json",
+        )
 
     return app
 
