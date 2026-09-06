@@ -5,6 +5,12 @@
 *.pem
 *.key
 
+# Private historical-import source material (never commit)
+/historical_data.csv
+/historical_data.csv.bak
+/playlist_rounds/
+/song responses - year.csv
+
 # Python
 __pycache__/
 *.py[cod]
