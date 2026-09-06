@@ -69,10 +69,7 @@ def create_rolling_successor(
     if duration_hours is None:
         return None
     existing = db.scalar(
-        select(Round).where(
-            Round.series_id == series.id,
-            Round.title == _successor_title(plan, published_round.title),
-        )
+        select(Round).where(Round.successor_of_round_id == published_round.id)
     )
     if existing is not None:
         return existing
@@ -90,6 +87,7 @@ def create_rolling_successor(
         closes_at=closes_at,
         publish_at=closes_at + timedelta(minutes=publish_delay_minutes),
         status=RoundStatus.OPEN,
+        successor_of_round_id=published_round.id,
         policy_snapshot=published_round.policy_snapshot,
     )
     db.add(successor)
@@ -147,7 +145,7 @@ def create_calendar_successor(
     publish_at = closes_at + timedelta(minutes=publish_delay_minutes)
     title = _calendar_successor_title(plan, published_round.title, candidate)
     existing = db.scalar(
-        select(Round).where(Round.series_id == series.id, Round.title == title)
+        select(Round).where(Round.successor_of_round_id == published_round.id)
     )
     if existing is not None:
         return existing
@@ -163,6 +161,7 @@ def create_calendar_successor(
         closes_at=closes_at,
         publish_at=publish_at,
         status=RoundStatus.OPEN if opens_at <= instant < closes_at else RoundStatus.SCHEDULED,
+        successor_of_round_id=published_round.id,
         policy_snapshot=published_round.policy_snapshot,
     )
     db.add(successor)

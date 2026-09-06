@@ -10,6 +10,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.db.models import (
@@ -188,7 +189,11 @@ def search_tracks(
             status_code=status.HTTP_409_CONFLICT, detail="Spotify account is not linked"
         )
     try:
-        matches = spotify.search_tracks(get_spotify_access_token(db, account.id), query)
+        access_token = get_spotify_access_token(db, account.id)
+        # A refresh changes durable credentials.  Checkpoint it before the
+        # unrelated remote search so a search failure cannot discard it.
+        db.commit()
+        matches = spotify.search_tracks(access_token, query)
     except (httpx.HTTPError, spotify.SpotifyError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="Spotify search failed"
@@ -552,10 +557,24 @@ def _active_submission_count(db: DbSession, round_id: uuid.UUID, user_id: uuid.U
 
 def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
     track = db.scalar(select(Track).where(Track.spotify_track_id == input_track.spotify_track_id))
-    if track is None:
-        track = Track(**input_track.model_dump())
-        db.add(track)
-        db.flush()
+    if track is not None:
+        return track
+    # Tracks are shared across overlapping rounds.  PostgreSQL resolves the
+    # first-insert race without turning a normal simultaneous evaluation into
+    # an IntegrityError/500.
+    result = db.execute(
+        insert(Track)
+        .values(**input_track.model_dump())
+        .on_conflict_do_nothing(index_elements=[Track.spotify_track_id])
+        .returning(Track.id)
+    )
+    track_id = result.scalar_one_or_none()
+    if track_id is not None:
+        track = db.get(Track, track_id)
+    else:
+        track = db.scalar(select(Track).where(Track.spotify_track_id == input_track.spotify_track_id))
+    if track is None:  # defensive: only possible with an unexpected transaction failure
+        raise RuntimeError("track insert did not return a track")
     return track
 
 

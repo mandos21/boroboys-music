@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -35,6 +37,7 @@ from app.services.publications import (
 from app.tasks import defer_publication, defer_retirement
 
 router = APIRouter(prefix="/admin", tags=["administration"], dependencies=[Depends(require_csrf)])
+LOGGER = logging.getLogger(__name__)
 
 
 class RollingRoundPlan(BaseModel):
@@ -538,6 +541,10 @@ def add_round_member(
     if round_ is None:
         raise _not_found("round")
     _require_series_admin(db, user, round_.series_id)
+    if round_.status not in {RoundStatus.DRAFT, RoundStatus.SCHEDULED, RoundStatus.OPEN}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="round membership is frozen"
+        )
     _require_user(db, user_id)
     membership = db.scalar(
         select(RoundMember).where(RoundMember.round_id == round_id, RoundMember.user_id == user_id)
@@ -606,12 +613,12 @@ def publish_round_request(
         raise _not_found("round")
     _require_series_admin(db, user, round_.series_id)
     try:
-        publication = start_publication(db, round_id, payload.publisher_account_id)
+        publication = start_publication(db, round_id, payload.publisher_account_id, user.id)
         db.commit()
     except PublicationError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    defer_publication(str(publication.id))
+    _defer_or_mark_failed(db, publication, round_, defer_publication)
     return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
@@ -631,7 +638,7 @@ def unpublish_round_request(
     except PublicationError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    defer_retirement(str(publication.id))
+    _defer_or_mark_failed(db, publication, round_, defer_retirement)
     return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
@@ -649,18 +656,41 @@ def retry_publication(
         raise _not_found("round")
     _require_series_admin(db, user, round_.series_id)
     if publication.state is PublicationState.FAILED:
-        publication.state = PublicationState.PUBLISHING
-        round_.status = RoundStatus.PUBLISHING
+        if publication.retirement_requested:
+            publication.state = PublicationState.UNPUBLISHING
+            round_.status = RoundStatus.UNPUBLISHING
+            defer = defer_retirement
+        else:
+            publication.state = PublicationState.PUBLISHING
+            round_.status = RoundStatus.PUBLISHING
+            defer = defer_publication
         db.commit()
-        defer_publication(str(publication.id))
+        _defer_or_mark_failed(db, publication, round_, defer)
     elif publication.state is PublicationState.UNPUBLISHING:
         db.commit()
-        defer_retirement(str(publication.id))
+        _defer_or_mark_failed(db, publication, round_, defer_retirement)
     else:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="publication is not retryable"
         )
     return {"publicationId": str(publication.id), "state": publication.state.value}
+
+
+def _defer_or_mark_failed(
+    db: DbSession,
+    publication: Publication,
+    round_: Round,
+    defer: Callable[[str], None],
+) -> None:
+    """Never leave a publication stranded when Procrastinate rejects an enqueue."""
+    try:
+        defer(str(publication.id))
+    except Exception:
+        LOGGER.exception("publication task enqueue failed", extra={"publication_id": str(publication.id)})
+        publication.state = PublicationState.FAILED
+        publication.last_error = "Publication could not be queued. Retry it from this page."
+        round_.status = RoundStatus.FAILED
+        db.commit()
 
 
 def _require_platform_admin(user: User) -> None:

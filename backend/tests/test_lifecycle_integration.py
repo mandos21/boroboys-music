@@ -75,6 +75,7 @@ def test_published_rolling_round_creates_one_open_successor_with_member_snapshot
         assert successor.publish_at == published_at + timedelta(hours=72, minutes=30)
         assert successor.submission_limit == 3
         assert successor.policy_snapshot == published.policy_snapshot
+        assert successor.successor_of_round_id == published.id
         members = list(
             db.scalars(
                 select(RoundMember)
@@ -86,6 +87,53 @@ def test_published_rolling_round_creates_one_open_successor_with_member_snapshot
         assert {member.submission_limit_override for member in members} == {None, 2}
 
         assert create_rolling_successor(db, published, now=published_at) is successor
+
+
+def test_successor_identity_does_not_confuse_a_manually_scheduled_matching_title() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        series = Series(
+            name=f"Identity {suffix}",
+            slug=f"identity-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+            auto_start_next_round=True,
+            round_plan={"kind": "rolling", "duration_hours": 24},
+        )
+        db.add(series)
+        db.flush()
+        published = Round(
+            series_id=series.id,
+            title="September",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now - timedelta(days=3),
+            closes_at=now - timedelta(days=2),
+            publish_at=now - timedelta(days=1),
+            status=RoundStatus.PUBLISHED,
+            policy_snapshot=[],
+        )
+        manual = Round(
+            series_id=series.id,
+            title="September — next",
+            timezone="UTC",
+            submission_limit=8,
+            opens_at=now + timedelta(days=5),
+            closes_at=now + timedelta(days=6),
+            publish_at=now + timedelta(days=7),
+            status=RoundStatus.SCHEDULED,
+            policy_snapshot=[],
+        )
+        db.add_all((published, manual))
+        db.commit()
+
+        successor = create_rolling_successor(db, published, now=now)
+
+        assert successor is not None
+        assert successor.id != manual.id
+        assert successor.successor_of_round_id == published.id
+        assert successor.submission_limit == 1
 
 
 def test_calendar_successor_skips_elapsed_windows_and_keeps_the_series_timezone() -> None:
@@ -140,6 +188,7 @@ def test_calendar_successor_skips_elapsed_windows_and_keeps_the_series_timezone(
         assert successor.publish_at == datetime(2026, 6, 8, 14, 30, tzinfo=UTC)
         assert successor.submission_limit == 2
         assert successor.policy_snapshot == published.policy_snapshot
+        assert successor.successor_of_round_id == published.id
         db.flush()
         assert (
             db.scalar(

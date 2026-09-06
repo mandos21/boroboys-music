@@ -109,7 +109,23 @@ def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.Monke
         )
         db.commit()
 
-        publication = start_publication(db, round_.id, account.id)
+        other_user = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"other-publisher-{suffix}",
+        )
+        db.add(other_user)
+        db.flush()
+        other_account = ExternalAccount(
+            user_id=other_user.id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject=f"other-publisher-{suffix}",
+        )
+        db.add(other_account)
+        db.commit()
+        with pytest.raises(PublicationError, match="connected Spotify publisher"):
+            start_publication(db, round_.id, other_account.id, publisher.id)
+
+        publication = start_publication(db, round_.id, account.id, publisher.id)
         db.commit()
         db.refresh(round_)
         assert round_.publisher_account_id == account.id

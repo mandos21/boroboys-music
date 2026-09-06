@@ -147,11 +147,18 @@ class OidcClient:
             raise OidcError("ID token signature or standard claims validation failed") from error
 
         expected_issuer = str(self.settings.oidc_issuer_url).rstrip("/")
+        expected_client_id = self.settings.oidc_client_id or ""
         audience = claims.get("aud")
         audiences = audience if isinstance(audience, list) else [audience]
+        authorized_party = claims.get("azp")
+        audience_is_ambiguous = len(audiences) > 1
         if (
             not hmac.compare_digest(str(claims.get("iss", "")).rstrip("/"), expected_issuer)
-            or self.settings.oidc_client_id not in audiences
+            or expected_client_id not in audiences
+            or (
+                audience_is_ambiguous
+                and not hmac.compare_digest(str(authorized_party or ""), expected_client_id)
+            )
             or not hmac.compare_digest(str(claims.get("nonce", "")), nonce)
         ):
             raise OidcError("ID token issuer, audience, or nonce validation failed")

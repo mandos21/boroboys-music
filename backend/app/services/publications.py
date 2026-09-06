@@ -36,8 +36,20 @@ class PublicationError(Exception):
 
 
 def start_publication(
-    db: Session, round_id: uuid.UUID, publisher_account_id: uuid.UUID
+    db: Session,
+    round_id: uuid.UUID,
+    publisher_account_id: uuid.UUID,
+    publisher_owner_id: uuid.UUID,
 ) -> Publication:
+    # Lock the series before allocating its publication sequence.  Locking only
+    # the round permits two different rounds in the same series to choose the
+    # same next sequence concurrently.
+    candidate = db.get(Round, round_id)
+    if candidate is None:
+        raise PublicationError("round must be closed before publication")
+    series = db.scalar(select(Series).where(Series.id == candidate.series_id).with_for_update())
+    if series is None:
+        raise PublicationError("series not found")
     round_ = db.scalar(select(Round).where(Round.id == round_id).with_for_update())
     if round_ is None or round_.status is not RoundStatus.CLOSED:
         raise PublicationError("round must be closed before publication")
@@ -48,6 +60,7 @@ def start_publication(
         publisher is None
         or publisher.provider is not ExternalProvider.SPOTIFY
         or not publisher.is_active
+        or publisher.user_id != publisher_owner_id
     ):
         raise PublicationError("a connected Spotify publisher is required")
     if db.scalar(
@@ -109,6 +122,12 @@ def mark_published(db: Session, publication_id: uuid.UUID, playlist_id: str) -> 
 
 
 def start_unpublish(db: Session, round_id: uuid.UUID) -> Publication:
+    candidate = db.get(Round, round_id)
+    if candidate is None:
+        raise PublicationError("round is not published")
+    series = db.scalar(select(Series).where(Series.id == candidate.series_id).with_for_update())
+    if series is None:
+        raise PublicationError("series not found")
     round_ = db.scalar(select(Round).where(Round.id == round_id).with_for_update())
     if round_ is None or round_.status is not RoundStatus.PUBLISHED:
         raise PublicationError("round is not published")
@@ -125,6 +144,7 @@ def start_unpublish(db: Session, round_id: uuid.UUID) -> Publication:
     if publication.is_imported:
         raise PublicationError("historically imported playlists cannot be retired")
     publication.state = PublicationState.UNPUBLISHING
+    publication.retirement_requested = True
     round_.status = RoundStatus.UNPUBLISHING
     return publication
 
@@ -151,6 +171,7 @@ def import_historical_playlist(
         publisher is None
         or publisher.provider is not ExternalProvider.SPOTIFY
         or not publisher.is_active
+        or publisher.user_id != actor_id
     ):
         raise PublicationError("a connected Spotify publisher is required")
     try:
@@ -295,9 +316,7 @@ def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
         )
         db.commit()
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
-        publication.attempt_count += 1
-        publication.last_error = "Spotify playlist retirement failed"
-        db.commit()
+        _fail(db, publication, round_, "Spotify playlist retirement failed")
 
 
 def get_spotify_access_token(db: Session, account_id: uuid.UUID) -> str:

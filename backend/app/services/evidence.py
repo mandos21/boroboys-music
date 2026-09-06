@@ -50,6 +50,10 @@ def _refresh_account(db: Session, account: ExternalAccount, track: Track) -> Non
             ListeningEvidence.source == "lastfm",
         )
     )
+    # A listening history only grows.  Fresh cached evidence is therefore a
+    # useful answer even though it may not yet include the newest plays.
+    if evidence is not None and evidence.refresh_after is not None and evidence.refresh_after > now:
+        return
     try:
         response = httpx.get(
             "https://ws.audioscrobbler.com/2.0/",

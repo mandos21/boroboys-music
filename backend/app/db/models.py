@@ -243,6 +243,10 @@ class Round(UUIDTimestampMixin, Base):
         CheckConstraint("opens_at < closes_at", name="ck_rounds_open_before_close"),
         CheckConstraint("closes_at <= publish_at", name="ck_rounds_close_before_publish"),
         CheckConstraint("submission_limit >= 0", name="ck_rounds_submission_limit_nonnegative"),
+        UniqueConstraint("successor_of_round_id", name="uq_rounds_successor_of"),
+        UniqueConstraint(
+            "series_id", "published_sequence", name="uq_rounds_series_published_sequence"
+        ),
     )
 
     series_id: Mapped[uuid.UUID] = mapped_column(
@@ -261,6 +265,9 @@ class Round(UUIDTimestampMixin, Base):
     )
     publisher_account_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("external_accounts.id")
+    )
+    successor_of_round_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("rounds.id", ondelete="SET NULL")
     )
     policy_snapshot: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, default=list, nullable=False
@@ -380,6 +387,7 @@ class Publication(UUIDTimestampMixin, Base):
     spotify_playlist_id: Mapped[str | None] = mapped_column(String(128))
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     is_imported: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    retirement_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_error: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
