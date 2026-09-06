@@ -12,10 +12,12 @@ from sqlalchemy import func, select
 
 from app.api.routes.rounds import (
     SubmissionCreate,
+    SubmissionUpdate,
     TrackEvaluationRequest,
     TrackInput,
     create_submission,
     evaluate_track,
+    update_submission,
 )
 from app.db.models import (
     EvaluationDecision,
@@ -121,6 +123,96 @@ def test_warning_requires_confirmation_and_persists_an_audit_record(opened_task_
             select(PolicyEvaluation.decision).where(PolicyEvaluation.round_id == round_.id)
         )
         assert decision is EvaluationDecision.WARN
+
+
+def test_track_replacement_rechecks_policies_and_preserves_prior_evaluations(
+    opened_task_app: None,
+) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        contributor = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"replacement-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        series = Series(
+            name=f"Replacement series {suffix}",
+            slug=f"replacement-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((contributor, series))
+        db.flush()
+        round_ = Round(
+            series_id=series.id,
+            title=f"Replacement round {suffix}",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now - timedelta(minutes=5),
+            closes_at=now + timedelta(minutes=5),
+            publish_at=now + timedelta(minutes=10),
+            status=RoundStatus.OPEN,
+            policy_snapshot=[{"kind": "editorial_warning", "on_match": "warn"}],
+        )
+        db.add(round_)
+        db.flush()
+        db.add(RoundMember(round_id=round_.id, user_id=contributor.id))
+        db.commit()
+
+        original = TrackInput(
+            spotify_track_id=f"original-{suffix}",
+            name="Original",
+            artist="The Testers",
+        )
+        created = create_submission(
+            round_.id,
+            SubmissionCreate(track=original, note="original note", confirm_warnings=True),
+            db,
+            contributor,
+        )
+        assert created["accepted"] is True
+        submission_id = uuid.UUID(str(created["id"]))
+
+        replacement = TrackInput(
+            spotify_track_id=f"replacement-{suffix}",
+            name="Replacement",
+            artist="The Testers",
+        )
+        needs_confirmation = update_submission(
+            submission_id,
+            SubmissionUpdate(track=replacement),
+            db,
+            contributor,
+        )
+        assert needs_confirmation["accepted"] is False
+        assert needs_confirmation["requiresWarningConfirmation"] is True
+        db.expire_all()
+        submission = db.get(Submission, submission_id)
+        assert submission is not None
+        assert submission.note == "original note"
+        assert db.scalar(select(Track.spotify_track_id).where(Track.id == submission.track_id)) == original.spotify_track_id
+
+        updated = update_submission(
+            submission_id,
+            SubmissionUpdate(track=replacement, confirm_warnings=True),
+            db,
+            contributor,
+        )
+        assert updated["accepted"] is True
+        db.expire_all()
+        submission = db.get(Submission, submission_id)
+        assert submission is not None
+        assert submission.note == "original note"
+        assert db.scalar(select(Track.spotify_track_id).where(Track.id == submission.track_id)) == replacement.spotify_track_id
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(PolicyEvaluation)
+                .where(PolicyEvaluation.submission_id == submission_id)
+            )
+            == 2
+        )
 
 
 def test_recent_series_repeat_only_considers_the_configured_published_window() -> None:

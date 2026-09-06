@@ -1,0 +1,93 @@
+"""Integration coverage for contributor-scoped series history."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from fastapi import HTTPException
+
+from app.api.routes.rounds import get_round, list_round_submissions
+from app.api.routes.series import get_series_history
+from app.db.models import PlatformRole, Round, RoundMember, RoundStatus, Series, User
+from app.db.session import get_session_factory
+
+
+def test_series_history_does_not_leak_another_group_round() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        member_one = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"series-member-one-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        member_two = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"series-member-two-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        outsider = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"series-outsider-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        administrator = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"series-admin-{suffix}",
+            platform_role=PlatformRole.ADMIN,
+        )
+        series = Series(
+            name=f"Private groups {suffix}",
+            slug=f"private-groups-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((member_one, member_two, outsider, administrator, series))
+        db.flush()
+        one = Round(
+            series_id=series.id,
+            title="First group round",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now - timedelta(days=2),
+            closes_at=now - timedelta(days=1),
+            publish_at=now,
+            status=RoundStatus.CLOSED,
+            policy_snapshot=[],
+        )
+        two = Round(
+            series_id=series.id,
+            title="Second group round",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now - timedelta(days=2),
+            closes_at=now - timedelta(days=1),
+            publish_at=now,
+            status=RoundStatus.CLOSED,
+            policy_snapshot=[],
+        )
+        db.add_all((one, two))
+        db.flush()
+        db.add_all(
+            (
+                RoundMember(round_id=one.id, user_id=member_one.id),
+                RoundMember(round_id=two.id, user_id=member_two.id),
+            )
+        )
+        db.commit()
+
+        visible_to_one = get_series_history(series.id, db, member_one)
+        assert [round_["id"] for round_ in visible_to_one["rounds"]] == [str(one.id)]
+        visible_to_admin = get_series_history(series.id, db, administrator)
+        assert {round_["id"] for round_ in visible_to_admin["rounds"]} == {
+            str(one.id),
+            str(two.id),
+        }
+        admin_round = get_round(one.id, db, administrator)
+        assert admin_round["id"] == str(one.id)
+        assert list_round_submissions(one.id, db, administrator) == []
+        with pytest.raises(HTTPException, match="series access required") as error:
+            get_series_history(series.id, db, outsider)
+        assert error.value.status_code == 403

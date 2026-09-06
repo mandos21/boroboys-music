@@ -53,6 +53,19 @@ class SubmissionCreate(BaseModel):
     confirm_warnings: bool = False
 
 
+class SubmissionUpdate(BaseModel):
+    """A contributor-owned change while the round is still accepting entries.
+
+    A track change is deliberately evaluated exactly like a new submission.  The
+    existing policy-evaluation rows are retained as an audit trail instead of
+    overwriting the decision that was made for the previous track.
+    """
+
+    track: TrackInput | None = None
+    note: str | None = Field(default=None, max_length=4000)
+    confirm_warnings: bool = False
+
+
 class TrackEvaluationRequest(BaseModel):
     track: TrackInput
 
@@ -92,14 +105,15 @@ def get_round(
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
-    round_, membership = _member_round(db, round_id, user.id)
+    round_, membership = _viewer_round(db, round_id, user)
     limit = (
         membership.submission_limit_override
         if membership.submission_limit_override is not None
         else round_.submission_limit
-    )
+    ) if membership is not None else round_.submission_limit
     return {
         "id": str(round_.id),
+        "seriesId": str(round_.series_id),
         "title": round_.title,
         "status": round_.status.value,
         "opensAt": round_.opens_at.isoformat(),
@@ -107,6 +121,51 @@ def get_round(
         "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": limit,
     }
+
+
+@router.get("/{round_id}/submissions")
+def list_round_submissions(
+    round_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, object]]:
+    """Show accepted entries to round members and a user's withdrawn entries to them.
+
+    The active membership check is intentional: a person removed from a private
+    round must not retain a general read capability merely because their old
+    submission remains attributable in publication history.
+    """
+    _, membership = _viewer_round(db, round_id, user)
+    visible_statuses = Submission.status == SubmissionStatus.ACCEPTED
+    if membership is not None:
+        visible_statuses = visible_statuses | (Submission.contributor_id == user.id)
+    rows = db.execute(
+        select(Submission, Track, User)
+        .join(Track, Track.id == Submission.track_id)
+        .join(User, User.id == Submission.contributor_id)
+        .where(
+            Submission.round_id == round_id,
+            visible_statuses,
+        )
+        .order_by(Submission.created_at.asc())
+    )
+    return [
+        {
+            "id": str(submission.id),
+            "status": submission.status.value,
+            "note": submission.note,
+            "createdAt": submission.created_at.isoformat(),
+            "updatedAt": submission.updated_at.isoformat(),
+            "withdrawnAt": submission.withdrawn_at.isoformat() if submission.withdrawn_at else None,
+            "isMine": submission.contributor_id == user.id,
+            "contributor": {
+                "id": str(contributor.id),
+                "displayName": contributor.display_name,
+            },
+            "track": _track_payload(track),
+        }
+        for submission, track, contributor in rows
+    ]
 
 
 @router.get("/{round_id}/track-search")
@@ -318,6 +377,67 @@ def create_submission(
     }
 
 
+@router.patch(
+    "/submissions/{submission_id}",
+    dependencies=[Depends(require_csrf)],
+)
+def update_submission(
+    submission_id: uuid.UUID,
+    payload: SubmissionUpdate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    """Update a note or replace a submitted track before the round closes."""
+    submission = db.get(Submission, submission_id)
+    if submission is None or submission.contributor_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission not found")
+    if submission.status is not SubmissionStatus.ACCEPTED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="submission is withdrawn")
+    round_, _ = _member_round(db, submission.round_id, user.id, lock_round=True)
+    _require_open_round(round_)
+
+    decisions = []
+    if payload.track is not None:
+        track = _find_or_create_track(db, payload.track)
+        decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
+        if any(item.decision is EvaluationDecision.REJECT for item in decisions):
+            return {
+                "accepted": False,
+                "requiresWarningConfirmation": False,
+                "policyResults": [_policy_payload(item) for item in decisions],
+            }
+        if any(item.decision is EvaluationDecision.WARN for item in decisions) and not payload.confirm_warnings:
+            return {
+                "accepted": False,
+                "requiresWarningConfirmation": True,
+                "policyResults": [_policy_payload(item) for item in decisions],
+            }
+        submission.track_id = track.id
+        db.add_all(
+            PolicyEvaluation(
+                round_id=round_.id,
+                submission_id=submission.id,
+                track_id=track.id,
+                policy_kind=item.kind,
+                policy_version=item.version,
+                decision=item.decision,
+                message=item.message,
+                result=item.result,
+            )
+            for item in decisions
+        )
+    if "note" in payload.model_fields_set:
+        submission.note = payload.note
+    db.commit()
+    if payload.track is not None:
+        defer_evidence_refresh(str(round_.id), str(submission.track_id))
+    return {
+        "accepted": True,
+        "id": str(submission.id),
+        "policyResults": [_policy_payload(item) for item in decisions],
+    }
+
+
 @router.post(
     "/submissions/{submission_id}/withdraw",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -362,6 +482,41 @@ def _member_round(
             status_code=status.HTTP_403_FORBIDDEN, detail="round membership required"
         )
     return round_, membership
+
+
+def _viewer_round(
+    db: DbSession, round_id: uuid.UUID, user: User
+) -> tuple[Round, RoundMember | None]:
+    """Authorize a contributor or the series' normal administrator.
+
+    A series administrator has management access without becoming a contributor.
+    That is not a separate round-administrator role, and it does not allow the
+    administrator to submit or inspect a contributor's withdrawn entry.
+    """
+    round_ = db.get(Round, round_id)
+    if round_ is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="round not found")
+    membership = db.scalar(
+        select(RoundMember).where(
+            RoundMember.round_id == round_id,
+            RoundMember.user_id == user.id,
+            RoundMember.removed_at.is_(None),
+        )
+    )
+    if membership is not None:
+        return round_, membership
+    is_admin = user.platform_role is PlatformRole.ADMIN or (
+        db.scalar(
+            select(SeriesAdmin.id).where(
+                SeriesAdmin.series_id == round_.series_id,
+                SeriesAdmin.user_id == user.id,
+            )
+        )
+        is not None
+    )
+    if not is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="round access required")
+    return round_, None
 
 
 def _require_open_round(round_: Round) -> None:
@@ -411,4 +566,15 @@ def _policy_payload(result: Any) -> dict[str, object]:
         "decision": result.decision.value,
         "message": result.message,
         "result": result.result,
+    }
+
+
+def _track_payload(track: Track) -> dict[str, object]:
+    return {
+        "spotifyTrackId": track.spotify_track_id,
+        "name": track.name,
+        "artist": track.artist,
+        "album": track.album,
+        "spotifyUri": track.spotify_uri,
+        "artworkUrl": track.artwork_url,
     }

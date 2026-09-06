@@ -465,6 +465,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rounds/submissions/{submission_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Submission
+         * @description Update a note or replace a submitted track before the round closes.
+         */
+        patch: operations["update_submission_api_v1_rounds_submissions__submission_id__patch"];
+        trace?: never;
+    };
     "/api/v1/rounds/submissions/{submission_id}/withdraw": {
         parameters: {
             query?: never;
@@ -526,7 +546,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Round Submissions
+         * @description Show accepted entries to round members and a user's withdrawn entries to them.
+         *
+         *     The active membership check is intentional: a person removed from a private
+         *     round must not retain a general read capability merely because their old
+         *     submission remains attributable in publication history.
+         */
+        get: operations["list_round_submissions_api_v1_rounds__round_id__submissions_get"];
         put?: never;
         /** Create Submission */
         post: operations["create_submission_api_v1_rounds__round_id__submissions_post"];
@@ -562,6 +590,30 @@ export interface paths {
         };
         /** Get Evidence */
         get: operations["get_evidence_api_v1_rounds__round_id__tracks__track_id__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{series_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Series History
+         * @description Return rounds visible to the caller within one series.
+         *
+         *     Series may run overlapping contributor groups. A normal contributor sees
+         *     only their active materialized memberships; platform and series admins can
+         *     inspect the complete series history.
+         */
+        get: operations["get_series_history_api_v1_series__series_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -722,6 +774,24 @@ export interface components {
             /** Note */
             note?: string | null;
             track: components["schemas"]["TrackInput"];
+        };
+        /**
+         * SubmissionUpdate
+         * @description A contributor-owned change while the round is still accepting entries.
+         *
+         *     A track change is deliberately evaluated exactly like a new submission.  The
+         *     existing policy-evaluation rows are retained as an audit trail instead of
+         *     overwriting the decision that was made for the previous track.
+         */
+        SubmissionUpdate: {
+            /**
+             * Confirm Warnings
+             * @default false
+             */
+            confirm_warnings: boolean;
+            /** Note */
+            note?: string | null;
+            track?: components["schemas"]["TrackInput"] | null;
         };
         /** TrackEvaluationRequest */
         TrackEvaluationRequest: {
@@ -1625,6 +1695,43 @@ export interface operations {
             };
         };
     };
+    update_submission_api_v1_rounds_submissions__submission_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submission_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     withdraw_submission_api_v1_rounds_submissions__submission_id__withdraw_post: {
         parameters: {
             query?: never;
@@ -1724,6 +1831,39 @@ export interface operations {
             };
         };
     };
+    list_round_submissions_api_v1_rounds__round_id__submissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_submission_api_v1_rounds__round_id__submissions_post: {
         parameters: {
             query?: never;
@@ -1803,6 +1943,39 @@ export interface operations {
             path: {
                 round_id: string;
                 track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_series_history_api_v1_series__series_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
             };
             cookie?: never;
         };

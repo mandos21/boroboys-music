@@ -52,3 +52,17 @@ export function put(path: string, payload: unknown): Promise<void> {
 export function del(path: string): Promise<void> {
   return api<void>(path, { method: "DELETE" });
 }
+
+/** End the server-side session, then let the identity provider finish logout. */
+export async function logout(): Promise<string> {
+  const headers = new Headers();
+  const token = csrfToken();
+  if (token) headers.set("X-CSRF-Token", decodeURIComponent(token));
+  const response = await fetch("/api/v1/auth/logout", {
+    method: "POST",
+    credentials: "include",
+    headers,
+  });
+  if (!response.ok) throw new ApiError(response.status, "Could not sign out");
+  return response.headers.get("X-Logout-Redirect") ?? "/signed-out";
+}

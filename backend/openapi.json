@@ -343,6 +343,40 @@
         "title": "SubmissionCreate",
         "type": "object"
       },
+      "SubmissionUpdate": {
+        "description": "A contributor-owned change while the round is still accepting entries.\n\nA track change is deliberately evaluated exactly like a new submission.  The\nexisting policy-evaluation rows are retained as an audit trail instead of\noverwriting the decision that was made for the previous track.",
+        "properties": {
+          "confirm_warnings": {
+            "default": false,
+            "title": "Confirm Warnings",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "track": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SubmissionUpdate",
+        "type": "object"
+      },
       "TrackEvaluationRequest": {
         "properties": {
           "track": {
@@ -1729,6 +1763,62 @@
         ]
       }
     },
+    "/api/v1/rounds/submissions/{submission_id}": {
+      "patch": {
+        "description": "Update a note or replace a submitted track before the round closes.",
+        "operationId": "update_submission_api_v1_rounds_submissions__submission_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "submission_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Submission Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Submission Api V1 Rounds Submissions  Submission Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Submission",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
     "/api/v1/rounds/submissions/{submission_id}/withdraw": {
       "post": {
         "operationId": "withdraw_submission_api_v1_rounds_submissions__submission_id__withdraw_post",
@@ -1867,6 +1957,53 @@
       }
     },
     "/api/v1/rounds/{round_id}/submissions": {
+      "get": {
+        "description": "Show accepted entries to round members and a user's withdrawn entries to them.\n\nThe active membership check is intentional: a person removed from a private\nround must not retain a general read capability merely because their old\nsubmission remains attributable in publication history.",
+        "operationId": "list_round_submissions_api_v1_rounds__round_id__submissions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Round Submissions Api V1 Rounds  Round Id  Submissions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Round Submissions",
+        "tags": [
+          "rounds"
+        ]
+      },
       "post": {
         "operationId": "create_submission_api_v1_rounds__round_id__submissions_post",
         "parameters": [
@@ -2032,6 +2169,52 @@
         "summary": "Get Evidence",
         "tags": [
           "rounds"
+        ]
+      }
+    },
+    "/api/v1/series/{series_id}": {
+      "get": {
+        "description": "Return rounds visible to the caller within one series.\n\nSeries may run overlapping contributor groups. A normal contributor sees\nonly their active materialized memberships; platform and series admins can\ninspect the complete series history.",
+        "operationId": "get_series_history_api_v1_series__series_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Series History Api V1 Series  Series Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Series History",
+        "tags": [
+          "series"
         ]
       }
     }
