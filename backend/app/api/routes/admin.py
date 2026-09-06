@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.db.models import (
@@ -121,6 +121,94 @@ class PlaylistImportRequest(BaseModel):
         if self.opens_at >= self.closes_at or self.closes_at > self.published_at:
             raise ValueError("import timeline must satisfy opens < closes <= published")
         return self
+
+
+@router.get("/series")
+def list_series_for_administration(
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, object]]:
+    query = select(Series).order_by(Series.name)
+    if user.platform_role is not PlatformRole.ADMIN:
+        query = (
+            query.join(SeriesAdmin, SeriesAdmin.series_id == Series.id)
+            .where(SeriesAdmin.user_id == user.id)
+            .distinct()
+        )
+    return [_series_summary(series) for series in db.scalars(query)]
+
+
+@router.get("/series/{series_id}")
+def get_series_for_administration(
+    series_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    series = _require_series_admin(db, user, series_id)
+    groups = list(
+        db.scalars(
+            select(ContributorGroup)
+            .where(ContributorGroup.series_id == series.id)
+            .order_by(ContributorGroup.name)
+        )
+    )
+    rounds = list(
+        db.scalars(
+            select(Round)
+            .where(Round.series_id == series.id)
+            .order_by(Round.opens_at.desc())
+        )
+    )
+    return {
+        **_series_summary(series),
+        "groups": [
+            {
+                "id": str(group.id),
+                "name": group.name,
+                "description": group.description,
+                "memberCount": int(
+                    db.scalar(
+                        select(func.count())
+                        .select_from(ContributorGroupMember)
+                        .where(ContributorGroupMember.group_id == group.id)
+                    )
+                    or 0
+                ),
+                "members": [
+                    _user_summary(member)
+                    for member in db.scalars(
+                        select(User)
+                        .join(ContributorGroupMember, ContributorGroupMember.user_id == User.id)
+                        .where(ContributorGroupMember.group_id == group.id)
+                        .order_by(User.display_name, User.email, User.id)
+                    )
+                ],
+            }
+            for group in groups
+        ],
+        "rounds": [_round_summary(round_) for round_ in rounds],
+    }
+
+
+@router.get("/series/{series_id}/users")
+def search_users_for_series(
+    series_id: uuid.UUID,
+    query: Annotated[str, Query(min_length=2, max_length=100)],
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, object]]:
+    _require_series_admin(db, user, series_id)
+    pattern = f"%{query.strip()}%"
+    users = db.scalars(
+        select(User)
+        .where(
+            User.is_active.is_(True),
+            or_(User.email.ilike(pattern), User.display_name.ilike(pattern)),
+        )
+        .order_by(User.display_name, User.email, User.id)
+        .limit(20)
+    )
+    return [_user_summary(candidate) for candidate in users]
 
 
 @router.post("/series", status_code=status.HTTP_201_CREATED)
@@ -448,3 +536,37 @@ def _require_user(db: DbSession, user_id: uuid.UUID) -> User:
 
 def _not_found(resource: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{resource} not found")
+
+
+def _series_summary(series: Series) -> dict[str, object]:
+    return {
+        "id": str(series.id),
+        "name": series.name,
+        "slug": series.slug,
+        "description": series.description,
+        "timezone": series.timezone,
+        "defaultPolicies": series.default_policies,
+        "roundPlan": series.round_plan,
+        "autoStartNextRound": series.auto_start_next_round,
+        "isArchived": series.is_archived,
+    }
+
+
+def _round_summary(round_: Round) -> dict[str, object]:
+    return {
+        "id": str(round_.id),
+        "title": round_.title,
+        "status": round_.status.value,
+        "opensAt": round_.opens_at.isoformat(),
+        "closesAt": round_.closes_at.isoformat(),
+        "publishAt": round_.publish_at.isoformat(),
+        "submissionLimit": round_.submission_limit,
+    }
+
+
+def _user_summary(user: User) -> dict[str, object]:
+    return {
+        "id": str(user.id),
+        "displayName": user.display_name,
+        "email": user.email,
+    }

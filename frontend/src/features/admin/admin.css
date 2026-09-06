@@ -1,0 +1,27 @@
+.admin-shell { max-width: 76rem; }
+.admin-create { margin-bottom: 2rem; }
+.admin-create form, .admin-round-form { display: grid; gap: .9rem; }
+.admin-create label, .admin-round-form label, .inline-form label { color: #334155; display: grid; font-size: .9rem; font-weight: 700; gap: .35rem; }
+.admin-create input, .admin-round-form input, .admin-round-form select, .admin-round-form textarea, .inline-form input { border: 1px solid #b8c4d8; border-radius: .65rem; font: inherit; padding: .65rem; }
+.admin-round-form textarea { min-height: 6rem; }
+.admin-list { display: grid; gap: .75rem; }
+.admin-series-card { align-items: center; display: flex; justify-content: space-between; padding: 1.25rem; }
+.admin-series-card h3 { color: #1f2937; }
+.admin-columns { align-items: start; display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 1rem; }
+.inline-form { align-items: end; display: grid; gap: .7rem; grid-template-columns: 1fr auto; }
+.admin-items { display: grid; gap: .6rem; margin-top: 1rem; }
+.admin-items article { align-items: start; border-top: 1px solid #dbe1ec; display: flex; gap: .75rem; justify-content: space-between; padding-top: .75rem; }
+.admin-items article div { display: grid; gap: .3rem; }
+.admin-items article span { color: #64748b; font-size: .85rem; }
+.admin-items code { color: #64748b; font-size: .7rem; overflow-wrap: anywhere; text-align: right; }
+.admin-history { margin-top: 1rem; }
+.member-picker { border-top: 1px solid #dbe1ec; display: grid; gap: .7rem; margin-top: 1rem; padding-top: 1rem; }
+.member-picker label { color: #334155; display: grid; font-size: .9rem; font-weight: 700; gap: .35rem; }
+.member-picker input, .member-picker select { border: 1px solid #b8c4d8; border-radius: .65rem; font: inherit; padding: .65rem; }
+.user-result { align-items: center; background: #fff; border: 1px solid #dbe1ec; border-radius: .65rem; color: #1f2937; cursor: pointer; display: flex; font: inherit; justify-content: space-between; padding: .55rem .7rem; text-align: left; }
+.user-result:hover:not(:disabled) { background: #f4f7ff; border-color: #2156d9; }
+.user-result:disabled { cursor: not-allowed; opacity: .6; }
+.user-result span:first-child { display: grid; gap: .15rem; }
+.user-result small { color: #64748b; }
+.group-member { color: #536176 !important; }
+@media (max-width: 48rem) { .admin-columns { grid-template-columns: 1fr; } .inline-form { grid-template-columns: 1fr; } }

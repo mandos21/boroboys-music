@@ -16,9 +16,9 @@ function csrfToken(): string | undefined {
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
+  const token = csrfToken();
+  if (token) headers.set("X-CSRF-Token", decodeURIComponent(token));
   if (init?.method && init.method !== "GET") {
-    const token = csrfToken();
-    if (token) headers.set("X-CSRF-Token", decodeURIComponent(token));
     if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   }
   const response = await fetch(`/api/v1${path}`, {
@@ -43,6 +43,10 @@ export function post<T>(path: string, payload: unknown): Promise<T> {
 
 export function patch<T>(path: string, payload: unknown): Promise<T> {
   return api<T>(path, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function put(path: string, payload: unknown): Promise<void> {
+  return api<void>(path, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 export function del(path: string): Promise<void> {

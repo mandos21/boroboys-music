@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, Route, Routes, useParams } from "react-router";
 
 import { api } from "../api/client";
+import { AdminIndexPage, AdminSeriesPage } from "../features/admin/AdminPages";
 import { ConnectionsPage } from "../features/connections/ConnectionsPage";
 import { SubmissionPage } from "../features/submissions/SubmissionPage";
 
@@ -25,7 +26,7 @@ function HomePage() {
     <main className="shell">
       <header className="topbar">
         <div><p className="eyebrow">Music Rounds</p><h1>Welcome back, {currentUser.displayName ?? "listener"}.</h1></div>
-        <div className="topbar-actions"><Link to="/settings/connections">Connections</Link><span className="role">{currentUser.platformRole}</span></div>
+        <div className="topbar-actions"><Link to="/admin">Manage series</Link><Link to="/settings/connections">Connections</Link><span className="role">{currentUser.platformRole}</span></div>
       </header>
       <section className="panel">
         <h2>Your rounds</h2>
@@ -75,6 +76,8 @@ export function App() {
       <Route path="/rounds/:roundId" element={<RoundPage />} />
       <Route path="/rounds/:roundId/submit" element={<SubmissionPage />} />
       <Route path="/settings/connections" element={<ConnectionsPage />} />
+      <Route path="/admin" element={<AdminIndexPage />} />
+      <Route path="/admin/series/:seriesId" element={<AdminSeriesPage />} />
       <Route path="/signed-out" element={<SignedOutPage />} />
     </Routes>
   );
