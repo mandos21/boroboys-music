@@ -13,6 +13,8 @@ def test_health_endpoint_returns_service_status() -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.headers["X-Request-ID"].isalnum()
+    assert len(response.headers["X-Request-ID"]) == 24
 
 
 def test_metrics_endpoint_exposes_music_rounds_metrics() -> None:

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from secrets import token_hex
 from time import perf_counter
 
 from fastapi import FastAPI, Request, Response
@@ -26,6 +28,7 @@ HTTP_DURATION = Histogram(
     "Time spent serving Music Rounds HTTP requests.",
     ["method", "path"],
 )
+LOGGER = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -62,10 +65,31 @@ def create_app() -> FastAPI:
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         started = perf_counter()
-        response = await call_next(request)
         path = request.url.path if request.url.path in {"/api/v1/health", "/metrics"} else "other"
+        request_id = token_hex(12)
+        try:
+            response = await call_next(request)
+        except Exception:
+            LOGGER.exception(
+                "http_request_failed request_id=%s method=%s path=%s",
+                request_id,
+                request.method,
+                path,
+            )
+            raise
+        elapsed = perf_counter() - started
         HTTP_REQUESTS.labels(request.method, path, response.status_code).inc()
-        HTTP_DURATION.labels(request.method, path).observe(perf_counter() - started)
+        HTTP_DURATION.labels(request.method, path).observe(elapsed)
+        response.headers["X-Request-ID"] = request_id
+        # Do not log URLs, query strings, cookies, bodies, or authorization data.
+        LOGGER.info(
+            "http_request request_id=%s method=%s path=%s status=%s duration_ms=%.1f",
+            request_id,
+            request.method,
+            path,
+            response.status_code,
+            elapsed * 1_000,
+        )
         return response
 
     @app.get("/api/v1/health", tags=["health"])

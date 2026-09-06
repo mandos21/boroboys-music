@@ -69,3 +69,7 @@ the re-encryption step has succeeded.
   provider rate limits before retrying aggressively.
 - A failed OIDC login should expose only a generic browser error; inspect server
   logs without logging tokens, authorization codes, or credential ciphertext.
+- Every completed API response includes `X-Request-ID`. Request logs contain that
+  ID, method, normalized route label, status, and duration—but deliberately omit
+  query strings, cookies, request bodies, and authorization data—so use the ID to
+  correlate a user report with server-side diagnostics.
