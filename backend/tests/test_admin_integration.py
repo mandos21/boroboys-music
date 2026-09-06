@@ -6,10 +6,12 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from app.api.routes.admin import (
+    SeriesUpdate,
     get_round_for_administration,
     get_series_for_administration,
     list_series_for_administration,
     search_users_for_series,
+    update_series,
 )
 from app.db.models import (
     ContributorGroup,
@@ -170,3 +172,68 @@ def test_round_administration_exposes_member_limit_overrides_and_removals() -> N
                 "removedAt": now.isoformat(),
             },
         ]
+
+
+def test_series_admin_can_replace_a_future_successor_plan_without_rewriting_rounds() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        admin = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"plan-admin-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        series = Series(
+            name=f"Plan series {suffix}",
+            slug=f"plan-series-{suffix}",
+            timezone="UTC",
+            default_policies=[{"kind": "no_duplicate_in_round"}],
+            round_plan={"kind": "rolling", "duration_hours": 72},
+            auto_start_next_round=True,
+        )
+        db.add_all((admin, series))
+        db.flush()
+        round_ = Round(
+            series_id=series.id,
+            title="Existing snapshot",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now,
+            closes_at=now + timedelta(days=1),
+            publish_at=now + timedelta(days=1),
+            status=RoundStatus.SCHEDULED,
+            policy_snapshot=[{"kind": "no_duplicate_in_round"}],
+        )
+        db.add_all((SeriesAdmin(series_id=series.id, user_id=admin.id), round_))
+        db.commit()
+
+        result = update_series(
+            series.id,
+            SeriesUpdate(
+                timezone="America/New_York",
+                round_plan={
+                    "kind": "calendar",
+                    "open_day": 1,
+                    "duration_days": 7,
+                    "title_template": "{year}-{month:02d}",
+                },
+                auto_start_next_round=False,
+            ),
+            db,
+            admin,
+        )
+        assert result["timezone"] == "America/New_York"
+        assert result["autoStartNextRound"] is False
+        assert result["roundPlan"] == {
+            "kind": "calendar",
+            "open_day": 1,
+            "duration_days": 7,
+            "publish_delay_minutes": 0,
+            "submission_limit": None,
+            "title_template": "{year}-{month:02d}",
+        }
+        db.expire_all()
+        existing = db.get(Round, round_.id)
+        assert existing is not None
+        assert existing.timezone == "UTC"
+        assert existing.policy_snapshot == [{"kind": "no_duplicate_in_round"}]

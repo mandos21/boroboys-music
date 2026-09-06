@@ -156,7 +156,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Series
+         * @description Change future-series defaults without changing existing round snapshots.
+         */
+        patch: operations["update_series_api_v1_admin_series__series_id__patch"];
         trace?: never;
     };
     "/api/v1/admin/series/{series_id}/admins/{user_id}": {
@@ -795,6 +799,28 @@ export interface components {
              */
             timezone: string;
         };
+        /**
+         * SeriesUpdate
+         * @description Mutable series defaults; existing materialized rounds are not rewritten.
+         */
+        SeriesUpdate: {
+            /** Auto Start Next Round */
+            auto_start_next_round?: boolean | null;
+            /** Default Policies */
+            default_policies?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Description */
+            description?: string | null;
+            /** Is Archived */
+            is_archived?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Round Plan */
+            round_plan?: (components["schemas"]["RollingRoundPlan"] | components["schemas"]["CalendarRoundPlan"]) | null;
+            /** Timezone */
+            timezone?: string | null;
+        };
         /** SubmissionCreate */
         SubmissionCreate: {
             /**
@@ -1201,6 +1227,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_series_api_v1_admin_series__series_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeriesUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

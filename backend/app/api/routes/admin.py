@@ -82,6 +82,29 @@ class SeriesCreate(BaseModel):
         return value
 
 
+class SeriesUpdate(BaseModel):
+    """Mutable series defaults; existing materialized rounds are not rewritten."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=10_000)
+    timezone: str | None = None
+    default_policies: list[dict[str, Any]] | None = None
+    round_plan: RoundPlan | None = None
+    auto_start_next_round: bool | None = None
+    is_archived: bool | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def valid_timezone(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as error:
+            raise ValueError("timezone must be an IANA timezone") from error
+        return value
+
+
 class GroupCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
@@ -214,6 +237,34 @@ def get_series_for_administration(
         ],
         "rounds": [_round_summary(round_) for round_ in rounds],
     }
+
+
+@router.patch("/series/{series_id}")
+def update_series(
+    series_id: uuid.UUID,
+    payload: SeriesUpdate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    """Change future-series defaults without changing existing round snapshots."""
+    series = _require_series_admin(db, user, series_id)
+    for field in (
+        "name",
+        "description",
+        "timezone",
+        "default_policies",
+        "round_plan",
+        "auto_start_next_round",
+        "is_archived",
+    ):
+        if field not in payload.model_fields_set:
+            continue
+        value = getattr(payload, field)
+        if field == "round_plan" and value is not None:
+            value = value.model_dump()
+        setattr(series, field, value)
+    db.commit()
+    return _series_summary(series)
 
 
 @router.get("/series/{series_id}/users")

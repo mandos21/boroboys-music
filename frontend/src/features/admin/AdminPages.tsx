@@ -2,7 +2,7 @@ import { FormEvent, useDeferredValue, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 
-import { ApiError, api, del, post, put } from "../../api/client";
+import { ApiError, api, del, patch, post, put } from "../../api/client";
 import "./admin.css";
 
 type Session = { user: { platformRole: string } };
@@ -86,6 +86,30 @@ export function AdminIndexPage() {
   );
 }
 
+function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSaved: () => void }) {
+  const initialKind = series.roundPlan?.kind === "rolling" || series.roundPlan?.kind === "calendar"
+    ? series.roundPlan.kind
+    : "none";
+  const [kind, setKind] = useState<"none" | "rolling" | "calendar">(initialKind);
+  const [rollingHours, setRollingHours] = useState(String(series.roundPlan?.duration_hours ?? ""));
+  const [calendarDay, setCalendarDay] = useState(String(series.roundPlan?.open_day ?? 1));
+  const [calendarDuration, setCalendarDuration] = useState(String(series.roundPlan?.duration_days ?? 7));
+  const [limit, setLimit] = useState(String(series.roundPlan?.submission_limit ?? ""));
+  const [autoStart, setAutoStart] = useState(series.autoStartNextRound);
+  const save = useMutation({
+    mutationFn: () => patch(`/admin/series/${series.id}`, {
+      auto_start_next_round: kind === "none" ? false : autoStart,
+      round_plan: kind === "rolling" ? {
+        kind: "rolling", duration_hours: Number(rollingHours), submission_limit: limit ? Number(limit) : null,
+      } : kind === "calendar" ? {
+        kind: "calendar", open_day: Number(calendarDay), duration_days: Number(calendarDuration), submission_limit: limit ? Number(limit) : null,
+      } : null,
+    }),
+    onSuccess: onSaved,
+  });
+  return <section className="panel"><h2>Automatic next round</h2><p>Changing this affects only successors created after a successful publication.</p><form className="admin-round-form" onSubmit={(event) => { event.preventDefault(); save.mutate(); }}><label>Timeline<select value={kind} onChange={(event) => setKind(event.target.value as "none" | "rolling" | "calendar")}><option value="none">None — schedule rounds manually</option><option value="rolling">Rolling — starts after publication</option><option value="calendar">Calendar — monthly schedule</option></select></label>{kind === "rolling" && <label>Round duration in hours<input type="number" required min="1" max="8760" value={rollingHours} onChange={(event) => setRollingHours(event.target.value)} /></label>}{kind === "calendar" && <><label>Open on day of month<input type="number" required min="1" max="28" value={calendarDay} onChange={(event) => setCalendarDay(event.target.value)} /></label><label>Submission window in days<input type="number" required min="1" max="366" value={calendarDuration} onChange={(event) => setCalendarDuration(event.target.value)} /></label></>}<label>Successor submission limit (optional)<input type="number" min="0" disabled={kind === "none"} value={limit} onChange={(event) => setLimit(event.target.value)} /></label><label className="check-label"><input type="checkbox" checked={autoStart} disabled={kind === "none"} onChange={(event) => setAutoStart(event.target.checked)} />Start the successor automatically</label><button className="button" disabled={save.isPending}>{save.isPending ? "Saving…" : "Save plan"}</button>{errorMessage(save.error) && <p className="error-message" role="alert">{errorMessage(save.error)}</p>}</form></section>;
+}
+
 export function AdminSeriesPage() {
   const { seriesId } = useParams();
   const queryClient = useQueryClient();
@@ -135,6 +159,7 @@ export function AdminSeriesPage() {
     <main className="shell admin-shell">
       <Link className="back" to="/admin">← Managed series</Link>
       <header className="submission-heading"><p className="eyebrow">{series.timezone}</p><h1>{series.name}</h1><p>{series.description ?? "Configure contributor groups and schedule distinct rounds for this series."}</p></header>
+      <SuccessorPlanEditor key={`${series.id}:${JSON.stringify(series.roundPlan)}:${series.autoStartNextRound}`} series={series} onSaved={invalidate} />
       <div className="admin-columns">
         <section className="panel"><h2>Contributor groups</h2><form className="inline-form" onSubmit={(event) => { event.preventDefault(); createGroup.mutate(); }}><label>Name<input value={groupName} required maxLength={200} onChange={(event) => setGroupName(event.target.value)} /></label><button className="button" disabled={createGroup.isPending}>Add group</button></form>{errorMessage(createGroup.error) && <p className="error-message">{errorMessage(createGroup.error)}</p>}{series.groups.length > 0 && <section className="member-picker"><label>Add a provisioned user<input value={memberSearch} placeholder="Name or email" onChange={(event) => setMemberSearch(event.target.value)} /></label><label>To group<select value={targetGroupId} onChange={(event) => setTargetGroupId(event.target.value)}><option value="">Choose a group</option>{series.groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>{matchingUsers.isFetching && <p>Searching users…</p>}{matchingUsers.data?.map((candidate) => <button type="button" className="user-result" key={candidate.id} disabled={!targetGroupId || addMember.isPending} onClick={() => addMember.mutate({ groupId: targetGroupId, userId: candidate.id })}><span>{candidate.displayName ?? "Unnamed user"}<small>{candidate.email ?? "No email"}</small></span><span>Add</span></button>)}{errorMessage(addMember.error) && <p className="error-message">{errorMessage(addMember.error)}</p>}</section>}<div className="admin-items">{series.groups.length === 0 && <p>Create a reusable group, then add members who have signed in at least once.</p>}{series.groups.map((group) => <article key={group.id}><div><strong>{group.name}</strong><span>{group.memberCount} members</span>{group.members.map((member) => <span className="group-member" key={member.id}>{member.displayName ?? member.email ?? "Unnamed user"}</span>)}</div></article>)}</div></section>
         <section className="panel"><h2>Schedule a round</h2><form className="admin-round-form" onSubmit={(event) => { event.preventDefault(); createRound.mutate(); }}><label>Title<input value={roundTitle} required maxLength={200} onChange={(event) => setRoundTitle(event.target.value)} /></label><label>Opens<input type="datetime-local" value={opensAt} required onChange={(event) => setOpensAt(event.target.value)} /></label><label>Closes<input type="datetime-local" value={closesAt} required onChange={(event) => setClosesAt(event.target.value)} /></label><label>Publish after close<input type="datetime-local" value={publishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label><label>Submissions per contributor<input type="number" min="0" value={submissionLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label><label>Contributor groups<select multiple value={selectedGroups} onChange={(event) => setSelectedGroups([...event.target.selectedOptions].map((option) => option.value))}>{groupOptions.map((group) => <option key={group.id} value={group.id}>{group.name} ({group.memberCount})</option>)}</select></label><label>Policy snapshot (JSON)<textarea value={policies} onChange={(event) => setPolicies(event.target.value)} /></label><button className="button" disabled={createRound.isPending}>{createRound.isPending ? "Scheduling…" : "Schedule round"}</button>{errorMessage(createRound.error) && <p className="error-message" role="alert">{errorMessage(createRound.error)}</p>}</form></section>

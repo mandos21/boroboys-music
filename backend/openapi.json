@@ -384,6 +384,111 @@
         "title": "SeriesCreate",
         "type": "object"
       },
+      "SeriesUpdate": {
+        "description": "Mutable series defaults; existing materialized rounds are not rewritten.",
+        "properties": {
+          "auto_start_next_round": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Start Next Round"
+          },
+          "default_policies": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Policies"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Archived"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "round_plan": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calendar": "#/components/schemas/CalendarRoundPlan",
+                    "rolling": "#/components/schemas/RollingRoundPlan"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RollingRoundPlan"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarRoundPlan"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round Plan"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "title": "SeriesUpdate",
+        "type": "object"
+      },
       "SubmissionCreate": {
         "properties": {
           "confirm_warnings": {
@@ -1078,6 +1183,60 @@
           }
         },
         "summary": "Get Series For Administration",
+        "tags": [
+          "administration"
+        ]
+      },
+      "patch": {
+        "description": "Change future-series defaults without changing existing round snapshots.",
+        "operationId": "update_series_api_v1_admin_series__series_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeriesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Series Api V1 Admin Series  Series Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Series",
         "tags": [
           "administration"
         ]
