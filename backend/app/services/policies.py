@@ -29,7 +29,7 @@ def evaluate_submission(
         if not policy.get("enabled", True):
             continue
         kind = policy.get("kind")
-        if kind == "duplicate_in_round":
+        if kind in {"duplicate_in_round", "no_duplicate_in_round"}:
             duplicate = db.scalar(
                 select(Submission.id).where(
                     Submission.round_id == round_.id,
@@ -47,7 +47,7 @@ def evaluate_submission(
                         result={"existingSubmissionId": str(duplicate)},
                     )
                 )
-        elif kind == "duplicate_in_series":
+        elif kind in {"duplicate_in_series", "no_recent_series_repeat"}:
             duplicate = db.scalar(
                 select(Submission.id)
                 .join(Round, Submission.round_id == Round.id)
