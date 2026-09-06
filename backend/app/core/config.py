@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import HttpUrl, SecretStr
+from pydantic import HttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -77,6 +77,23 @@ class Settings(BaseSettings):
         """Normalize configured scopes while preserving OpenID Connect's required scope."""
         scopes = [scope.strip() for scope in self.oidc_scopes.split() if scope.strip()]
         return " ".join(dict.fromkeys(("openid", *scopes)))
+
+    @model_validator(mode="after")
+    def production_secrets_are_not_defaults(self) -> Settings:
+        if self.app_env != "production":
+            return self
+        insecure = {
+            "SESSION_SECRET": self.session_secret.get_secret_value()
+            == "development-only-change-me",
+            "CREDENTIAL_ENCRYPTION_KEY": self.credential_encryption_key.get_secret_value()
+            == "development-only-change-me",
+        }
+        missing = [name for name, is_insecure in insecure.items() if is_insecure]
+        if missing:
+            raise ValueError(f"production requires non-default {', '.join(missing)}")
+        if self.app_base_url.scheme != "https":
+            raise ValueError("production APP_BASE_URL must use HTTPS")
+        return self
 
 
 @lru_cache
