@@ -28,6 +28,7 @@ class OidcIdentity:
     display_name: str | None
     session_id: str | None
     id_token: str
+    claims: dict[str, Any]
 
 
 class OidcClient:
@@ -75,6 +76,7 @@ class OidcClient:
             display_name=_display_name(claims),
             session_id=claims.get("sid") if isinstance(claims.get("sid"), str) else None,
             id_token=id_token,
+            claims=claims,
         )
 
     async def logout_url(self, id_token_hint: str | None) -> str:

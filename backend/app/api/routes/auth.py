@@ -132,7 +132,8 @@ async def callback(
             display_name=identity.display_name,
             platform_role=(
                 PlatformRole.ADMIN
-                if identity.subject in settings.bootstrap_admin_subjects
+                if _is_claim_admin(settings, identity.claims)
+                or identity.subject in settings.bootstrap_admin_subjects
                 else PlatformRole.MEMBER
             ),
         )
@@ -241,3 +242,13 @@ def _is_safe_return_path(value: str) -> bool:
         and not parsed.scheme
         and not parsed.netloc
     )
+
+
+def _is_claim_admin(settings: object, claims: dict[str, object]) -> bool:
+    from app.core.config import Settings
+
+    if not isinstance(settings, Settings) or not settings.oidc_admin_claim:
+        return False
+    value = claims.get(settings.oidc_admin_claim)
+    values = value if isinstance(value, list) else [value]
+    return bool(settings.oidc_admin_claim_values.intersection(str(item) for item in values))

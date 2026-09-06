@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     oidc_require_verified_email: bool = False
     oidc_post_logout_redirect_url: HttpUrl | None = None
     oidc_bootstrap_admin_subjects: str = ""
+    oidc_admin_claim: str | None = None
+    oidc_admin_values: str = ""
     session_cookie_name: str = "music_rounds_session"
     session_lifetime_hours: int = 168
     lastfm_api_key: SecretStr | None = None
@@ -59,6 +61,12 @@ class Settings(BaseSettings):
             subject.strip()
             for subject in self.oidc_bootstrap_admin_subjects.split(",")
             if subject.strip()
+        )
+
+    @property
+    def oidc_admin_claim_values(self) -> frozenset[str]:
+        return frozenset(
+            value.strip() for value in self.oidc_admin_values.split(",") if value.strip()
         )
 
 
