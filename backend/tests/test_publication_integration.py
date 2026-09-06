@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import func, select
 
+from app.api.routes.admin import get_publication_status
 from app.core.config import get_settings
 from app.core.security import encrypt
 from app.db.models import (
@@ -165,6 +166,12 @@ def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.Monke
             )
             == 1
         )
+        status = get_publication_status(round_.id, db, publisher)
+        assert status is not None
+        assert status["id"] == str(publication.id)
+        assert status["state"] == "published"
+        assert status["spotifyPlaylistId"] == "playlist-id"
+        assert status["events"][0]["action"] == "publication.published"
 
 
 def test_historical_playlist_import_preserves_order_without_remote_retirement(

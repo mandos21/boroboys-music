@@ -970,6 +970,59 @@
         ]
       }
     },
+    "/api/v1/admin/rounds/{round_id}/publication": {
+      "get": {
+        "description": "Expose durable publication progress and its audit trail to a series admin.",
+        "operationId": "get_publication_status_api_v1_admin_rounds__round_id__publication_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Publication Status Api V1 Admin Rounds  Round Id  Publication Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Publication Status",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
     "/api/v1/admin/rounds/{round_id}/publish": {
       "post": {
         "operationId": "publish_round_request_api_v1_admin_rounds__round_id__publish_post",

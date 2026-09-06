@@ -475,6 +475,52 @@ def get_round_for_administration(
     }
 
 
+@router.get("/rounds/{round_id}/publication")
+def get_publication_status(
+    round_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object] | None:
+    """Expose durable publication progress and its audit trail to a series admin."""
+    round_ = db.get(Round, round_id)
+    if round_ is None:
+        raise _not_found("round")
+    _require_series_admin(db, user, round_.series_id)
+    publication = db.scalar(select(Publication).where(Publication.round_id == round_id))
+    if publication is None:
+        return None
+    events = list(
+        db.scalars(
+            select(AuditEvent)
+            .where(
+                AuditEvent.target_type == "publication",
+                AuditEvent.target_id == publication.id,
+            )
+            .order_by(AuditEvent.created_at.desc())
+        )
+    )
+    return {
+        "id": str(publication.id),
+        "state": publication.state.value,
+        "isImported": publication.is_imported,
+        "spotifyPlaylistId": publication.spotify_playlist_id,
+        "attemptCount": publication.attempt_count,
+        "lastError": publication.last_error,
+        "publishedAt": publication.published_at.isoformat() if publication.published_at else None,
+        "unpublishedAt": publication.unpublished_at.isoformat()
+        if publication.unpublished_at
+        else None,
+        "events": [
+            {
+                "id": str(event.id),
+                "action": event.action,
+                "createdAt": event.created_at.isoformat(),
+            }
+            for event in events
+        ],
+    }
+
+
 @router.put(
     "/rounds/{round_id}/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
