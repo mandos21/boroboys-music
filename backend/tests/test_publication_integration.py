@@ -252,3 +252,80 @@ def test_historical_playlist_import_preserves_order_without_remote_retirement(
         assert all(item.contributor_id is None and item.submission_id is None for item in imported_items)
         with pytest.raises(PublicationError, match="historically imported"):
             start_unpublish(db, imported.id)
+
+
+def test_only_latest_published_round_can_begin_unpublishing() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        publisher = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"unpublish-{suffix}",
+            platform_role=PlatformRole.ADMIN,
+        )
+        series = Series(
+            name=f"Unpublish series {suffix}",
+            slug=f"unpublish-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((publisher, series))
+        db.flush()
+        account = ExternalAccount(
+            user_id=publisher.id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject=f"unpublish-{suffix}",
+        )
+        db.add(account)
+        db.flush()
+        older = Round(
+            series_id=series.id,
+            title=f"Older {suffix}",
+            timezone="UTC",
+            submission_limit=0,
+            opens_at=now - timedelta(days=6),
+            closes_at=now - timedelta(days=5),
+            publish_at=now - timedelta(days=4),
+            status=RoundStatus.PUBLISHED,
+            publisher_account_id=account.id,
+            published_sequence=1,
+            policy_snapshot=[],
+        )
+        latest = Round(
+            series_id=series.id,
+            title=f"Latest {suffix}",
+            timezone="UTC",
+            submission_limit=0,
+            opens_at=now - timedelta(days=3),
+            closes_at=now - timedelta(days=2),
+            publish_at=now - timedelta(days=1),
+            status=RoundStatus.PUBLISHED,
+            publisher_account_id=account.id,
+            published_sequence=2,
+            policy_snapshot=[],
+        )
+        db.add_all((older, latest))
+        db.flush()
+        older_publication = Publication(
+            round_id=older.id,
+            publisher_account_id=account.id,
+            state=PublicationState.PUBLISHED,
+            spotify_playlist_id=f"older-{suffix}",
+            idempotency_key=f"older-{suffix}",
+        )
+        latest_publication = Publication(
+            round_id=latest.id,
+            publisher_account_id=account.id,
+            state=PublicationState.PUBLISHED,
+            spotify_playlist_id=f"latest-{suffix}",
+            idempotency_key=f"latest-{suffix}",
+        )
+        db.add_all((older_publication, latest_publication))
+        db.commit()
+
+        with pytest.raises(PublicationError, match="most recently published"):
+            start_unpublish(db, older.id)
+        queued = start_unpublish(db, latest.id)
+        assert queued.id == latest_publication.id
+        assert queued.state is PublicationState.UNPUBLISHING
+        assert latest.status is RoundStatus.UNPUBLISHING
