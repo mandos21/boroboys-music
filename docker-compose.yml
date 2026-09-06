@@ -16,5 +16,50 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: ./backend
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://music_rounds:music_rounds@postgres:5432/music_rounds
+      PROCRASTINATE_DATABASE_URL: postgresql://music_rounds:music_rounds@postgres:5432/music_rounds
+    command: >-
+      sh -c 'poetry run alembic upgrade head &&
+      poetry run procrastinate --app=app.tasks.app schema --apply &&
+      exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: ./backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://music_rounds:music_rounds@postgres:5432/music_rounds
+      PROCRASTINATE_DATABASE_URL: postgresql://music_rounds:music_rounds@postgres:5432/music_rounds
+    command: ["poetry", "run", "procrastinate", "--app=app.tasks.app", "worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres_data:

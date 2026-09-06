@@ -27,16 +27,61 @@ PostgreSQL integration coverage—are in place. It still needs the configured li
 OIDC/provider verification and a small real-round rehearsal before first use; the
 implementation contract remains the authoritative checklist.
 
-## Developer commands
+## Local development
+
+`make setup` (also available as `make dev-setup` or the backwards-compatible
+`make bootstrap`) installs Poetry automatically when it is missing, installs
+the backend development environment, installs the locked frontend dependencies,
+and creates `.env` from `.env.example` if needed. It requires Python 3.12+,
+`curl` for automatic Poetry installation, and Node.js/npm for the Vite frontend.
 
 ```text
-make bootstrap
+make setup
 make db-up
 make migrate
 make task-schema
+```
+
+Run the API, worker, and frontend in separate terminals:
+
+```text
 make api
 make worker
 make web
+```
+
+The local frontend is at `http://localhost:5173`; API health is at
+`http://localhost:8000/api/v1/health`. OIDC and provider integrations remain
+disabled until their values are filled in `.env`.
+
+## Docker development stack
+
+Docker does not require Poetry, Python, Node.js, or npm on the host. After
+reviewing `.env` and adding any provider credentials needed for the flow being
+tested, build and start PostgreSQL, the API, the Procrastinate worker, and the
+Nginx-served frontend with:
+
+```text
+make docker-up
+```
+
+The frontend is available at `http://localhost:5173`, the API at
+`http://localhost:8000`, and the API container automatically applies Alembic
+migrations and the Procrastinate schema before serving requests. Useful Docker
+commands are:
+
+```text
+make docker-build   # build images without starting them
+make docker-logs    # follow API, worker, and frontend logs
+make docker-down   # stop containers; retain the named PostgreSQL volume
+```
+
+To remove the local database volume as well, use `docker compose down -v` when
+you are certain the disposable local data is no longer needed.
+
+## Quality commands
+
+```text
 make test
 make lint
 make typecheck
