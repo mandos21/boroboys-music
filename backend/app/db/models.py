@@ -405,6 +405,7 @@ class PublicationItem(UUIDTimestampMixin, Base):
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     note_snapshot: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AuditEvent(UUIDTimestampMixin, Base):

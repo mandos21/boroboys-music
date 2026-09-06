@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.security import decrypt, encrypt
 from app.db.models import (
+    AuditEvent,
     ExternalAccount,
     ExternalCredential,
     Publication,
@@ -135,11 +136,30 @@ def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
             )
             publication.attempt_count += 1
             db.commit()
-        uris = _publication_uris(db, publication.id)
-        spotify.add_items(token, publication.spotify_playlist_id, uris)
+        for item_batch in _unpublished_item_batches(db, publication.id):
+            spotify.add_items(
+                token,
+                publication.spotify_playlist_id,
+                [uri for _, uri in item_batch],
+            )
+            completed_at = datetime.now(UTC)
+            for item, _ in item_batch:
+                item.published_at = completed_at
+            # This checkpoint is what makes a later retry resume from the first
+            # unrecorded batch rather than adding the whole snapshot again.
+            db.commit()
         mark_published(db, publication.id, publication.spotify_playlist_id)
         publication.published_at = datetime.now(UTC)
         publication.last_error = None
+        db.add(
+            AuditEvent(
+                actor_id=None,
+                action="publication.published",
+                target_type="publication",
+                target_id=publication.id,
+                details={"roundId": str(round_.id), "playlistId": publication.spotify_playlist_id},
+            )
+        )
         db.commit()
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
         _fail(db, publication, round_, "Spotify publication failed")
@@ -164,6 +184,15 @@ def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
         publication.state = PublicationState.UNPUBLISHED
         publication.unpublished_at = datetime.now(UTC)
         round_.status = RoundStatus.CLOSED
+        db.add(
+            AuditEvent(
+                actor_id=None,
+                action="publication.unpublished",
+                target_type="publication",
+                target_id=publication.id,
+                details={"roundId": str(round_.id), "playlistId": publication.spotify_playlist_id},
+            )
+        )
         db.commit()
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
         publication.attempt_count += 1
@@ -207,6 +236,28 @@ def _publication_uris(db: Session, publication_id: uuid.UUID) -> list[str]:
             .order_by(PublicationItem.position)
         )
     )
+
+
+def _unpublished_item_batches(
+    db: Session, publication_id: uuid.UUID
+) -> list[list[tuple[PublicationItem, str]]]:
+    items = list(
+        db.execute(
+            select(PublicationItem, Track.spotify_uri)
+            .join(Track, PublicationItem.track_id == Track.id)
+            .where(
+                PublicationItem.publication_id == publication_id,
+                PublicationItem.published_at.is_(None),
+            )
+            .order_by(PublicationItem.position)
+        )
+    )
+    if any(uri is None for _, uri in items):
+        raise ValueError("publication snapshot contains a track without a Spotify URI")
+    return [
+        [(item, str(uri)) for item, uri in items[start : start + 100]]
+        for start in range(0, len(items), 100)
+    ]
 
 
 def _fail(db: Session, publication: Publication, round_: Round | None, message: str) -> None:
