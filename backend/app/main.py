@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from time import perf_counter
 
@@ -10,6 +11,7 @@ from prometheus_client import Counter, Histogram, make_asgi_app
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.tasks import app as task_app
 
 HTTP_REQUESTS = Counter(
     "music_rounds_http_requests_total",
@@ -23,6 +25,16 @@ HTTP_DURATION = Histogram(
 )
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Keep the task client available for request handlers that defer durable jobs."""
+    task_app.open()
+    try:
+        yield
+    finally:
+        task_app.close()
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
@@ -30,6 +42,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         docs_url="/api/docs" if settings.app_env != "production" else None,
         openapi_url="/api/openapi.json",
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,

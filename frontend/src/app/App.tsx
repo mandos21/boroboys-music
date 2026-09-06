@@ -1,16 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Route, Routes, useParams } from "react-router";
 
+import { api } from "../api/client";
+import { SubmissionPage } from "../features/submissions/SubmissionPage";
+
 type Session = {
   user: { id: string; email: string | null; displayName: string | null; platformRole: string };
 };
 type Round = { id: string; title: string; status: string; opensAt: string; closesAt: string; publishAt: string; submissionLimit: number };
-
-async function api<T>(path: string): Promise<T> {
-  const response = await fetch(`/api/v1${path}`, { credentials: "include" });
-  if (!response.ok) throw new Error(String(response.status));
-  return response.json() as Promise<T>;
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -56,7 +53,7 @@ function RoundPage() {
   if (round.isLoading) return <main className="shell"><p>Loading round…</p></main>;
   if (round.isError || !round.data) return <main className="shell"><section className="panel"><h1>Round unavailable</h1><p>You may no longer be a contributor in this round.</p><Link to="/">Return to your rounds</Link></section></main>;
   const item = round.data;
-  return <main className="shell"><Link className="back" to="/">← Your rounds</Link><section className="panel detail"><span className={`status ${item.status}`}>{item.status}</span><h1>{item.title}</h1><p>Submit up to {item.submissionLimit} tracks during this round.</p><div className="timeline"><div><strong>Opens</strong><span>{formatDate(item.opensAt)}</span></div><div><strong>Closes</strong><span>{formatDate(item.closesAt)}</span></div><div><strong>Published</strong><span>{formatDate(item.publishAt)}</span></div></div><p className="muted">Track search and submission controls appear here when the round is open.</p></section></main>;
+  return <main className="shell"><Link className="back" to="/">← Your rounds</Link><section className="panel detail"><span className={`status ${item.status}`}>{item.status}</span><h1>{item.title}</h1><p>Submit up to {item.submissionLimit} tracks during this round.</p><div className="timeline"><div><strong>Opens</strong><span>{formatDate(item.opensAt)}</span></div><div><strong>Closes</strong><span>{formatDate(item.closesAt)}</span></div><div><strong>Published</strong><span>{formatDate(item.publishAt)}</span></div></div>{item.status === "open" ? <Link className="button" to={`/rounds/${item.id}/submit`}>Choose a track</Link> : <p className="muted">Submissions are currently closed.</p>}</section></main>;
 }
 
 function SignedOutPage() {
@@ -75,6 +72,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/rounds/:roundId" element={<RoundPage />} />
+      <Route path="/rounds/:roundId/submit" element={<SubmissionPage />} />
       <Route path="/signed-out" element={<SignedOutPage />} />
     </Routes>
   );

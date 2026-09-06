@@ -36,6 +36,7 @@ jobs:
       - run: poetry run mypy app
       - run: poetry run alembic upgrade head
       - run: poetry run alembic check
+      - run: poetry run procrastinate --app=app.tasks.app schema --apply
       - run: poetry run pytest
 
   frontend:

@@ -35,7 +35,7 @@ from app.db.models import (
 )
 from app.services import spotify
 from app.services.policies import evaluate_submission
-from app.tasks import refresh_evidence
+from app.tasks import defer_evidence_refresh
 
 router = APIRouter(prefix="/rounds", tags=["rounds"])
 
@@ -53,6 +53,11 @@ class TrackInput(BaseModel):
 class SubmissionCreate(BaseModel):
     track: TrackInput
     note: str | None = Field(default=None, max_length=4000)
+    confirm_warnings: bool = False
+
+
+class TrackEvaluationRequest(BaseModel):
+    track: TrackInput
 
 
 @router.get("")
@@ -239,6 +244,36 @@ def get_evidence(
 
 
 @router.post(
+    "/{round_id}/evaluate-track",
+    dependencies=[Depends(require_csrf)],
+)
+def evaluate_track(
+    round_id: uuid.UUID,
+    payload: TrackEvaluationRequest,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    """Evaluate a candidate before a contributor confirms a submission."""
+    round_, membership = _member_round(db, round_id, user.id)
+    _require_open_round(round_)
+    limit = _submission_limit(round_, membership)
+    active_count = _active_submission_count(db, round_.id, user.id)
+    track = _find_or_create_track(db, payload.track)
+    decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
+    db.commit()
+    defer_evidence_refresh(str(round_.id), str(track.id))
+    rejected = any(item.decision is EvaluationDecision.REJECT for item in decisions)
+    warnings = any(item.decision is EvaluationDecision.WARN for item in decisions)
+    return {
+        "trackId": str(track.id),
+        "canSubmit": active_count < limit and not rejected,
+        "limitRemaining": max(0, limit - active_count),
+        "requiresWarningConfirmation": warnings,
+        "policyResults": [_policy_payload(item) for item in decisions],
+    }
+
+
+@router.post(
     "/{round_id}/submissions",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_csrf)],
@@ -250,37 +285,24 @@ def create_submission(
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
     round_, membership = _member_round(db, round_id, user.id, lock_round=True)
-    now = datetime.now(UTC)
-    if round_.status is not RoundStatus.OPEN or not (round_.opens_at <= now < round_.closes_at):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="round is not accepting submissions"
-        )
-    limit = (
-        membership.submission_limit_override
-        if membership.submission_limit_override is not None
-        else round_.submission_limit
-    )
-    active_count = db.scalar(
-        select(func.count())
-        .select_from(Submission)
-        .where(
-            Submission.round_id == round_.id,
-            Submission.contributor_id == user.id,
-            Submission.status == SubmissionStatus.ACCEPTED,
-        )
-    )
-    if active_count is not None and active_count >= limit:
+    _require_open_round(round_)
+    limit = _submission_limit(round_, membership)
+    active_count = _active_submission_count(db, round_.id, user.id)
+    if active_count >= limit:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="submission limit reached")
 
-    track = db.scalar(select(Track).where(Track.spotify_track_id == payload.track.spotify_track_id))
-    if track is None:
-        track = Track(**payload.track.model_dump())
-        db.add(track)
-        db.flush()
+    track = _find_or_create_track(db, payload.track)
     decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
     if any(item.decision is EvaluationDecision.REJECT for item in decisions):
         return {
             "accepted": False,
+            "requiresWarningConfirmation": False,
+            "policyResults": [_policy_payload(item) for item in decisions],
+        }
+    if any(item.decision is EvaluationDecision.WARN for item in decisions) and not payload.confirm_warnings:
+        return {
+            "accepted": False,
+            "requiresWarningConfirmation": True,
             "policyResults": [_policy_payload(item) for item in decisions],
         }
 
@@ -303,7 +325,7 @@ def create_submission(
         for item in decisions
     )
     db.commit()
-    refresh_evidence.defer(str(round_.id), str(track.id))
+    defer_evidence_refresh(str(round_.id), str(track.id))
     return {
         "accepted": True,
         "id": str(submission.id),
@@ -355,6 +377,46 @@ def _member_round(
             status_code=status.HTTP_403_FORBIDDEN, detail="round membership required"
         )
     return round_, membership
+
+
+def _require_open_round(round_: Round) -> None:
+    now = datetime.now(UTC)
+    if round_.status is not RoundStatus.OPEN or not (round_.opens_at <= now < round_.closes_at):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="round is not accepting submissions"
+        )
+
+
+def _submission_limit(round_: Round, membership: RoundMember) -> int:
+    return (
+        membership.submission_limit_override
+        if membership.submission_limit_override is not None
+        else round_.submission_limit
+    )
+
+
+def _active_submission_count(db: DbSession, round_id: uuid.UUID, user_id: uuid.UUID) -> int:
+    return int(
+        db.scalar(
+            select(func.count())
+            .select_from(Submission)
+            .where(
+                Submission.round_id == round_id,
+                Submission.contributor_id == user_id,
+                Submission.status == SubmissionStatus.ACCEPTED,
+            )
+        )
+        or 0
+    )
+
+
+def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
+    track = db.scalar(select(Track).where(Track.spotify_track_id == input_track.spotify_track_id))
+    if track is None:
+        track = Track(**input_track.model_dump())
+        db.add(track)
+        db.flush()
+    return track
 
 
 def _policy_payload(result: Any) -> dict[str, object]:

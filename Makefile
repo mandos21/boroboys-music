@@ -43,5 +43,5 @@ typecheck: ## Run type checks
 	cd frontend && npm run typecheck
 
 verify: ## Run the local release-quality gate (PostgreSQL must be running)
-	cd backend && poetry run alembic upgrade head && poetry run alembic check && poetry run ruff check . && poetry run mypy app && poetry run pytest
+	cd backend && poetry run alembic upgrade head && poetry run alembic check && poetry run procrastinate --app=app.tasks.app schema --apply && poetry run ruff check . && poetry run mypy app && poetry run pytest
 	cd frontend && npm run lint && npm run typecheck && npm run build

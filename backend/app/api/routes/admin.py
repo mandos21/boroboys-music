@@ -27,7 +27,7 @@ from app.db.models import (
     User,
 )
 from app.services.publications import PublicationError, start_publication, start_unpublish
-from app.tasks import publish_round, retire_round
+from app.tasks import defer_publication, defer_retirement
 
 router = APIRouter(prefix="/admin", tags=["administration"], dependencies=[Depends(require_csrf)])
 
@@ -313,7 +313,7 @@ def publish_round_request(
     except PublicationError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    publish_round.defer(str(publication.id))
+    defer_publication(str(publication.id))
     return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
@@ -333,7 +333,7 @@ def unpublish_round_request(
     except PublicationError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    retire_round.defer(str(publication.id))
+    defer_retirement(str(publication.id))
     return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
@@ -354,10 +354,10 @@ def retry_publication(
         publication.state = PublicationState.PUBLISHING
         round_.status = RoundStatus.PUBLISHING
         db.commit()
-        publish_round.defer(str(publication.id))
+        defer_publication(str(publication.id))
     elif publication.state is PublicationState.UNPUBLISHING:
         db.commit()
-        retire_round.defer(str(publication.id))
+        defer_retirement(str(publication.id))
     else:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="publication is not retryable"
