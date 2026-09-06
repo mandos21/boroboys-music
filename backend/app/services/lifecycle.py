@@ -59,12 +59,14 @@ def create_rolling_successor(
         return existing
     opens_at = now or datetime.now(UTC)
     closes_at = opens_at + timedelta(hours=duration_hours)
+    configured_limit = _nonnegative_int_or_none(plan, "submission_limit")
     successor = Round(
         series_id=series.id,
         title=_successor_title(plan, published_round.title),
         timezone=published_round.timezone,
-        submission_limit=_positive_int(plan, "submission_limit")
-        or published_round.submission_limit,
+        submission_limit=configured_limit
+        if configured_limit is not None
+        else published_round.submission_limit,
         opens_at=opens_at,
         closes_at=closes_at,
         publish_at=closes_at + timedelta(minutes=publish_delay_minutes),
@@ -105,3 +107,8 @@ def _positive_int(plan: dict[str, Any], key: str) -> int | None:
 def _nonnegative_int(plan: dict[str, Any], key: str, default: int) -> int:
     value = plan.get(key)
     return value if isinstance(value, int) and value >= 0 else default
+
+
+def _nonnegative_int_or_none(plan: dict[str, Any], key: str) -> int | None:
+    value = plan.get(key)
+    return value if isinstance(value, int) and value >= 0 else None

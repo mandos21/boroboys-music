@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -37,13 +37,21 @@ from app.tasks import defer_publication, defer_retirement
 router = APIRouter(prefix="/admin", tags=["administration"], dependencies=[Depends(require_csrf)])
 
 
+class RollingRoundPlan(BaseModel):
+    kind: Literal["rolling"]
+    duration_hours: int = Field(ge=1, le=8_760)
+    publish_delay_minutes: int = Field(default=0, ge=0, le=43_200)
+    submission_limit: int | None = Field(default=None, ge=0)
+    title_template: str = Field(default="{previous_title} — next", min_length=1, max_length=200)
+
+
 class SeriesCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     slug: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=100)
     description: str | None = None
     timezone: str = "UTC"
     default_policies: list[dict[str, Any]] = Field(default_factory=list)
-    round_plan: dict[str, Any] | None = None
+    round_plan: RollingRoundPlan | None = None
     auto_start_next_round: bool = True
 
     @field_validator("timezone")

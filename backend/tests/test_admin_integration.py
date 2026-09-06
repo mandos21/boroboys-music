@@ -79,7 +79,7 @@ def test_series_admin_reads_only_assigned_series_and_searches_active_users() -> 
                 ],
             }
         ]
-        assert search_users_for_series(assigned.id, "Matched", db, series_admin) == [
+        assert search_users_for_series(assigned.id, suffix, db, series_admin) == [
             {
                 "id": str(member.id),
                 "displayName": "Matched Member",

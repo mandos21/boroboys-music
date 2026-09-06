@@ -38,8 +38,22 @@ export function AdminIndexPage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  const [rollingHours, setRollingHours] = useState("");
+  const [nextLimit, setNextLimit] = useState("");
+  const [autoStart, setAutoStart] = useState(true);
   const create = useMutation({
-    mutationFn: () => post<{ id: string }>("/admin/series", { name, slug, timezone, default_policies: [], auto_start_next_round: true }),
+    mutationFn: () => post<{ id: string }>("/admin/series", {
+      name,
+      slug,
+      timezone,
+      default_policies: [],
+      auto_start_next_round: autoStart,
+      round_plan: rollingHours ? {
+        kind: "rolling",
+        duration_hours: Number(rollingHours),
+        submission_limit: nextLimit ? Number(nextLimit) : null,
+      } : null,
+    }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["admin-series"] });
       navigate(`/admin/series/${result.id}`);
@@ -56,7 +70,7 @@ export function AdminIndexPage() {
     <main className="shell admin-shell">
       <Link className="back" to="/">← Your rounds</Link>
       <header className="submission-heading"><p className="eyebrow">Administration</p><h1>Series and rounds</h1><p>A series owns its history, reusable contributor groups, policy defaults, and optional rolling successor plan.</p></header>
-      {isPlatformAdmin && <section className="panel admin-create"><h2>Create a series</h2><form onSubmit={submit}><label>Name<input value={name} required maxLength={200} onChange={(event) => { setName(event.target.value); if (!slug) setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")); }} /></label><label>Slug<input value={slug} required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength={100} onChange={(event) => setSlug(event.target.value)} /></label><label>Timezone<input value={timezone} required onChange={(event) => setTimezone(event.target.value)} /></label><button className="button" disabled={create.isPending}>{create.isPending ? "Creating…" : "Create series"}</button>{errorMessage(create.error) && <p className="error-message" role="alert">{errorMessage(create.error)}</p>}</form></section>}
+      {isPlatformAdmin && <section className="panel admin-create"><h2>Create a series</h2><form onSubmit={submit}><label>Name<input value={name} required maxLength={200} onChange={(event) => { setName(event.target.value); if (!slug) setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")); }} /></label><label>Slug<input value={slug} required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength={100} onChange={(event) => setSlug(event.target.value)} /></label><label>Timezone<input value={timezone} required onChange={(event) => setTimezone(event.target.value)} /></label><fieldset className="rolling-plan"><legend>Automatic next round (optional)</legend><label>Round duration in hours<input type="number" min="1" max="8760" value={rollingHours} onChange={(event) => setRollingHours(event.target.value)} /></label><label>Next-round submission limit (optional)<input type="number" min="0" value={nextLimit} disabled={!rollingHours} onChange={(event) => setNextLimit(event.target.value)} /></label><label className="check-label"><input type="checkbox" checked={autoStart} disabled={!rollingHours} onChange={(event) => setAutoStart(event.target.checked)} />Start the successor when this round is published</label></fieldset><button className="button" disabled={create.isPending}>{create.isPending ? "Creating…" : "Create series"}</button>{errorMessage(create.error) && <p className="error-message" role="alert">{errorMessage(create.error)}</p>}</form></section>}
       <section className="admin-list"><h2>Your managed series</h2>{series.isLoading && <p>Loading series…</p>}{series.isError && <p className="error-message" role="alert">{errorMessage(series.error) ?? "Series could not be loaded."}</p>}{series.data?.length === 0 && <p>You do not administer a series yet.</p>}{series.data?.map((item) => <Link className="panel admin-series-card" key={item.id} to={`/admin/series/${item.id}`}><div><span className="role">{item.timezone}</span><h3>{item.name}</h3><p>{item.description ?? "No description yet."}</p></div><span aria-hidden="true">→</span></Link>)}</section>
     </main>
   );
