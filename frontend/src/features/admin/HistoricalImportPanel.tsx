@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
+import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 import type { Connection } from "./types";
 
@@ -13,6 +14,7 @@ export function HistoricalImportPanel({
   seriesId: string;
   onImported: () => void;
 }) {
+  const { showToast } = useToast();
   const [publisherId, setPublisherId] = useState("");
   const [playlistId, setPlaylistId] = useState("");
   const [title, setTitle] = useState("");
@@ -41,7 +43,9 @@ export function HistoricalImportPanel({
       setPlaylistId("");
       setTitle("");
       onImported();
+      showToast({ title: "Historical playlist imported", description: "It is now recorded as an immutable published round." });
     },
+    onError: () => showToast({ title: "Couldn’t import playlist", description: "Check the playlist and account, then try again.", tone: "error" }),
   });
   const accounts = (connections.data ?? []).filter(
     (account) => account.provider === "spotify" && account.isActive,

@@ -1,6 +1,18 @@
 .admin-shell { max-width: 76rem; }
 .admin-shell .submission-heading { max-width: 52rem; }
 .admin-create, .admin-history, .publication-panel { margin-top: 1rem; }
+.admin-section-nav { display: flex; flex-wrap: wrap; gap: .35rem; padding: .4rem; margin: 0 0 1rem; border: 1px solid #dbe7f6; border-radius: .8rem; background: rgb(255 255 255 / 72%); }
+.admin-section-nav a { padding: .5rem .65rem; border-radius: .55rem; color: #526179; font-size: .8rem; font-weight: 800; }
+.admin-section-nav a:hover { background: #eaf2ff; color: #1d4ed8; text-decoration: none; }
+.series-health { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.series-health > div { display: grid; gap: .1rem; padding: .85rem .95rem; border: 1px solid #dbe7f6; border-radius: .8rem; background: #f8fbff; }
+.series-health strong { color: #1d4ed8; font-size: 1.2rem; letter-spacing: -.025em; }
+.series-health span { color: #64748b; font-size: .75rem; font-weight: 700; }
+.admin-workspace-section { margin-bottom: 1rem; }
+.workspace-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin: 0 0 .75rem; }
+.workspace-section-heading .eyebrow { margin-bottom: .35rem; }
+.workspace-section-heading h2 { margin: 0; color: #1e293b; font-size: 1.3rem; letter-spacing: -.03em; }
+.workspace-section-heading > p { max-width: 28rem; margin: 0; color: #64748b; font-size: .83rem; line-height: 1.5; text-align: right; }
 .admin-create form, .admin-round-form { display: grid; gap: 1rem; }
 .admin-list { display: grid; gap: .75rem; margin-top: 2rem; }
 .admin-list > h2 { margin: 0 0 .15rem; color: #1e293b; font-size: 1.25rem; }
@@ -10,6 +22,17 @@
 .admin-series-card p { margin: 0; color: #64748b; font-size: .88rem; }
 .rolling-plan { display: grid; gap: .9rem; margin: 0; padding: 1rem; border: 1px solid #dbe3ef; border-radius: .8rem; background: #fbfdff; }
 .rolling-plan legend { padding: 0 .3rem; color: #334155; font-size: .82rem; font-weight: 800; }
+.policy-editor { display: grid; gap: .8rem; padding: 1rem; margin: 0; border: 1px solid #dbe3ef; border-radius: .8rem; background: #fbfdff; }
+.policy-editor legend { padding: 0 .3rem; color: #334155; font-size: .82rem; font-weight: 800; }
+.policy-editor > .field-hint { margin: -.3rem 0 0; font-size: .82rem; }
+.policy-list { display: grid; gap: .55rem; }
+.policy-editor-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, .55fr) auto; gap: .65rem; align-items: end; padding: .75rem; border: 1px solid #dbe7f6; border-radius: .7rem; background: #fff; }
+.policy-editor-card > div { align-self: center; }
+.policy-editor-card strong { color: #334155; font-size: .84rem; }
+.policy-editor-card p { margin: .16rem 0 0; color: #64748b; font-size: .75rem; line-height: 1.4; }
+.policy-editor-card label { font-size: .72rem; }
+.policy-editor-card select, .policy-editor-card input { min-height: 2.25rem; font-size: .82rem; }
+.policy-add { max-width: 23rem; }
 .check-label { display: flex; align-items: center; gap: .55rem; }
 .check-label input { width: auto; }
 .admin-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; margin-top: 1rem; }
@@ -50,8 +73,13 @@
 @media (max-width: 52rem) {
   .admin-columns { grid-template-columns: 1fr; }
   .inline-form { grid-template-columns: 1fr; }
+  .policy-editor-card { grid-template-columns: 1fr; align-items: start; }
+  .policy-editor-card .text-button { width: fit-content; }
 }
 @media (max-width: 40rem) {
+  .series-health { grid-template-columns: 1fr; }
+  .workspace-section-heading { align-items: start; flex-direction: column; }
+  .workspace-section-heading > p { text-align: left; }
   .round-member-list article { grid-template-columns: 1fr; align-items: start; }
   .member-actions { padding-bottom: 0; }
   .admin-items article { flex-direction: column; }

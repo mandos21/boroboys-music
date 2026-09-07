@@ -3,8 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
 import { api, post, put } from "../../api/client";
+import { StatePanel } from "../../components/ui/StatePanel";
+import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { HistoricalImportPanel } from "./HistoricalImportPanel";
+import { PolicyEditor } from "./PolicyEditor";
 import { SuccessorPlanEditor } from "./SuccessorPlanEditor";
 import { errorMessage } from "./adminUtils";
 import type { SeriesDetail, User } from "./types";
@@ -12,6 +15,7 @@ import type { SeriesDetail, User } from "./types";
 export function AdminSeriesPage() {
   const { seriesId } = useParams();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const detail = useQuery({
     queryKey: ["admin-series", seriesId],
     queryFn: () => api<SeriesDetail>(`/admin/series/${seriesId}`),
@@ -25,7 +29,7 @@ export function AdminSeriesPage() {
   const [publishAt, setPublishAt] = useState("");
   const [submissionLimit, setSubmissionLimit] = useState("1");
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [policies, setPolicies] = useState("[]");
+  const [policies, setPolicies] = useState<Record<string, unknown>[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
   const [targetGroupId, setTargetGroupId] = useState("");
   const deferredMemberSearch = useDeferredValue(memberSearch.trim());
@@ -37,7 +41,9 @@ export function AdminSeriesPage() {
     onSuccess: () => {
       setGroupName("");
       invalidate();
+      showToast({ title: "Contributor group added", description: "You can now add provisioned listeners to it." });
     },
+    onError: () => showToast({ title: "Couldn’t add group", description: "Try again in a moment.", tone: "error" }),
   });
   const createRound = useMutation({
     mutationFn: () =>
@@ -50,13 +56,16 @@ export function AdminSeriesPage() {
         publish_at: new Date(publishAt).toISOString(),
         submission_limit: Number(submissionLimit),
         contributor_group_ids: selectedGroups,
-        policy_snapshot: JSON.parse(policies),
+        policy_snapshot: policies.length > 0 ? policies : undefined,
       }),
     onSuccess: () => {
       setRoundTitle("");
       setSelectedGroups([]);
+      setPolicies([]);
       invalidate();
+      showToast({ title: "Round scheduled", description: "Contributors will see it when its submission window opens." });
     },
+    onError: () => showToast({ title: "Couldn’t schedule round", description: "Check the schedule and try again.", tone: "error" }),
   });
   const matchingUsers = useQuery({
     queryKey: ["series-users", seriesId, deferredMemberSearch],
@@ -72,25 +81,19 @@ export function AdminSeriesPage() {
     onSuccess: () => {
       setMemberSearch("");
       invalidate();
+      showToast({ title: "Member added to group", description: "They can be included in future rounds from this group." });
     },
+    onError: () => showToast({ title: "Couldn’t add member", description: "Try again in a moment.", tone: "error" }),
   });
   const groupOptions = useMemo(
     () => detail.data?.groups ?? [],
     [detail.data?.groups],
   );
-  if (detail.isLoading)
-    return (
-      <main className="shell">
-        <p>Loading series administration…</p>
-      </main>
-    );
+  if (detail.isLoading) return <main className="shell narrow-page-shell"><StatePanel kind="loading" title="Loading series workspace">Gathering its rounds, groups, and automation settings.</StatePanel></main>;
   if (detail.isError || !detail.data)
     return (
-      <main className="shell">
-        <section className="panel">
-          <h1>Series unavailable</h1>
-          <Link to="/admin">Return to series</Link>
-        </section>
+      <main className="shell narrow-page-shell">
+        <StatePanel kind="error" title="Series unavailable"><Link to="/admin">Return to managed series</Link></StatePanel>
       </main>
     );
   const series = detail.data;
@@ -107,14 +110,24 @@ export function AdminSeriesPage() {
             "Configure contributor groups and schedule distinct rounds for this series."}
         </p>
       </header>
-      <SuccessorPlanEditor
-        key={`${series.id}:${JSON.stringify(series.roundPlan)}:${series.autoStartNextRound}`}
-        series={series}
-        onSaved={invalidate}
-      />
-      <HistoricalImportPanel seriesId={series.id} onImported={invalidate} />
+      <nav className="admin-section-nav" aria-label="Series workspace sections">
+        <a href="#rounds">Rounds</a><a href="#contributors">Contributors</a><a href="#automation">Automation</a><a href="#history">History</a>
+      </nav>
+      <section className="series-health" aria-label="Series overview">
+        <div><strong>{series.rounds.filter((round) => round.status === "open").length}</strong><span>open round{series.rounds.filter((round) => round.status === "open").length === 1 ? "" : "s"}</span></div>
+        <div><strong>{series.groups.length}</strong><span>contributor group{series.groups.length === 1 ? "" : "s"}</span></div>
+        <div><strong>{series.autoStartNextRound ? "On" : "Off"}</strong><span>automatic successor</span></div>
+      </section>
+      <section id="automation" className="admin-workspace-section">
+        <div className="workspace-section-heading"><div><p className="eyebrow">Future rounds</p><h2>Automation</h2></div><p>Apply a successor plan after each successful publication.</p></div>
+        <SuccessorPlanEditor
+          key={`${series.id}:${JSON.stringify(series.roundPlan)}:${series.autoStartNextRound}`}
+          series={series}
+          onSaved={invalidate}
+        />
+      </section>
       <div className="admin-columns">
-        <section className="panel">
+        <section className="panel" id="contributors">
           <h2>Contributor groups</h2>
           <form
             className="inline-form"
@@ -211,7 +224,7 @@ export function AdminSeriesPage() {
             ))}
           </div>
         </section>
-        <section className="panel">
+        <section className="panel" id="rounds">
           <h2>Schedule a round</h2>
           <form
             className="admin-round-form"
@@ -286,13 +299,7 @@ export function AdminSeriesPage() {
                 ))}
               </select>
             </label>
-            <label>
-              Policy snapshot (JSON)
-              <textarea
-                value={policies}
-                onChange={(event) => setPolicies(event.target.value)}
-              />
-            </label>
+            <PolicyEditor value={policies} onChange={setPolicies} />
             <button className="button" disabled={createRound.isPending}>
               {createRound.isPending ? "Scheduling…" : "Schedule round"}
             </button>
@@ -304,7 +311,7 @@ export function AdminSeriesPage() {
           </form>
         </section>
       </div>
-      <section className="panel admin-history">
+      <section className="panel admin-history" id="history">
         <h2>Rounds</h2>
         {series.rounds.length === 0 ? (
           <p>No rounds are scheduled yet.</p>
@@ -330,6 +337,7 @@ export function AdminSeriesPage() {
           </div>
         )}
       </section>
+      <HistoricalImportPanel seriesId={series.id} onImported={invalidate} />
     </main>
   );
 }

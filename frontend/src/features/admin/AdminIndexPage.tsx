@@ -3,12 +3,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router";
 
 import { api, post } from "../../api/client";
+import { StatePanel } from "../../components/ui/StatePanel";
+import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 import type { Series, Session } from "./types";
 
 export function AdminIndexPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const session = useQuery({
     queryKey: ["session"],
     queryFn: () => api<Session>("/auth/session"),
@@ -57,8 +60,10 @@ export function AdminIndexPage() {
       }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["admin-series"] });
+      showToast({ title: "Series created", description: "Set up contributor groups, policies, and your first round next." });
       navigate(`/admin/series/${result.id}`);
     },
+    onError: () => showToast({ title: "Couldn’t create series", description: "Check the details and try again.", tone: "error" }),
   });
   const isPlatformAdmin = session.data?.user.platformRole === "admin";
 
@@ -213,14 +218,12 @@ export function AdminIndexPage() {
       )}
       <section className="admin-list">
         <h2>Your managed series</h2>
-        {series.isLoading && <p>Loading series…</p>}
+        {series.isLoading && <StatePanel kind="loading" title="Loading managed series">Checking the series you can administer.</StatePanel>}
         {series.isError && (
-          <p className="error-message" role="alert">
-            {errorMessage(series.error) ?? "Series could not be loaded."}
-          </p>
+          <StatePanel kind="error" title="We couldn’t load managed series">{errorMessage(series.error) ?? "Refresh the page to try again."}</StatePanel>
         )}
         {series.data?.length === 0 && (
-          <p>You do not administer a series yet.</p>
+          <StatePanel title="No managed series yet">{isPlatformAdmin ? "Create a series above to begin." : "Ask a platform or series administrator to grant you access."}</StatePanel>
         )}
         {series.data?.map((item) => (
           <Link

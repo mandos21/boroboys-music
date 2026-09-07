@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { patch } from "../../api/client";
+import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 import type { Series } from "./types";
 
@@ -12,6 +13,7 @@ export function SuccessorPlanEditor({
   series: Series;
   onSaved: () => void;
 }) {
+  const { showToast } = useToast();
   const initialKind =
     series.roundPlan?.kind === "rolling" ||
     series.roundPlan?.kind === "calendar"
@@ -53,7 +55,11 @@ export function SuccessorPlanEditor({
                 }
               : null,
       }),
-    onSuccess: onSaved,
+    onSuccess: () => {
+      onSaved();
+      showToast({ title: "Automation saved", description: "Future successors will follow this plan after a successful publication." });
+    },
+    onError: () => showToast({ title: "Couldn’t save automation", description: "Check the plan and try again.", tone: "error" }),
   });
   return (
     <section className="panel">
