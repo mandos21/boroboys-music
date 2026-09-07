@@ -299,7 +299,7 @@ export function SeriesPage() {
         {item.rounds[0] && <FeaturedRound round={item.rounds[0]} />}
         <div className="series-round-list">
           {item.rounds.slice(1).map((round) => (
-            <article key={round.id}>
+            <Link className="series-round-item" key={round.id} to={`/rounds/${round.id}`}>
               <span className={`status ${round.status}`}>{round.status}</span>
               <div>
                 <h2>{round.title}</h2>
@@ -308,8 +308,7 @@ export function SeriesPage() {
                   {formatDate(round.publishAt)}
                 </p>
               </div>
-              <Link to={`/rounds/${round.id}`}>View round</Link>
-            </article>
+            </Link>
           ))}
         </div>
       </section>
@@ -320,9 +319,9 @@ export function SeriesPage() {
 function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
   const active = round.status !== "published";
   return (
-    <article className="series-featured-round">
+    <Link className="series-featured-round" to={`/rounds/${round.id}`}>
       <div><p className="eyebrow">{active ? "Current round" : "Latest release"}</p><h2>{round.title}</h2><p>{active ? `Closes ${formatDate(round.closesAt)}` : `Released ${formatDate(round.publishAt)}`}</p></div>
-      <div><span className={`status ${round.status}`}>{round.status}</span><Link className="button" to={`/rounds/${round.id}`}>{active ? "Open round" : "Revisit round"}</Link></div>
-    </article>
+      <div><span className={`status ${round.status}`}>{round.status}</span></div>
+    </Link>
   );
 }

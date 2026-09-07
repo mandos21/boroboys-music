@@ -36,7 +36,7 @@ function HomePage() {
       </header>
       {currentUser.platformRole === "admin" && <SeriesCreatePanel />}
       <section aria-labelledby="series-heading" className="content-section">
-        <div className="section-heading"><div><p className="eyebrow">Your people</p><h2 id="series-heading">Your series</h2></div></div>
+        <div className="section-heading"><div><h2 id="series-heading">Series</h2></div></div>
         {series.isLoading && <StatePanel kind="loading" title="Finding your series">This usually takes just a moment.</StatePanel>}
         {series.isError && <StatePanel kind="error" title="We couldn’t load your series">Refresh the page to try again.</StatePanel>}
         {series.data?.length === 0 && <StatePanel title="No series yet">Once you are added to a series, its active round and listening history will appear here.</StatePanel>}
@@ -51,12 +51,12 @@ function SeriesCard({ series }: { series: SeriesPreview }) {
   const isActive = round && round.status !== "published";
   return (
     <article className="series-card">
+      <Link aria-label={`Open ${series.name}`} className="series-card-link-to-series" to={`/series/${series.id}`} />
       <div className="series-card-heading"><div><p className="eyebrow">{series.timezone}</p><h3>{series.name}</h3></div>{round && <span className={`status ${round.status}`}>{round.status}</span>}</div>
       <p>{series.description ?? "A place to trade what you have been listening to."}</p>
       {round ? (
-        <div className="series-card-round"><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isActive ? <>Closes {formatDate(round.closesAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small></div>
+        <Link className="series-card-round series-card-round-link" to={`/rounds/${round.id}`}><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isActive ? <>Closes {formatDate(round.closesAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small></Link>
       ) : <div className="series-card-round series-card-empty"><span>No rounds yet</span><small>Its first listening window will show up here.</small></div>}
-      <Link className="card-action" to={`/series/${series.id}`}>Open series <ChevronRight aria-hidden="true" size={18} /></Link>
     </article>
   );
 }

@@ -75,10 +75,14 @@ describe("application recovery screens", () => {
 
     renderApp("/");
 
-    expect(await screen.findByRole("heading", { name: "Your series" })).toBeTruthy();
-    expect(await screen.findByRole("link", { name: /Open series/i })).toHaveProperty(
+    expect(await screen.findByRole("heading", { name: "Series" })).toBeTruthy();
+    expect(await screen.findByRole("link", { name: "Open Monthly picks" })).toHaveProperty(
       "href",
       expect.stringContaining("/series/series-1"),
+    );
+    expect(screen.getByRole("link", { name: /September picks/i })).toHaveProperty(
+      "href",
+      expect.stringContaining("/rounds/round-1"),
     );
   });
 });

@@ -173,7 +173,9 @@ def list_round_submissions(
             "isMine": submission.contributor_id == user.id,
             "contributor": {
                 "id": str(contributor.id),
-                "displayName": contributor.display_name,
+                "displayName": contributor.display_name
+                or contributor.email
+                or "Unknown listener",
                 "spotifyProfileImageUrl": profile_image_url,
             },
             "track": _track_payload(track),

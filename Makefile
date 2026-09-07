@@ -37,7 +37,7 @@ migrate: ## Apply Alembic migrations
 task-schema: ## Apply/check Procrastinate schema
 	cd backend && "$(POETRY)" run procrastinate --app=app.tasks.app schema --apply
 
-api: ## Run FastAPI
+api: db-up migrate ## Start PostgreSQL, apply migrations, then run FastAPI
 	cd backend && "$(POETRY)" run uvicorn app.main:app --reload --port 8000
 
 worker: ## Run Procrastinate worker

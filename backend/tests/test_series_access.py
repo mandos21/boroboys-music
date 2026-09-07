@@ -18,6 +18,9 @@ from app.db.models import (
     RoundMember,
     RoundStatus,
     Series,
+    Submission,
+    SubmissionStatus,
+    Track,
     User,
 )
 from app.db.session import get_session_factory
@@ -138,3 +141,57 @@ def test_series_membership_makes_an_unscheduled_series_visible() -> None:
             }
         ]
         assert history["rounds"] == []
+
+
+def test_round_submissions_fall_back_to_email_for_unnamed_contributors() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        contributor = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"unnamed-{suffix}",
+            email=f"listener-{suffix}@example.test",
+            platform_role=PlatformRole.MEMBER,
+        )
+        series = Series(
+            name=f"Names {suffix}",
+            slug=f"names-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((contributor, series))
+        db.flush()
+        round_ = Round(
+            series_id=series.id,
+            title="Named by email",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now - timedelta(days=2),
+            closes_at=now - timedelta(days=1),
+            publish_at=now,
+            status=RoundStatus.PUBLISHED,
+            policy_snapshot=[],
+        )
+        track = Track(
+            spotify_track_id=f"email-track-{suffix}",
+            name="Track",
+            artist="Artist",
+        )
+        db.add_all((round_, track))
+        db.flush()
+        db.add_all(
+            (
+                RoundMember(round_id=round_.id, user_id=contributor.id),
+                Submission(
+                    round_id=round_.id,
+                    contributor_id=contributor.id,
+                    track_id=track.id,
+                    status=SubmissionStatus.ACCEPTED,
+                ),
+            )
+        )
+        db.commit()
+
+        entries = list_round_submissions(round_.id, db, contributor)
+
+        assert entries[0]["contributor"]["displayName"] == contributor.email
