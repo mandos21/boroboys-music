@@ -99,19 +99,17 @@ def test_multi_audience_id_tokens_require_this_client_as_the_authorized_party() 
     assert _claims_match_provider(settings, {**claims, "azp": "music-rounds"}, "expected-nonce")
 
 
-def test_production_configuration_rejects_default_secret_material() -> None:
-    with pytest.raises(ValueError, match="SESSION_SECRET"):
+def test_production_configuration_rejects_default_credential_key() -> None:
+    with pytest.raises(ValueError, match="CREDENTIAL_ENCRYPTION_KEY"):
         Settings(
             app_env="production",
             app_base_url="https://music.example.test",
-            session_secret="development-only-change-me",
             credential_encryption_key="development-only-change-me",
         )
 
     production = Settings(
         app_env="production",
         app_base_url="https://music.example.test",
-        session_secret="session-secret",
         credential_encryption_key="credential-key",
     )
     assert production.app_env == "production"

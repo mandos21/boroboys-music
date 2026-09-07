@@ -15,7 +15,7 @@ describe("API client", () => {
   it("sends the CSRF cookie value and browser credentials with every request", async () => {
     Object.defineProperty(globalThis, "document", {
       configurable: true,
-      value: { cookie: "music_rounds_session_csrf=csrf%20value" },
+      value: { cookie: "a-configured-session_csrf=csrf%20value" },
     });
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ status: "ok" }), { status: 200 }),

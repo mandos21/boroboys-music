@@ -72,7 +72,8 @@ export function PublicationPanel({
     publishing: "Creating and populating the Spotify playlist. This page refreshes automatically while it runs.",
     published: "The playlist is published and available to the group.",
     failed: "The last attempt did not finish. Review the message below, then retry when ready.",
-    unpublishing: "Deleting the Spotify playlist and returning the round to its prior state. This page refreshes automatically while it runs.",
+    unpublishing: "Removing the Spotify playlist from the publisher’s library and returning the round to its prior state. This page refreshes automatically while it runs.",
+    unpublished: "This release was unpublished. You can publish the immutable round snapshot again.",
   }[current.state];
   const error =
     errorMessage(publish.error) ??
@@ -85,11 +86,11 @@ export function PublicationPanel({
       {publication.isError && (
         <StatePanel kind="error" title="We couldn’t load publication status">Refresh the page to see the latest Spotify activity.</StatePanel>
       )}
-      {!current && round.status === "closed" && (
+      {(!current || current.state === "unpublished") && round.status === "closed" && (
         <>
           <p>
             Choose one of your linked Spotify accounts to publish this closed
-            round.
+            round{current ? " again" : ""}.
           </p>
           {spotifyAccounts.length === 0 ? (
             <p>
@@ -118,7 +119,7 @@ export function PublicationPanel({
                 disabled={!publisherId || publish.isPending}
                 onClick={() => publish.mutate()}
               >
-                {publish.isPending ? "Queueing…" : "Publish to Spotify"}
+                {publish.isPending ? "Queueing…" : current ? "Publish again" : "Publish to Spotify"}
               </button>
             </>
           )}
@@ -207,8 +208,8 @@ export function PublicationPanel({
       <ConfirmDialog
         open={unpublishRequested}
         title="Unpublish this latest round?"
-        description="BoroCrew Music will delete the associated Spotify playlist and return the round to its prior state. This is only available for the most recently published round."
-        confirmLabel="Unpublish and delete playlist"
+        description="BoroCrew Music will remove the associated Spotify playlist from the publisher’s library and return the round to its prior state. This is only available for the most recently published round."
+        confirmLabel="Unpublish playlist"
         isPending={unpublish.isPending}
         onOpenChange={(open) => { if (!open && !unpublish.isPending) setUnpublishRequested(false); }}
         onConfirm={() => unpublish.mutate()}

@@ -14,6 +14,7 @@ from procrastinate.exceptions import AlreadyEnqueued
 
 from app.core.config import get_settings
 from app.db.session import get_session_factory
+from app.services.auth_cleanup import purge_expired_auth_state
 from app.services.evidence import refresh_round_evidence
 from app.services.lifecycle import reconcile_rounds
 from app.services.publications import execute_publication, execute_retirement
@@ -42,6 +43,17 @@ async def record_worker_heartbeat(timestamp: int) -> None:
     del timestamp
     with get_session_factory()() as db:
         record_heartbeat(db)
+        db.commit()
+
+
+@app.periodic(cron="15 3 * * *", queue="scheduling")
+@app.task(queue="scheduling", queueing_lock="purge-auth-state")
+async def purge_auth_state(timestamp: int) -> None:
+    """Keep expired opaque sessions and short-lived OAuth state bounded."""
+
+    del timestamp
+    with get_session_factory()() as db:
+        purge_expired_auth_state(db)
         db.commit()
 
 

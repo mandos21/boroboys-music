@@ -34,8 +34,8 @@ db-down: ## Stop PostgreSQL
 migrate: ## Apply Alembic migrations
 	cd backend && "$(POETRY)" run alembic upgrade head
 
-task-schema: ## Apply/check Procrastinate schema
-	cd backend && "$(POETRY)" run procrastinate --app=app.tasks.app schema --apply
+task-schema: migrate ## Apply/check Procrastinate schema through Alembic
+	@echo "Procrastinate schema is managed by Alembic migrations."
 
 api: db-up migrate ## Start PostgreSQL, apply migrations, then run FastAPI
 	cd backend && "$(POETRY)" run uvicorn app.main:app --reload --port 8000
@@ -63,7 +63,7 @@ typecheck: ## Run type checks
 	cd frontend && npm run typecheck
 
 verify: ## Run the local release-quality gate (PostgreSQL must be running)
-	cd backend && "$(POETRY)" run alembic upgrade head && "$(POETRY)" run alembic check && "$(POETRY)" run procrastinate --app=app.tasks.app schema --apply && "$(POETRY)" run ruff check . && "$(POETRY)" run mypy app && "$(POETRY)" run pytest
+	cd backend && "$(POETRY)" run alembic upgrade head && "$(POETRY)" run alembic check && "$(POETRY)" run ruff check . && "$(POETRY)" run mypy app && "$(POETRY)" run pytest
 	cd frontend && npm run lint && npm run typecheck && npm run build
 
 history-dry-run: ## Validate a private history bundle (requires SERIES_SLUG, PUBLISHER_ACCOUNT_ID, IDENTITY_MAP)

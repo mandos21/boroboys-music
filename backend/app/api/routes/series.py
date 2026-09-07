@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.api.schemas import SeriesHistoryResponse, SeriesListResponse
 from app.core.security import hash_secret
 from app.db.models import (
     ContributorGroup,
@@ -20,6 +21,7 @@ from app.db.models import (
     PlatformRole,
     Round,
     RoundMember,
+    RoundStatus,
     Series,
     SeriesAdmin,
     SeriesInvite,
@@ -71,7 +73,7 @@ def accept_series_invite(
     return {"seriesId": str(invite.series_id), "role": invite.role}
 
 
-@router.get("")
+@router.get("", response_model=list[SeriesListResponse])
 def list_my_series(
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
@@ -111,11 +113,11 @@ def list_my_series(
                 .order_by(Series.name)
             )
         )
-    payloads = [_series_payload(db, series, user) for series in series_items]
+    payloads = _series_payloads(db, series_items, user)
     return sorted(payloads, key=_series_sort_key)
 
 
-@router.get("/{series_id}")
+@router.get("/{series_id}", response_model=SeriesHistoryResponse)
 def get_series_history(
     series_id: uuid.UUID,
     db: DbSession,
@@ -135,7 +137,12 @@ def get_series_history(
     if not is_admin and not rounds and not _has_series_membership(db, series_id, user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="series access required")
     stats = _series_stats(db, rounds)
-    fallback_artwork_url = _fallback_artwork_url(db, rounds) if not series.cover_image_url and not series.accent_color else None
+    artwork_by_round = _round_artwork_urls_by_round(db, [round_.id for round_ in rounds])
+    fallback_artwork_url = (
+        _fallback_artwork_url(rounds, artwork_by_round)
+        if not series.cover_image_url and not series.accent_color
+        else None
+    )
     return {
         "id": str(series.id),
         "name": series.name,
@@ -155,33 +162,125 @@ def get_series_history(
                 "closesAt": round_.closes_at.isoformat(),
                 "publishAt": round_.publish_at.isoformat(),
                 "prompt": round_.prompt,
-                "artworkUrls": _round_artwork_urls(db, round_.id),
+                "artworkUrls": artwork_by_round.get(round_.id, []),
             }
             for round_ in rounds
         ],
     }
 
 
-def _series_payload(db: DbSession, series: Series, user: User) -> dict[str, object]:
-    is_admin = _is_series_admin(db, series.id, user)
-    rounds = _visible_rounds(db, series.id, user, is_admin)
-    active = next((round_ for round_ in rounds if round_.status.value == "open"), None)
-    active = active or next(
-        (round_ for round_ in rounds if round_.status.value != "published"), None
+def _series_payloads(
+    db: DbSession, series_items: list[Series], user: User
+) -> list[dict[str, object]]:
+    """Build the dashboard in a fixed number of queries, not per series.
+
+    The landing page is deliberately a broad view: a person with ten series
+    should not pay ten copies of the round, count, and artwork lookups.
+    """
+    series_ids = [series.id for series in series_items]
+    if not series_ids:
+        return []
+    admin_series_ids = set(
+        db.scalars(
+            select(SeriesAdmin.series_id).where(
+                SeriesAdmin.user_id == user.id,
+                SeriesAdmin.series_id.in_(series_ids),
+            )
+        )
     )
-    latest = active or (rounds[0] if rounds else None)
-    fallback_artwork_url = _fallback_artwork_url(db, [latest]) if latest and not series.cover_image_url and not series.accent_color else None
-    return {
-        "id": str(series.id),
-        "name": series.name,
-        "description": series.description,
-        "timezone": series.timezone,
-        "coverImageUrl": series.cover_image_url,
-        "accentColor": series.accent_color,
-        "fallbackArtworkUrl": fallback_artwork_url,
-        "isAdmin": is_admin,
-        "featuredRound": _round_payload(db, latest) if latest else None,
-    }
+    is_platform_admin = user.platform_role is PlatformRole.ADMIN
+    membership = (
+        (RoundMember.user_id == user.id) & RoundMember.removed_at.is_(None)
+    )
+    round_query = select(Round).where(Round.series_id.in_(series_ids))
+    if not is_platform_admin:
+        round_query = (
+            round_query.outerjoin(RoundMember, RoundMember.round_id == Round.id)
+            .where(or_(membership, Round.series_id.in_(admin_series_ids)))
+            .distinct()
+        )
+    visible_rounds = list(db.scalars(round_query))
+    if any(reconcile_round_status(round_) for round_ in visible_rounds):
+        db.commit()
+
+    round_ids = [round_.id for round_ in visible_rounds]
+    submitted_counts: dict[uuid.UUID, int] = {}
+    contributor_counts: dict[uuid.UUID, int] = {}
+    artwork_by_round: dict[uuid.UUID, list[str]] = {}
+    if round_ids:
+        submitted_counts = {
+            round_id: int(count)
+            for round_id, count in db.execute(
+                select(Submission.round_id, func.count(func.distinct(Submission.contributor_id)))
+                .where(
+                    Submission.round_id.in_(round_ids),
+                    Submission.status == SubmissionStatus.ACCEPTED,
+                )
+                .group_by(Submission.round_id)
+            )
+        }
+        contributor_counts = {
+            round_id: int(count)
+            for round_id, count in db.execute(
+                select(RoundMember.round_id, func.count())
+                .where(
+                    RoundMember.round_id.in_(round_ids),
+                    RoundMember.removed_at.is_(None),
+                )
+                .group_by(RoundMember.round_id)
+            )
+        }
+        for round_id, artwork_url in db.execute(
+            select(Submission.round_id, Track.artwork_url)
+            .join(Track, Track.id == Submission.track_id)
+            .where(
+                Submission.round_id.in_(round_ids),
+                Submission.status == SubmissionStatus.ACCEPTED,
+                Track.artwork_url.is_not(None),
+            )
+            .order_by(Submission.created_at, Submission.id)
+        ):
+            if isinstance(artwork_url, str):
+                artwork_by_round.setdefault(round_id, []).append(artwork_url)
+
+    rounds_by_series: dict[uuid.UUID, list[Round]] = {series_id: [] for series_id in series_ids}
+    for round_ in visible_rounds:
+        rounds_by_series[round_.series_id].append(round_)
+    payloads: list[dict[str, object]] = []
+    for series in series_items:
+        rounds = sorted(rounds_by_series[series.id], key=_round_sort_key)
+        featured = next((round_ for round_ in rounds if round_.status is RoundStatus.OPEN), None)
+        featured = featured or next(
+            (round_ for round_ in rounds if round_.status is not RoundStatus.PUBLISHED), None
+        )
+        featured = featured or (rounds[0] if rounds else None)
+        artwork_urls = artwork_by_round.get(featured.id, []) if featured else []
+        fallback_artwork_url = (
+            artwork_urls[featured.id.int % len(artwork_urls)]
+            if featured
+            and artwork_urls
+            and not series.cover_image_url
+            and not series.accent_color
+            else None
+        )
+        payloads.append(
+            {
+                "id": str(series.id),
+                "name": series.name,
+                "description": series.description,
+                "timezone": series.timezone,
+                "coverImageUrl": series.cover_image_url,
+                "accentColor": series.accent_color,
+                "fallbackArtworkUrl": fallback_artwork_url,
+                "isAdmin": is_platform_admin or series.id in admin_series_ids,
+                "featuredRound": _round_payload_from_counts(
+                    featured, submitted_counts, contributor_counts
+                )
+                if featured
+                else None,
+            }
+        )
+    return payloads
 
 
 def _series_sort_key(item: dict[str, object]) -> tuple[bool, str]:
@@ -201,16 +300,17 @@ def _visible_rounds(db: DbSession, series_id: uuid.UUID, user: User, is_admin: b
     rounds = list(db.scalars(statement.order_by(Round.opens_at.desc())))
     if any(reconcile_round_status(round_) for round_ in rounds):
         db.commit()
-    return sorted(
-        rounds,
-        key=lambda round_: (
-            0
-            if round_.status.value == "open"
-            else 1
-            if round_.status.value != "published"
-            else 2,
-            -round_.opens_at.timestamp(),
-        ),
+    return sorted(rounds, key=_round_sort_key)
+
+
+def _round_sort_key(round_: Round) -> tuple[int, float]:
+    return (
+        0
+        if round_.status is RoundStatus.OPEN
+        else 1
+        if round_.status is not RoundStatus.PUBLISHED
+        else 2,
+        -round_.opens_at.timestamp(),
     )
 
 
@@ -271,40 +371,67 @@ def _round_payload(db: DbSession, round_: Round) -> dict[str, object]:
     }
 
 
-def _round_artwork_urls(db: DbSession, round_id: uuid.UUID, limit: int = 8) -> list[str]:
-    """Pick artwork round-robin so a prolific contributor cannot fill a collage."""
+def _round_payload_from_counts(
+    round_: Round,
+    submitted_counts: dict[uuid.UUID, int],
+    contributor_counts: dict[uuid.UUID, int],
+) -> dict[str, object]:
+    return {
+        "id": str(round_.id),
+        "title": round_.title,
+        "status": round_.status.value,
+        "opensAt": round_.opens_at.isoformat(),
+        "closesAt": round_.closes_at.isoformat(),
+        "publishAt": round_.publish_at.isoformat(),
+        "submittedCount": submitted_counts.get(round_.id, 0),
+        "contributorCount": contributor_counts.get(round_.id, 0),
+        "prompt": round_.prompt,
+    }
+
+
+def _round_artwork_urls_by_round(
+    db: DbSession, round_ids: Sequence[uuid.UUID], limit: int = 8
+) -> dict[uuid.UUID, list[str]]:
+    """Pick per-round artwork round-robin in one query for history pages."""
+    if not round_ids:
+        return {}
     rows = list(
         db.execute(
-            select(Submission.contributor_id, Track.artwork_url)
+            select(Submission.round_id, Submission.contributor_id, Track.artwork_url)
             .join(Track, Track.id == Submission.track_id)
             .where(
-                Submission.round_id == round_id,
+                Submission.round_id.in_(round_ids),
                 Submission.status == SubmissionStatus.ACCEPTED,
                 Track.artwork_url.is_not(None),
             )
-            .order_by(Submission.created_at, Submission.id)
+            .order_by(Submission.round_id, Submission.created_at, Submission.id)
         )
     )
-    by_contributor: dict[uuid.UUID, list[str]] = {}
-    for contributor_id, artwork_url in rows:
+    by_round: dict[uuid.UUID, dict[uuid.UUID, list[str]]] = {}
+    for round_id, contributor_id, artwork_url in rows:
         if isinstance(artwork_url, str):
-            by_contributor.setdefault(contributor_id, []).append(artwork_url)
-    selected: list[str] = []
-    while by_contributor and len(selected) < limit:
-        for contributor_id in list(by_contributor):
-            selected.append(by_contributor[contributor_id].pop(0))
-            if not by_contributor[contributor_id]:
-                del by_contributor[contributor_id]
-            if len(selected) == limit:
-                break
-    return selected
+            by_round.setdefault(round_id, {}).setdefault(contributor_id, []).append(artwork_url)
+    selected_by_round: dict[uuid.UUID, list[str]] = {}
+    for round_id, by_contributor in by_round.items():
+        selected: list[str] = []
+        while by_contributor and len(selected) < limit:
+            for contributor_id in list(by_contributor):
+                selected.append(by_contributor[contributor_id].pop(0))
+                if not by_contributor[contributor_id]:
+                    del by_contributor[contributor_id]
+                if len(selected) == limit:
+                    break
+        selected_by_round[round_id] = selected
+    return selected_by_round
 
 
-def _fallback_artwork_url(db: DbSession, rounds: Sequence[Round | None]) -> str | None:
+def _fallback_artwork_url(
+    rounds: Sequence[Round | None], artwork_by_round: dict[uuid.UUID, list[str]]
+) -> str | None:
     for round_ in rounds:
         if round_ is None:
             continue
-        artwork_urls = _round_artwork_urls(db, round_.id)
+        artwork_urls = artwork_by_round.get(round_.id, [])
         if artwork_urls:
             # A rotating offset keeps a no-theme series visually musical without
             # persisting a separate identity just for its first release.

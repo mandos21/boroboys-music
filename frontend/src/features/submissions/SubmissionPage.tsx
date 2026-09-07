@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -32,6 +32,8 @@ export function SubmissionPage() {
   const [selected, setSelected] = useState<Track | null>(null);
   const [note, setNote] = useState("");
   const [confirmWarnings, setConfirmWarnings] = useState(false);
+  const submittedRef = useRef(false);
+  const draftPayloadRef = useRef<{ track: Track | null; note: string }>({ track: null, note: "" });
   const deferredQuery = useDeferredValue(query.trim());
   const round = useQuery({ queryKey: ["round", roundId], queryFn: () => api<Round>(`/rounds/${roundId}`), enabled: Boolean(roundId), retry: false });
   const tracks = useQuery({
@@ -41,7 +43,10 @@ export function SubmissionPage() {
   });
   const evaluation = useMutation({
     mutationFn: (track: Track) => {
-      const request: TrackEvaluationRequest = { track: asTrackInput(track) };
+      const request: TrackEvaluationRequest = {
+        track: asTrackInput(track),
+        replacing_submission_id: replaceId ?? undefined,
+      };
       return post<Evaluation>(`/rounds/${roundId}/evaluate-track`, request);
     },
   });
@@ -71,6 +76,7 @@ export function SubmissionPage() {
     },
     onSuccess: (result) => {
       if (result.accepted) {
+        submittedRef.current = true;
         void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
         void queryClient.invalidateQueries({ queryKey: ["round-submissions", roundId] });
         void queryClient.invalidateQueries({ queryKey: ["series"] });
@@ -97,12 +103,34 @@ export function SubmissionPage() {
   }, [draft.data]);
 
   useEffect(() => {
+    draftPayloadRef.current = { track: selected, note };
+  }, [note, selected]);
+
+  useEffect(() => {
     if (!roundId || replaceId || !draft.isSuccess) return;
     const timer = window.setTimeout(() => {
-      void put(`/rounds/${roundId}/draft`, { track: selected ? asTrackInput(selected) : null, note: note || null });
+      void put(`/rounds/${roundId}/draft`, {
+        track: selected ? asTrackInput(selected) : null,
+        note: note || null,
+      }).catch(() => {
+        showToast({ title: "Draft not saved", description: "Keep this page open and try again before leaving.", tone: "error" });
+      });
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [draft.isSuccess, note, replaceId, roundId, selected]);
+  }, [draft.isSuccess, note, replaceId, roundId, selected, showToast]);
+
+  useEffect(() => {
+    if (!roundId || replaceId || !draft.isSuccess) return;
+    return () => {
+      if (submittedRef.current) return;
+      const latest = draftPayloadRef.current;
+      void put(
+        `/rounds/${roundId}/draft`,
+        { track: latest.track ? asTrackInput(latest.track) : null, note: latest.note || null },
+        { keepalive: true },
+      ).catch(() => undefined);
+    };
+  }, [draft.isSuccess, replaceId, roundId]);
 
   if (round.isLoading) return <main className="shell narrow-page-shell"><StatePanel kind="loading" title="Preparing your submission">Loading the round’s rules and timing.</StatePanel></main>;
   if (round.isError || !round.data) return <main className="shell narrow-page-shell"><StatePanel kind="error" title="Round unavailable"><Link to="/">Return to your rounds</Link></StatePanel></main>;

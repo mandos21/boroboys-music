@@ -428,6 +428,10 @@ class Publication(UUIDTimestampMixin, Base):
     last_error: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     unpublished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    execution_token: Mapped[str | None] = mapped_column(String(128))
+    execution_lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
 
 
 class PublicationItem(UUIDTimestampMixin, Base):

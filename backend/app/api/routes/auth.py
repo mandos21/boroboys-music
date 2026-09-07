@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 
 from app.api.deps import DbSession, get_current_session, get_current_user, require_csrf
+from app.api.schemas import SessionResponse
 from app.auth.oidc import OidcClient, OidcError
 from app.core.config import Settings, get_settings
 from app.core.security import decrypt, encrypt, hash_secret, new_secret, secrets_match
@@ -151,7 +152,7 @@ async def callback(
     return redirect
 
 
-@router.get("/session")
+@router.get("/session", response_model=SessionResponse)
 def session_details(
     session: Annotated[ServerSession, Depends(get_current_session)],
     user: Annotated[User, Depends(get_current_user)],
@@ -164,6 +165,7 @@ def session_details(
             "platformRole": user.platform_role.value,
         },
         "expiresAt": session.expires_at.isoformat(),
+        "csrfCookieName": _csrf_cookie_name(),
     }
 
 

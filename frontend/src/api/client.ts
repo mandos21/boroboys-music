@@ -7,11 +7,15 @@ export class ApiError extends Error {
   }
 }
 
+let csrfCookieName: string | undefined;
+
 function csrfToken(): string | undefined {
-  return document.cookie
+  const cookies = document.cookie
     .split("; ")
-    .find((cookie) => cookie.startsWith("music_rounds_session_csrf="))
-    ?.split("=", 2)[1];
+    .map((cookie) => cookie.split("=", 2));
+  const cookie = cookies.find(([name]) => name === csrfCookieName)
+    ?? cookies.find(([name]) => name.endsWith("_csrf"));
+  return cookie?.[1];
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -34,7 +38,17 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(response.status, detail);
   }
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  const body = await response.json() as T;
+  if (
+    path === "/auth/session"
+    && typeof body === "object"
+    && body !== null
+    && "csrfCookieName" in body
+    && typeof body.csrfCookieName === "string"
+  ) {
+    csrfCookieName = body.csrfCookieName;
+  }
+  return body;
 }
 
 export function post<T>(path: string, payload: unknown): Promise<T> {
@@ -45,8 +59,8 @@ export function patch<T>(path: string, payload: unknown): Promise<T> {
   return api<T>(path, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
-export function put(path: string, payload: unknown): Promise<void> {
-  return api<void>(path, { method: "PUT", body: JSON.stringify(payload) });
+export function put(path: string, payload: unknown, init?: RequestInit): Promise<void> {
+  return api<void>(path, { ...init, method: "PUT", body: JSON.stringify(payload) });
 }
 
 export function del(path: string): Promise<void> {

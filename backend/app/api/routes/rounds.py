@@ -13,6 +13,16 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.api.schemas import (
+    EvidenceResponse,
+    RoundDetailResponse,
+    RoundListResponse,
+    SubmissionDraftResponse,
+    SubmissionResponse,
+    SubmissionResultResponse,
+    TrackEvaluationResponse,
+    TrackResponse,
+)
 from app.core.config import get_settings
 from app.db.models import (
     EvaluationDecision,
@@ -78,9 +88,10 @@ class SubmissionDraftUpdate(BaseModel):
 
 class TrackEvaluationRequest(BaseModel):
     track: TrackInput
+    replacing_submission_id: uuid.UUID | None = None
 
 
-@router.get("")
+@router.get("", response_model=list[RoundListResponse])
 def list_my_rounds(
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
@@ -113,7 +124,7 @@ def list_my_rounds(
     ]
 
 
-@router.get("/{round_id}")
+@router.get("/{round_id}", response_model=RoundDetailResponse)
 def get_round(
     round_id: uuid.UUID,
     db: DbSession,
@@ -188,7 +199,7 @@ def get_round(
     }
 
 
-@router.get("/{round_id}/draft")
+@router.get("/{round_id}/draft", response_model=SubmissionDraftResponse)
 def get_submission_draft(
     round_id: uuid.UUID,
     db: DbSession,
@@ -201,7 +212,11 @@ def get_submission_draft(
     return {"track": draft.track if draft else None, "note": draft.note if draft else None}
 
 
-@router.put("/{round_id}/draft", dependencies=[Depends(require_csrf)])
+@router.put(
+    "/{round_id}/draft",
+    response_model=SubmissionDraftResponse,
+    dependencies=[Depends(require_csrf)],
+)
 def save_submission_draft(
     round_id: uuid.UUID,
     payload: SubmissionDraftUpdate,
@@ -244,7 +259,7 @@ def get_listening_suggestions(
         return []
 
 
-@router.get("/{round_id}/submissions")
+@router.get("/{round_id}/submissions", response_model=list[SubmissionResponse])
 def list_round_submissions(
     round_id: uuid.UUID,
     db: DbSession,
@@ -303,7 +318,7 @@ def list_round_submissions(
     ]
 
 
-@router.get("/{round_id}/track-search")
+@router.get("/{round_id}/track-search", response_model=list[TrackResponse])
 def search_tracks(
     round_id: uuid.UUID,
     query: Annotated[str, Query(min_length=2, max_length=200)],
@@ -358,7 +373,7 @@ def search_tracks(
     ]
 
 
-@router.get("/{round_id}/tracks/{track_id}/evidence")
+@router.get("/{round_id}/tracks/{track_id}/evidence", response_model=EvidenceResponse)
 def get_evidence(
     round_id: uuid.UUID,
     track_id: uuid.UUID,
@@ -431,6 +446,7 @@ def get_evidence(
 
 @router.post(
     "/{round_id}/evaluate-track",
+    response_model=TrackEvaluationResponse,
     dependencies=[Depends(require_csrf)],
 )
 def evaluate_track(
@@ -444,7 +460,20 @@ def evaluate_track(
     _require_open_round(round_)
     limit = _submission_limit(round_, membership)
     active_count = _active_submission_count(db, round_.id, user.id)
-    track = _find_or_create_track(db, payload.track)
+    is_replacement = False
+    if payload.replacing_submission_id is not None:
+        replacing = db.get(Submission, payload.replacing_submission_id)
+        is_replacement = bool(
+            replacing
+            and replacing.round_id == round_.id
+            and replacing.contributor_id == user.id
+            and replacing.status is SubmissionStatus.ACCEPTED
+        )
+        if not is_replacement:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
+            )
+    track = _find_or_create_track(db, _canonical_track_input(db, user, payload.track))
     decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
     db.commit()
     defer_evidence_refresh(str(round_.id), str(track.id))
@@ -452,7 +481,7 @@ def evaluate_track(
     warnings = any(item.decision is EvaluationDecision.WARN for item in decisions)
     return {
         "trackId": str(track.id),
-        "canSubmit": active_count < limit and not rejected,
+        "canSubmit": (active_count < limit or is_replacement) and not rejected,
         "limitRemaining": max(0, limit - active_count),
         "requiresWarningConfirmation": warnings,
         "policyResults": [_policy_payload(item) for item in decisions],
@@ -462,6 +491,7 @@ def evaluate_track(
 @router.post(
     "/{round_id}/submissions",
     status_code=status.HTTP_201_CREATED,
+    response_model=SubmissionResultResponse,
     dependencies=[Depends(require_csrf)],
 )
 def create_submission(
@@ -470,6 +500,11 @@ def create_submission(
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
+    # Authorize before the provider request, then lock and check again after it.
+    # We must not hold a row lock across remote I/O.
+    initial_round, _ = _member_round(db, round_id, user.id)
+    _require_open_round(initial_round)
+    canonical_track = _canonical_track_input(db, user, payload.track)
     round_, membership = _member_round(db, round_id, user.id, lock_round=True)
     _require_open_round(round_)
     limit = _submission_limit(round_, membership)
@@ -477,7 +512,7 @@ def create_submission(
     if active_count >= limit:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="submission limit reached")
 
-    track = _find_or_create_track(db, payload.track)
+    track = _find_or_create_track(db, canonical_track)
     decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
     if any(item.decision is EvaluationDecision.REJECT for item in decisions):
         return {
@@ -527,6 +562,7 @@ def create_submission(
 
 @router.patch(
     "/submissions/{submission_id}",
+    response_model=SubmissionResultResponse,
     dependencies=[Depends(require_csrf)],
 )
 def update_submission(
@@ -541,12 +577,17 @@ def update_submission(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission not found")
     if submission.status is not SubmissionStatus.ACCEPTED:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="submission is withdrawn")
+    initial_round, _ = _member_round(db, submission.round_id, user.id)
+    _require_open_round(initial_round)
+    canonical_track = (
+        _canonical_track_input(db, user, payload.track) if payload.track is not None else None
+    )
     round_, _ = _member_round(db, submission.round_id, user.id, lock_round=True)
     _require_open_round(round_)
 
     decisions = []
-    if payload.track is not None:
-        track = _find_or_create_track(db, payload.track)
+    if canonical_track is not None:
+        track = _find_or_create_track(db, canonical_track)
         decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
         if any(item.decision is EvaluationDecision.REJECT for item in decisions):
             return {
@@ -705,15 +746,91 @@ def _active_submission_count(db: DbSession, round_id: uuid.UUID, user_id: uuid.U
     )
 
 
+def _canonical_track_input(db: DbSession, user: User, input_track: TrackInput) -> TrackInput:
+    """Resolve a client-selected Spotify ID into trusted provider metadata.
+
+    Search results are a UI convenience, never an authority.  Policies and
+    publication snapshots must be based on Spotify's response, not fields a
+    browser can alter before posting a submission.
+    """
+    account = db.scalar(
+        select(ExternalAccount).where(
+            ExternalAccount.user_id == user.id,
+            ExternalAccount.provider == ExternalProvider.SPOTIFY,
+            ExternalAccount.is_active.is_(True),
+        )
+    )
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Spotify account is not linked"
+        )
+    try:
+        access_token = get_spotify_access_token(db, account.id)
+        # Token refreshes are durable state and should survive a later provider
+        # failure. This also keeps remote I/O outside an open write transaction.
+        db.commit()
+        matches = spotify.tracks_by_id(access_token, [input_track.spotify_track_id])
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Spotify track lookup failed"
+        ) from None
+    track = next(
+        (
+            item
+            for item in matches
+            if isinstance(item.get("id"), str) and item["id"] == input_track.spotify_track_id
+        ),
+        None,
+    )
+    if track is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Spotify could not find that track for your account",
+        )
+    name = track.get("name")
+    uri = track.get("uri")
+    artists = track.get("artists")
+    artist = ", ".join(
+        item["name"]
+        for item in artists
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    ) if isinstance(artists, list) else ""
+    if not isinstance(name, str) or not isinstance(uri, str) or not artist:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Spotify returned incomplete track metadata",
+        )
+    album_data = track.get("album")
+    album = album_data.get("name") if isinstance(album_data, dict) else None
+    artwork_url = None
+    if isinstance(album_data, dict) and isinstance(album_data.get("images"), list):
+        for image in album_data["images"]:
+            if isinstance(image, dict) and isinstance(image.get("url"), str):
+                artwork_url = image["url"]
+                break
+    return TrackInput(
+        spotify_track_id=input_track.spotify_track_id,
+        name=name,
+        artist=artist,
+        album=album if isinstance(album, str) else None,
+        spotify_uri=uri,
+        artwork_url=artwork_url,
+        provider_metadata={
+            "explicit": track.get("explicit") is True,
+            "isPlayable": track.get("is_playable") is not False,
+        },
+    )
+
+
 def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
     track = db.scalar(select(Track).where(Track.spotify_track_id == input_track.spotify_track_id))
     if track is not None:
-        if track.artwork_url is None and input_track.artwork_url is not None:
-            track.artwork_url = input_track.artwork_url
-        if track.album is None and input_track.album is not None:
-            track.album = input_track.album
-        if track.spotify_uri is None and input_track.spotify_uri is not None:
-            track.spotify_uri = input_track.spotify_uri
+        track.name = input_track.name
+        track.artist = input_track.artist
+        track.album = input_track.album
+        track.spotify_uri = input_track.spotify_uri
+        track.artwork_url = input_track.artwork_url
+        track.provider_metadata = input_track.provider_metadata
         return track
     # Tracks are shared across overlapping rounds.  PostgreSQL resolves the
     # first-insert race without turning a normal simultaneous evaluation into

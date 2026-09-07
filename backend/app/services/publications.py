@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.security import decrypt, encrypt
+from app.core.security import decrypt, encrypt, new_secret
 from app.db.models import (
     AuditEvent,
     ExternalAccount,
@@ -53,7 +53,10 @@ def start_publication(
     round_ = db.scalar(select(Round).where(Round.id == round_id).with_for_update())
     if round_ is None or round_.status is not RoundStatus.CLOSED:
         raise PublicationError("round must be closed before publication")
-    if db.scalar(select(Publication).where(Publication.round_id == round_id)):
+    existing = db.scalar(
+        select(Publication).where(Publication.round_id == round_id).with_for_update()
+    )
+    if existing is not None and existing.state is not PublicationState.UNPUBLISHED:
         raise PublicationError("round already has a publication")
     publisher = db.get(ExternalAccount, publisher_account_id)
     if (
@@ -73,32 +76,53 @@ def start_publication(
         )
         or 0
     ) + 1
-    publication = Publication(
-        round_id=round_.id,
-        publisher_account_id=publisher_account_id,
-        idempotency_key=str(uuid.uuid4()),
-        state=PublicationState.PUBLISHING,
-    )
-    db.add(publication)
-    db.flush()
-    submissions = list(
-        db.scalars(
-            select(Submission)
-            .where(Submission.round_id == round_.id, Submission.status == SubmissionStatus.ACCEPTED)
-            .order_by(Submission.submitted_at, Submission.id)
+    if existing is None:
+        publication = Publication(
+            round_id=round_.id,
+            publisher_account_id=publisher_account_id,
+            idempotency_key=str(uuid.uuid4()),
+            state=PublicationState.PUBLISHING,
         )
-    )
-    db.add_all(
-        PublicationItem(
-            publication_id=publication.id,
-            submission_id=item.id,
-            track_id=item.track_id,
-            contributor_id=item.contributor_id,
-            position=index,
-            note_snapshot=item.note,
+        db.add(publication)
+        db.flush()
+        submissions = list(
+            db.scalars(
+                select(Submission)
+                .where(
+                    Submission.round_id == round_.id,
+                    Submission.status == SubmissionStatus.ACCEPTED,
+                )
+                .order_by(Submission.submitted_at, Submission.id)
+            )
         )
-        for index, item in enumerate(submissions, start=1)
-    )
+        db.add_all(
+            PublicationItem(
+                publication_id=publication.id,
+                submission_id=item.id,
+                track_id=item.track_id,
+                contributor_id=item.contributor_id,
+                position=index,
+                note_snapshot=item.note,
+            )
+            for index, item in enumerate(submissions, start=1)
+        )
+    else:
+        # A successful reversal leaves the immutable item snapshot intact. A
+        # new playlist can therefore be published without mutating history.
+        publication = existing
+        publication.publisher_account_id = publisher_account_id
+        publication.idempotency_key = str(uuid.uuid4())
+        publication.spotify_playlist_id = None
+        publication.state = PublicationState.PUBLISHING
+        publication.retirement_requested = False
+        publication.published_at = None
+        publication.last_error = None
+        publication.execution_token = None
+        publication.execution_lease_expires_at = None
+        for item in db.scalars(
+            select(PublicationItem).where(PublicationItem.publication_id == publication.id)
+        ):
+            item.published_at = None
     round_.status = RoundStatus.PUBLISHING
     round_.publisher_account_id = publisher.id
     round_.published_sequence = sequence
@@ -236,30 +260,29 @@ def import_historical_playlist(
 
 def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
     """Perform a retry-safe remote publish, committing playlist identity before item writes."""
-    publication = db.scalar(
-        select(Publication).where(Publication.id == publication_id).with_for_update()
-    )
-    if publication is None or publication.state not in {
-        PublicationState.PUBLISHING,
-        PublicationState.FAILED,
-    }:
+    claim = _claim_execution(db, publication_id, PublicationState.PUBLISHING)
+    if claim is None:
         return
+    publication, token = claim
     round_ = db.get(Round, publication.round_id)
     account = db.get(ExternalAccount, publication.publisher_account_id)
     if round_ is None or account is None:
         _fail(db, publication, round_, "publication prerequisites are unavailable")
         return
     try:
-        token = get_spotify_access_token(db, account.id)
+        access_token = get_spotify_access_token(db, account.id)
         if publication.spotify_playlist_id is None:
             publication.spotify_playlist_id = spotify.create_playlist(
-                token, account.provider_subject, round_.title, "Published by Music Rounds"
+                access_token, account.provider_subject, round_.title, "Published by BoroCrew Music"
             )
             publication.attempt_count += 1
             db.commit()
+        _refresh_execution_lease(db, publication, token)
+        _reconcile_remote_item_progress(db, publication, token)
         for item_batch in _unpublished_item_batches(db, publication.id):
+            _refresh_execution_lease(db, publication, token)
             spotify.add_items(
-                token,
+                access_token,
                 publication.spotify_playlist_id,
                 [uri for _, uri in item_batch],
             )
@@ -272,6 +295,8 @@ def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
         mark_published(db, publication.id, publication.spotify_playlist_id)
         publication.published_at = datetime.now(UTC)
         publication.last_error = None
+        publication.execution_token = None
+        publication.execution_lease_expires_at = None
         db.add(
             AuditEvent(
                 actor_id=None,
@@ -283,27 +308,30 @@ def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
         )
         db.commit()
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
-        _fail(db, publication, round_, "Spotify publication failed")
+        _fail(db, publication, round_, "Spotify publication failed", token)
 
 
 def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
-    publication = db.scalar(
-        select(Publication).where(Publication.id == publication_id).with_for_update()
-    )
-    if publication is None or publication.state != PublicationState.UNPUBLISHING:
+    claim = _claim_execution(db, publication_id, PublicationState.UNPUBLISHING)
+    if claim is None:
         return
+    publication, token = claim
     round_ = db.get(Round, publication.round_id)
     if round_ is None or not publication.spotify_playlist_id:
-        _fail(db, publication, round_, "publication cannot be retired")
+        _fail(db, publication, round_, "publication cannot be retired", token)
         return
     try:
-        spotify.retire_playlist(
+        _refresh_execution_lease(db, publication, token)
+        playlist_id = publication.spotify_playlist_id
+        spotify.delete_playlist(
             get_spotify_access_token(db, publication.publisher_account_id),
-            publication.spotify_playlist_id,
-            _publication_uris(db, publication.id),
+            playlist_id,
         )
         publication.state = PublicationState.UNPUBLISHED
         publication.unpublished_at = datetime.now(UTC)
+        publication.spotify_playlist_id = None
+        publication.execution_token = None
+        publication.execution_lease_expires_at = None
         round_.status = RoundStatus.CLOSED
         db.add(
             AuditEvent(
@@ -311,12 +339,12 @@ def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
                 action="publication.unpublished",
                 target_type="publication",
                 target_id=publication.id,
-                details={"roundId": str(round_.id), "playlistId": publication.spotify_playlist_id},
+                details={"roundId": str(round_.id), "playlistId": playlist_id},
             )
         )
         db.commit()
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
-        _fail(db, publication, round_, "Spotify playlist retirement failed")
+        _fail(db, publication, round_, "Spotify playlist retirement failed", token)
 
 
 def get_spotify_access_token(db: Session, account_id: uuid.UUID) -> str:
@@ -344,17 +372,6 @@ def get_spotify_access_token(db: Session, account_id: uuid.UUID) -> str:
         credential.expires_at = spotify.token_expiry(refreshed)
         token = str(refreshed["access_token"])
     return token
-
-
-def _publication_uris(db: Session, publication_id: uuid.UUID) -> list[str]:
-    return list(
-        db.scalars(
-            select(Track.spotify_uri)
-            .join(PublicationItem, PublicationItem.track_id == Track.id)
-            .where(PublicationItem.publication_id == publication_id, Track.spotify_uri.is_not(None))
-            .order_by(PublicationItem.position)
-        )
-    )
 
 
 def _import_track(db: Session, raw_track: dict[str, object]) -> Track:
@@ -420,10 +437,96 @@ def _unpublished_item_batches(
     ]
 
 
-def _fail(db: Session, publication: Publication, round_: Round | None, message: str) -> None:
+def _claim_execution(
+    db: Session, publication_id: uuid.UUID, expected_state: PublicationState
+) -> tuple[Publication, str] | None:
+    """Claim one durable worker lease without holding a DB lock during I/O."""
+    publication = db.scalar(
+        select(Publication).where(Publication.id == publication_id).with_for_update()
+    )
+    now = datetime.now(UTC)
+    if (
+        publication is None
+        or publication.state is not expected_state
+        or (
+            publication.execution_lease_expires_at is not None
+            and publication.execution_lease_expires_at > now
+        )
+    ):
+        return None
+    token = new_secret()
+    publication.execution_token = token
+    publication.execution_lease_expires_at = now + timedelta(minutes=30)
+    db.commit()
+    return publication, token
+
+
+def _refresh_execution_lease(db: Session, publication: Publication, token: str) -> None:
+    """Fail closed if another worker has recovered an expired lease."""
+    current = db.scalar(
+        select(Publication).where(Publication.id == publication.id).with_for_update()
+    )
+    if current is None or current.execution_token != token:
+        raise ValueError("publication worker lease was lost")
+    current.execution_lease_expires_at = datetime.now(UTC) + timedelta(minutes=30)
+    db.commit()
+
+
+def _reconcile_remote_item_progress(db: Session, publication: Publication, token: str) -> None:
+    """Recover a batch posted to Spotify just before a worker crash.
+
+    Spotify has no request idempotency key for playlist inserts. We therefore
+    treat the remote playlist as an ordered prefix of our immutable snapshot.
+    A mismatch is unsafe to repair automatically and fails the publication.
+    """
+    if publication.spotify_playlist_id is None:
+        raise ValueError("publication has no playlist")
+    account = db.get(ExternalAccount, publication.publisher_account_id)
+    if account is None:
+        raise ValueError("publication account is unavailable")
+    remote = spotify.playlist_snapshot(
+        get_spotify_access_token(db, account.id), publication.spotify_playlist_id
+    )
+    remote_ids = [str(item["id"]) for item in remote["items"]]
+    items = list(
+        db.scalars(
+            select(PublicationItem)
+            .where(PublicationItem.publication_id == publication.id)
+            .order_by(PublicationItem.position)
+        )
+    )
+    expected_ids = list(
+        db.scalars(
+            select(Track.spotify_track_id)
+            .join(PublicationItem, PublicationItem.track_id == Track.id)
+            .where(PublicationItem.publication_id == publication.id)
+            .order_by(PublicationItem.position)
+        )
+    )
+    if len(remote_ids) > len(expected_ids) or remote_ids != expected_ids[: len(remote_ids)]:
+        raise ValueError("Spotify playlist no longer matches the publication snapshot")
+    _refresh_execution_lease(db, publication, token)
+    completed_at = datetime.now(UTC)
+    for item in items[: len(remote_ids)]:
+        if item.published_at is None:
+            item.published_at = completed_at
+    db.commit()
+
+
+def _fail(
+    db: Session,
+    publication: Publication,
+    round_: Round | None,
+    message: str,
+    token: str | None = None,
+) -> None:
+    if token is not None and publication.execution_token != token:
+        return
     publication.state = PublicationState.FAILED
     publication.attempt_count += 1
     publication.last_error = message
     if round_ is not None:
         round_.status = RoundStatus.FAILED
+    publication.execution_token = None
+    publication.execution_lease_expires_at = None
     db.commit()

@@ -10,6 +10,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import func, select
 
+from app.api.routes import rounds as round_routes
 from app.api.routes.rounds import (
     SubmissionCreate,
     SubmissionDraftUpdate,
@@ -22,8 +23,13 @@ from app.api.routes.rounds import (
     save_submission_draft,
     update_submission,
 )
+from app.core.config import get_settings
+from app.core.security import encrypt
 from app.db.models import (
     EvaluationDecision,
+    ExternalAccount,
+    ExternalCredential,
+    ExternalProvider,
     PlatformRole,
     PolicyEvaluation,
     Round,
@@ -36,6 +42,7 @@ from app.db.models import (
     User,
 )
 from app.db.session import get_session_factory
+from app.services import spotify
 from app.services.policies import evaluate_submission
 from app.tasks import app as task_app
 
@@ -47,6 +54,79 @@ def opened_task_app() -> None:
         yield
     finally:
         task_app.close()
+
+
+@pytest.fixture(autouse=True)
+def canonical_track_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep policy-flow tests independent from Spotify's transport adapter."""
+    monkeypatch.setattr(round_routes, "_canonical_track_input", lambda _db, _user, track: track)
+
+
+def test_canonical_track_lookup_uses_spotify_not_browser_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A browser cannot alter the data policies and publications rely on."""
+    monkeypatch.undo()  # Exercise the real helper instead of the policy-test fixture.
+    suffix = uuid.uuid4().hex[:12]
+    with get_session_factory()() as db:
+        user = User(oidc_issuer="https://issuer.test", oidc_subject=f"canonical-{suffix}")
+        db.add(user)
+        db.flush()
+        account = ExternalAccount(
+            user_id=user.id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject=f"canonical-{suffix}",
+        )
+        db.add(account)
+        db.flush()
+        db.add(
+            ExternalCredential(
+                external_account_id=account.id,
+                ciphertext=encrypt(
+                    '{"access_token": "spotify-access-token"}',
+                    get_settings().credential_encryption_key.get_secret_value(),
+                ),
+                key_version="v1",
+            )
+        )
+        db.commit()
+
+        monkeypatch.setattr(
+            spotify,
+            "tracks_by_id",
+            lambda token, track_ids: [
+                {
+                    "id": track_ids[0],
+                    "name": "Trusted title",
+                    "uri": f"spotify:track:{track_ids[0]}",
+                    "artists": [{"name": "Trusted artist"}],
+                    "album": {
+                        "name": "Trusted album",
+                        "images": [{"url": "https://images.test/trusted.jpg"}],
+                    },
+                    "explicit": True,
+                    "is_playable": True,
+                }
+            ],
+        )
+        canonical = round_routes._canonical_track_input(
+            db,
+            user,
+            TrackInput(
+                spotify_track_id=f"canonical-track-{suffix}",
+                name="Browser-controlled title",
+                artist="Browser-controlled artist",
+                album="Browser-controlled album",
+                artwork_url="https://attacker.test/art.jpg",
+                provider_metadata={"explicit": False},
+            ),
+        )
+
+        assert canonical.name == "Trusted title"
+        assert canonical.artist == "Trusted artist"
+        assert canonical.album == "Trusted album"
+        assert canonical.artwork_url == "https://images.test/trusted.jpg"
+        assert canonical.provider_metadata == {"explicit": True, "isPlayable": True}
 
 
 def test_warning_requires_confirmation_and_persists_an_audit_record(opened_task_app: None) -> None:

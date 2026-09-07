@@ -818,6 +818,65 @@ export interface components {
              */
             title_template: string;
         };
+        /** ConnectionResponse */
+        ConnectionResponse: {
+            /** Disconnectedat */
+            disconnectedAt: string | null;
+            /** Displayname */
+            displayName: string | null;
+            /** Id */
+            id: string;
+            /** Isactive */
+            isActive: boolean;
+            /** Profileimageurl */
+            profileImageUrl: string | null;
+            /** Provider */
+            provider: string;
+            /** Visibility */
+            visibility: string;
+        };
+        /** ContributorResponse */
+        ContributorResponse: {
+            /** Displayname */
+            displayName: string;
+            /** Id */
+            id: string;
+            /** Spotifyprofileimageurl */
+            spotifyProfileImageUrl: string | null;
+        };
+        /** EvidenceItemResponse */
+        EvidenceItemResponse: {
+            /** Accountid */
+            accountId: string;
+            /** Albumplaycount */
+            albumPlaycount: number | null;
+            /** Artistplaycount */
+            artistPlaycount: number | null;
+            /** Displayname */
+            displayName: string | null;
+            /**
+             * Fetchedat
+             * Format: date-time
+             */
+            fetchedAt: string;
+            /** Ismine */
+            isMine: boolean;
+            /** Playcount */
+            playcount: number | null;
+            /** Refreshafter */
+            refreshAfter: string | null;
+            /** Status */
+            status: string;
+        };
+        /** EvidenceResponse */
+        EvidenceResponse: {
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceItemResponse"][];
+            /** Roundid */
+            roundId: string;
+            /** Trackid */
+            trackId: string;
+        };
         /**
          * EvidenceVisibility
          * @enum {string}
@@ -877,6 +936,21 @@ export interface components {
             spotify_playlist_id: string;
             /** Title */
             title?: string | null;
+        };
+        /** PolicyResultResponse */
+        PolicyResultResponse: {
+            /** Decision */
+            decision: string;
+            /** Kind */
+            kind: string;
+            /** Message */
+            message: string;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+            /** Version */
+            version: string;
         };
         /** PublishRequest */
         PublishRequest: {
@@ -949,10 +1023,108 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** RoundDetailResponse */
+        RoundDetailResponse: {
+            /** Backgroundartworkurl */
+            backgroundArtworkUrl: string | null;
+            /** Canmanage */
+            canManage: boolean;
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            closesAt: string;
+            /** Contributorcount */
+            contributorCount: number;
+            /** Id */
+            id: string;
+            /**
+             * Opensat
+             * Format: date-time
+             */
+            opensAt: string;
+            /** Prompt */
+            prompt: string | null;
+            /**
+             * Publishat
+             * Format: date-time
+             */
+            publishAt: string;
+            /** Seriesid */
+            seriesId: string;
+            /** Spotifyplaylisturl */
+            spotifyPlaylistUrl: string | null;
+            /** Status */
+            status: string;
+            /** Submissionlimit */
+            submissionLimit: number;
+            /** Submittedcount */
+            submittedCount: number;
+            /** Title */
+            title: string;
+        };
+        /** RoundListResponse */
+        RoundListResponse: {
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            closesAt: string;
+            /** Id */
+            id: string;
+            /**
+             * Opensat
+             * Format: date-time
+             */
+            opensAt: string;
+            /**
+             * Publishat
+             * Format: date-time
+             */
+            publishAt: string;
+            /** Seriesid */
+            seriesId: string;
+            /** Status */
+            status: string;
+            /** Submissionlimit */
+            submissionLimit: number;
+            /** Title */
+            title: string;
+        };
         /** RoundMemberUpdate */
         RoundMemberUpdate: {
             /** Submission Limit Override */
             submission_limit_override?: number | null;
+        };
+        /** RoundPreviewResponse */
+        RoundPreviewResponse: {
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            closesAt: string;
+            /** Contributorcount */
+            contributorCount: number;
+            /** Id */
+            id: string;
+            /**
+             * Opensat
+             * Format: date-time
+             */
+            opensAt: string;
+            /** Prompt */
+            prompt: string | null;
+            /**
+             * Publishat
+             * Format: date-time
+             */
+            publishAt: string;
+            /** Status */
+            status: string;
+            /** Submittedcount */
+            submittedCount: number;
+            /** Title */
+            title: string;
         };
         /** RoundUpdate */
         RoundUpdate: {
@@ -998,6 +1170,87 @@ export interface components {
              */
             timezone: string;
         };
+        /** SeriesHistoryResponse */
+        SeriesHistoryResponse: {
+            /** Accentcolor */
+            accentColor: string | null;
+            /** Coverimageurl */
+            coverImageUrl: string | null;
+            /** Description */
+            description: string | null;
+            /** Fallbackartworkurl */
+            fallbackArtworkUrl: string | null;
+            /** Id */
+            id: string;
+            /** Isadmin */
+            isAdmin: boolean;
+            /** Name */
+            name: string;
+            /** Rounds */
+            rounds: components["schemas"]["SeriesHistoryRoundResponse"][];
+            stats: components["schemas"]["SeriesStatsResponse"];
+            /** Timezone */
+            timezone: string;
+        };
+        /** SeriesHistoryRoundResponse */
+        SeriesHistoryRoundResponse: {
+            /** Artworkurls */
+            artworkUrls: string[];
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            closesAt: string;
+            /** Id */
+            id: string;
+            /**
+             * Opensat
+             * Format: date-time
+             */
+            opensAt: string;
+            /** Prompt */
+            prompt: string | null;
+            /**
+             * Publishat
+             * Format: date-time
+             */
+            publishAt: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        };
+        /** SeriesListResponse */
+        SeriesListResponse: {
+            /** Accentcolor */
+            accentColor: string | null;
+            /** Coverimageurl */
+            coverImageUrl: string | null;
+            /** Description */
+            description: string | null;
+            /** Fallbackartworkurl */
+            fallbackArtworkUrl: string | null;
+            featuredRound: components["schemas"]["RoundPreviewResponse"] | null;
+            /** Id */
+            id: string;
+            /** Isadmin */
+            isAdmin: boolean;
+            /** Name */
+            name: string;
+            /** Timezone */
+            timezone: string;
+        };
+        /** SeriesStatsResponse */
+        SeriesStatsResponse: {
+            /** Artistcount */
+            artistCount: number;
+            /** Contributors */
+            contributors: components["schemas"]["ContributorResponse"][];
+            /** Roundcount */
+            roundCount: number;
+            /** Songcount */
+            songCount: number;
+        };
         /**
          * SeriesUpdate
          * @description Mutable series defaults; existing materialized rounds are not rewritten.
@@ -1024,6 +1277,28 @@ export interface components {
             /** Timezone */
             timezone?: string | null;
         };
+        /** SessionResponse */
+        SessionResponse: {
+            /** Csrfcookiename */
+            csrfCookieName: string;
+            /**
+             * Expiresat
+             * Format: date-time
+             */
+            expiresAt: string;
+            user: components["schemas"]["SessionUserResponse"];
+        };
+        /** SessionUserResponse */
+        SessionUserResponse: {
+            /** Displayname */
+            displayName: string | null;
+            /** Email */
+            email: string | null;
+            /** Id */
+            id: string;
+            /** Platformrole */
+            platformRole: string;
+        };
         /** SubmissionCreate */
         SubmissionCreate: {
             /**
@@ -1035,11 +1310,56 @@ export interface components {
             note?: string | null;
             track: components["schemas"]["TrackInput"];
         };
+        /** SubmissionDraftResponse */
+        SubmissionDraftResponse: {
+            /** Note */
+            note: string | null;
+            /** Track */
+            track: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** SubmissionDraftUpdate */
         SubmissionDraftUpdate: {
             /** Note */
             note?: string | null;
             track?: components["schemas"]["TrackInput"] | null;
+        };
+        /** SubmissionResponse */
+        SubmissionResponse: {
+            contributor: components["schemas"]["ContributorResponse"];
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Id */
+            id: string;
+            /** Ismine */
+            isMine: boolean;
+            /** Note */
+            note: string | null;
+            /** Status */
+            status: string;
+            track: components["schemas"]["TrackResponse"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Withdrawnat */
+            withdrawnAt: string | null;
+        };
+        /** SubmissionResultResponse */
+        SubmissionResultResponse: {
+            /** Accepted */
+            accepted: boolean;
+            /** Id */
+            id?: string | null;
+            /** Policyresults */
+            policyResults: components["schemas"]["PolicyResultResponse"][];
+            /** Requireswarningconfirmation */
+            requiresWarningConfirmation?: boolean | null;
         };
         /**
          * SubmissionUpdate
@@ -1061,7 +1381,22 @@ export interface components {
         };
         /** TrackEvaluationRequest */
         TrackEvaluationRequest: {
+            /** Replacing Submission Id */
+            replacing_submission_id?: string | null;
             track: components["schemas"]["TrackInput"];
+        };
+        /** TrackEvaluationResponse */
+        TrackEvaluationResponse: {
+            /** Cansubmit */
+            canSubmit: boolean;
+            /** Limitremaining */
+            limitRemaining: number;
+            /** Policyresults */
+            policyResults: components["schemas"]["PolicyResultResponse"][];
+            /** Requireswarningconfirmation */
+            requiresWarningConfirmation: boolean;
+            /** Trackid */
+            trackId: string;
         };
         /** TrackInput */
         TrackInput: {
@@ -1081,6 +1416,25 @@ export interface components {
             spotify_track_id: string;
             /** Spotify Uri */
             spotify_uri?: string | null;
+        };
+        /** TrackResponse */
+        TrackResponse: {
+            /** Album */
+            album: string | null;
+            /** Artist */
+            artist: string;
+            /** Artworkurl */
+            artworkUrl: string | null;
+            /** Name */
+            name: string;
+            /** Providermetadata */
+            providerMetadata?: {
+                [key: string]: unknown;
+            };
+            /** Spotifytrackid */
+            spotifyTrackId: string;
+            /** Spotifyuri */
+            spotifyUri: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1934,9 +2288,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SessionResponse"];
                 };
             };
         };
@@ -1956,9 +2308,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ConnectionResponse"][];
                 };
             };
         };
@@ -2191,9 +2541,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["RoundListResponse"][];
                 };
             };
         };
@@ -2219,9 +2567,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SubmissionResultResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2281,9 +2627,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RoundDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2314,9 +2658,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SubmissionDraftResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2351,9 +2693,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SubmissionDraftResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2388,9 +2728,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TrackEvaluationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2454,9 +2792,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["SubmissionResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -2491,9 +2827,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SubmissionResultResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2526,9 +2860,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["TrackResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -2560,9 +2892,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["EvidenceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2591,9 +2921,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["SeriesListResponse"][];
                 };
             };
         };
@@ -2648,9 +2976,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SeriesHistoryResponse"];
                 };
             };
             /** @description Validation Error */

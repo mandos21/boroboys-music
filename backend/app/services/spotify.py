@@ -184,20 +184,16 @@ def add_items(access_token: str, playlist_id: str, uris: list[str]) -> None:
         response.raise_for_status()
 
 
-def retire_playlist(access_token: str, playlist_id: str, uris: list[str]) -> None:
-    for start in range(0, len(uris), 100):
-        response = httpx.request(
-            "DELETE",
-            f"{SPOTIFY_API}/playlists/{playlist_id}/items",
-            headers=_headers(access_token),
-            json={"tracks": [{"uri": uri} for uri in uris[start : start + 100]]},
-            timeout=15.0,
-        )
-        response.raise_for_status()
-    response = httpx.put(
-        f"{SPOTIFY_API}/playlists/{playlist_id}",
+def delete_playlist(access_token: str, playlist_id: str) -> None:
+    """Remove the playlist from the publisher's Spotify library.
+
+    Spotify does not expose a true owner-delete API. Unfollowing is its
+    supported deletion-equivalent and is preferable to leaving an empty private
+    playlist behind after a local publication reversal.
+    """
+    response = httpx.delete(
+        f"{SPOTIFY_API}/playlists/{playlist_id}/followers",
         headers=_headers(access_token),
-        json={"public": False},
         timeout=15.0,
     )
     response.raise_for_status()

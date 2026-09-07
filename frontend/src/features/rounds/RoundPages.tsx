@@ -4,52 +4,16 @@ import { CalendarDays, Clock3, Disc3, ListMusic, UsersRound } from "lucide-react
 import { Link, useParams } from "react-router";
 
 import { api, patch, post } from "../../api/client";
+import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { avatarStyle } from "../../lib/avatar";
 import { formatDate } from "../../lib/format";
 
-type Round = {
-  id: string;
-  seriesId?: string;
-  title: string;
-  status: string;
-  opensAt: string;
-  closesAt: string;
-  publishAt: string;
-  submissionLimit: number;
-  spotifyPlaylistUrl: string | null;
-  prompt: string | null;
-  submittedCount: number;
-  contributorCount: number;
-  canManage: boolean;
-  backgroundArtworkUrl: string | null;
-};
-
-type Submission = {
-  id: string;
-  status: "accepted" | "withdrawn";
-  note: string | null;
-  isMine: boolean;
-  contributor: { id: string; displayName: string | null; spotifyProfileImageUrl: string | null };
-  track: { name: string; artist: string; album: string | null; artworkUrl?: string | null };
-};
-
-type SeriesHistory = {
-  id: string;
-  name: string;
-  description: string | null;
-  timezone: string;
-  isAdmin: boolean;
-  coverImageUrl: string | null;
-  accentColor: string | null;
-  fallbackArtworkUrl: string | null;
-  stats: { roundCount: number; songCount: number; artistCount: number; contributors: Array<{ id: string; displayName: string; spotifyProfileImageUrl: string | null }> };
-  rounds: Array<
-    Pick<Round, "id" | "title" | "status" | "opensAt" | "closesAt" | "publishAt" | "prompt"> & { artworkUrls: string[] }
-  >;
-};
+type Round = components["schemas"]["RoundDetailResponse"];
+type Submission = components["schemas"]["SubmissionResponse"];
+type SeriesHistory = components["schemas"]["SeriesHistoryResponse"];
 
 export function RoundPage() {
   const { roundId } = useParams();

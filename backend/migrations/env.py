@@ -18,7 +18,7 @@ target_metadata = Base.metadata
 
 
 def include_object(object_: object, name: str | None, type_: str, *_: object) -> bool:
-    """Keep Procrastinate's independently managed tables out of our migrations."""
+    """Keep Procrastinate's vendored DDL out of model autogeneration."""
     return not (name and name.startswith("procrastinate_"))
 
 

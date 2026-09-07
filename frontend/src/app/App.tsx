@@ -4,6 +4,7 @@ import { ChevronRight, ListMusic, Sparkles } from "lucide-react";
 import { Link, Navigate, Route, Routes, useParams, useSearchParams } from "react-router";
 
 import { api, post } from "../api/client";
+import type { components } from "../api/schema";
 import { AppShell } from "../components/layout/AppShell";
 import { StatePanel } from "../components/ui/StatePanel";
 import { ToastProvider } from "../components/ui/ToastProvider";
@@ -13,9 +14,8 @@ import { RoundPage, SeriesPage } from "../features/rounds/RoundPages";
 import { SubmissionPage } from "../features/submissions/SubmissionPage";
 import { formatDate } from "../lib/format";
 
-type Session = { user: { id: string; email: string | null; displayName: string | null; platformRole: string } };
-type RoundPreview = { id: string; title: string; status: string; opensAt: string; closesAt: string; publishAt: string; submittedCount: number; contributorCount: number; prompt: string | null };
-type SeriesPreview = { id: string; name: string; description: string | null; isAdmin: boolean; coverImageUrl: string | null; fallbackArtworkUrl: string | null; accentColor: string | null; featuredRound: RoundPreview | null };
+type Session = components["schemas"]["SessionResponse"];
+type SeriesPreview = components["schemas"]["SeriesListResponse"];
 
 function seriesAccent(series: SeriesPreview) {
   if (series.accentColor) return series.accentColor;

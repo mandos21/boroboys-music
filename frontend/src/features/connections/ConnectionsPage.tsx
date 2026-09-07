@@ -4,18 +4,15 @@ import { Disc3, Eye, Headphones, Link2, ShieldCheck, Unplug } from "lucide-react
 import { Link } from "react-router";
 
 import { api, del, patch } from "../../api/client";
+import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import "./connections.css";
 
-type Connection = {
-  id: string;
+type Connection = components["schemas"]["ConnectionResponse"] & {
   provider: "spotify" | "lastfm";
-  displayName: string | null;
   visibility: "round_members" | "series_admins" | "private";
-  isActive: boolean;
-  disconnectedAt: string | null;
 };
 
 const providerInfo = {

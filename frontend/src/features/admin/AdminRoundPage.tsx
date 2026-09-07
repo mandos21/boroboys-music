@@ -5,15 +5,10 @@ import { Link, useParams } from "react-router";
 import { api, del, patch, put } from "../../api/client";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/ToastProvider";
+import { toZonedInput, zonedInputToIso } from "../../lib/time";
 import { PublicationPanel } from "./PublicationPanel";
 import { errorMessage } from "./adminUtils";
 import type { AdminRound, User } from "./types";
-
-function dateTimeInput(value: string) {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
 
 export function AdminRoundPage() {
   const { roundId } = useParams();
@@ -97,21 +92,25 @@ export function AdminRoundPage() {
   );
   const openingEditable = ["draft", "scheduled"].includes(round.status);
   const selectedTitle = title || round.title;
-  const selectedOpensAt = opensAt || dateTimeInput(round.opensAt);
-  const selectedClosesAt = closesAt || dateTimeInput(round.closesAt);
-  const selectedPublishAt = publishAt || dateTimeInput(round.publishAt);
+  const selectedOpensAt = opensAt || toZonedInput(round.opensAt, round.timezone);
+  const selectedClosesAt = closesAt || toZonedInput(round.closesAt, round.timezone);
+  const selectedPublishAt = publishAt || toZonedInput(round.publishAt, round.timezone);
   const selectedLimit = submissionLimit || String(round.submissionLimit);
   const selectedPrompt = promptEdited ? prompt : round.prompt ?? "";
   function submitSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedTitle.trim()) return showToast({ title: "Add a round title", tone: "error" });
-    if (new Date(selectedOpensAt) >= new Date(selectedClosesAt)) return showToast({ title: "Closing must follow opening", tone: "error" });
-    if (new Date(selectedClosesAt) > new Date(selectedPublishAt)) return showToast({ title: "Publish after the round closes", tone: "error" });
+    const openingIso = zonedInputToIso(selectedOpensAt, round.timezone);
+    const closingIso = zonedInputToIso(selectedClosesAt, round.timezone);
+    const publishingIso = zonedInputToIso(selectedPublishAt, round.timezone);
+    if (!openingIso || !closingIso || !publishingIso) return showToast({ title: "Use valid round times", description: "One of these times does not exist in the round timezone, usually because of daylight saving time.", tone: "error" });
+    if (new Date(openingIso) >= new Date(closingIso)) return showToast({ title: "Closing must follow opening", tone: "error" });
+    if (new Date(closingIso) > new Date(publishingIso)) return showToast({ title: "Publish after the round closes", tone: "error" });
     saveRound.mutate({
       title: selectedTitle,
-      ...(openingEditable ? { opens_at: new Date(selectedOpensAt).toISOString() } : {}),
-      closes_at: new Date(selectedClosesAt).toISOString(),
-      publish_at: new Date(selectedPublishAt).toISOString(),
+      ...(openingEditable ? { opens_at: openingIso } : {}),
+      closes_at: closingIso,
+      publish_at: publishingIso,
       submission_limit: Number(selectedLimit),
       prompt: selectedPrompt.trim() || null,
     });
@@ -140,7 +139,7 @@ export function AdminRoundPage() {
         {membershipEditable ? (
           <form className="admin-round-form" noValidate onSubmit={submitSettings}>
             <label>Title<input value={selectedTitle} required onChange={(event) => setTitle(event.target.value)} /></label>
-            <label>Opens<input type="datetime-local" value={selectedOpensAt} required disabled={!openingEditable} onChange={(event) => setOpensAt(event.target.value)} />{!openingEditable && <span className="field-hint">An open round keeps its original opening time.</span>}</label>
+            <label>Opens<input type="datetime-local" value={selectedOpensAt} required disabled={!openingEditable} onChange={(event) => setOpensAt(event.target.value)} /><span className="field-hint">Times use {round.timezone}.{!openingEditable ? " An open round keeps its original opening time." : ""}</span></label>
             <label>Closes<input type="datetime-local" min={selectedOpensAt} value={selectedClosesAt} required onChange={(event) => setClosesAt(event.target.value)} /></label>
             <label>Publishes<input type="datetime-local" min={selectedClosesAt} value={selectedPublishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label>
             <label>Submissions per contributor<input type="number" min="0" value={selectedLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>

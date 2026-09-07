@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
+import { endOfWallMonth, monthTitle, nextWallDay, toZonedInput, zonedInputToIso } from "../../lib/time";
 import { HistoricalImportPanel } from "./HistoricalImportPanel";
 import { InvitePanel } from "./InvitePanel";
 import { PolicyEditor } from "./PolicyEditor";
@@ -14,39 +15,15 @@ import { SuccessorPlanEditor } from "./SuccessorPlanEditor";
 import { errorMessage } from "./adminUtils";
 import type { SeriesDetail, User } from "./types";
 
-function dateTimeInput(value: string) {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function suggestedOpening(rounds: SeriesDetail["rounds"] | undefined) {
+function suggestedOpening(rounds: SeriesDetail["rounds"] | undefined, timezone: string) {
   const now = new Date();
   now.setSeconds(0, 0);
-  if (!rounds?.length) return dateTimeInput(now.toISOString());
+  if (!rounds?.length) return toZonedInput(now, timezone);
   const mostRecent = [...rounds].sort(
     (first, second) => Date.parse(second.publishAt) - Date.parse(first.publishAt),
   )[0];
   const publishedAt = mostRecent ? new Date(mostRecent.publishAt) : now;
-  return dateTimeInput(new Date(Math.max(now.getTime(), publishedAt.getTime())).toISOString());
-}
-
-function monthlyClose(opening: string) {
-  if (!opening) return "";
-  const date = new Date(opening);
-  return dateTimeInput(new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59).toISOString());
-}
-
-function nextDay(value: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  date.setDate(date.getDate() + 1);
-  return dateTimeInput(date.toISOString());
-}
-
-function monthlyTitle(opening: string, timezone: string | undefined) {
-  if (!opening) return "";
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: timezone }).format(new Date(opening));
+  return toZonedInput(new Date(Math.max(now.getTime(), publishedAt.getTime())), timezone);
 }
 
 export function AdminSeriesPage() {
@@ -68,12 +45,13 @@ export function AdminSeriesPage() {
   const [memberSearch, setMemberSearch] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<User | null>(null);
   const deferredMemberSearch = useDeferredValue(memberSearch.trim());
-  const defaultOpensAt = suggestedOpening(detail.data?.rounds);
+  const seriesTimezone = detail.data?.timezone ?? "UTC";
+  const defaultOpensAt = suggestedOpening(detail.data?.rounds, seriesTimezone);
   const selectedOpensAt = opensAt || defaultOpensAt;
   const monthly = detail.data?.roundPlan?.kind === "calendar" && detail.data.roundPlan?.full_month === true;
-  const selectedClosesAt = closesAt || (monthly ? monthlyClose(selectedOpensAt) : "");
-  const selectedPublishAt = publishAt || (monthly ? nextDay(selectedClosesAt) : "");
-  const selectedTitle = roundTitle || (monthly && !titleEdited ? monthlyTitle(selectedOpensAt, detail.data?.timezone) : "");
+  const selectedClosesAt = closesAt || (monthly ? endOfWallMonth(selectedOpensAt) : "");
+  const selectedPublishAt = publishAt || (monthly ? nextWallDay(selectedClosesAt) : "");
+  const selectedTitle = roundTitle || (monthly && !titleEdited ? monthTitle(selectedOpensAt) : "");
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-series", seriesId] });
     queryClient.invalidateQueries({ queryKey: ["series", seriesId] });
@@ -84,7 +62,7 @@ export function AdminSeriesPage() {
   const createRound = useMutation({
     mutationFn: () => post("/admin/rounds", {
       series_id: seriesId, title: selectedTitle, timezone: detail.data?.timezone,
-      opens_at: new Date(selectedOpensAt).toISOString(), closes_at: new Date(selectedClosesAt).toISOString(), publish_at: new Date(selectedPublishAt).toISOString(),
+      opens_at: zonedInputToIso(selectedOpensAt, seriesTimezone), closes_at: zonedInputToIso(selectedClosesAt, seriesTimezone), publish_at: zonedInputToIso(selectedPublishAt, seriesTimezone),
       submission_limit: Number(submissionLimit), contributor_user_ids: (members.data ?? []).map((member) => member.id),
       policy_snapshot: policies.length > 0 ? policies : undefined,
       prompt: prompt.trim() || null,
@@ -116,7 +94,10 @@ export function AdminSeriesPage() {
   function submitRound(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedTitle.trim()) return showToast({ title: "Add a round title", tone: "error" });
-    if (!selectedOpensAt || !selectedClosesAt || !selectedPublishAt) return showToast({ title: "Complete the schedule", description: "Add a valid opening, closing, and publish date.", tone: "error" });
+    const openingIso = zonedInputToIso(selectedOpensAt, seriesTimezone);
+    const closingIso = zonedInputToIso(selectedClosesAt, seriesTimezone);
+    const publishingIso = zonedInputToIso(selectedPublishAt, seriesTimezone);
+    if (!openingIso || !closingIso || !publishingIso) return showToast({ title: "Use valid series times", description: "One of these times does not exist in the series timezone, usually because of daylight saving time.", tone: "error" });
     if (new Date(selectedOpensAt) >= new Date(selectedClosesAt)) return showToast({ title: "Closing must follow opening", tone: "error" });
     if (new Date(selectedClosesAt) > new Date(selectedPublishAt)) return showToast({ title: "Publish after the round closes", tone: "error" });
     createRound.mutate();
@@ -140,7 +121,7 @@ export function AdminSeriesPage() {
         </section>
         <section className="panel" id="rounds"><h2>Schedule a round</h2><form className="admin-round-form" noValidate onSubmit={submitRound}>
           <label>Title<input value={selectedTitle} required maxLength={200} onChange={(event) => { setTitleEdited(true); setRoundTitle(event.target.value); }} /></label>
-          <label>Opens<input type="datetime-local" value={selectedOpensAt} required onChange={(event) => { setOpensAt(event.target.value); if (monthly && !closeEdited) setClosesAt(""); if (monthly && !publishEdited) setPublishAt(""); if (monthly && !titleEdited) setRoundTitle(""); }} /><span className="field-hint">Defaults to now, unless the latest round publishes later.</span></label>
+          <label>Opens<input type="datetime-local" value={selectedOpensAt} required onChange={(event) => { setOpensAt(event.target.value); if (monthly && !closeEdited) setClosesAt(""); if (monthly && !publishEdited) setPublishAt(""); if (monthly && !titleEdited) setRoundTitle(""); }} /><span className="field-hint">Times use {seriesTimezone}. Defaults to now, unless the latest round publishes later.</span></label>
           <label>Closes<input type="datetime-local" min={selectedOpensAt || undefined} value={selectedClosesAt} required onChange={(event) => { setCloseEdited(true); setClosesAt(event.target.value); if (monthly && !publishEdited) setPublishAt(""); }} /></label>
           <label>Publishes<input type="datetime-local" min={selectedClosesAt || undefined} value={selectedPublishAt} required onChange={(event) => { setPublishEdited(true); setPublishAt(event.target.value); }} /></label>
           <label>Submissions per contributor<input type="number" min="0" value={submissionLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>

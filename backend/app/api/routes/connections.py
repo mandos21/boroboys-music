@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.api.schemas import ConnectionResponse
 from app.core.config import get_settings
 from app.core.security import decrypt, encrypt, hash_secret, new_secret
 from app.db.models import (
@@ -33,7 +34,7 @@ class VisibilityUpdate(BaseModel):
     visibility: EvidenceVisibility
 
 
-@router.get("")
+@router.get("", response_model=list[ConnectionResponse])
 def list_connections(
     db: DbSession, user: Annotated[User, Depends(get_current_user)]
 ) -> list[dict[str, object]]:

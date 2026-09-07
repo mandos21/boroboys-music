@@ -22,13 +22,14 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      # The browser reaches the API through the web container. Keep direct API
+      # access (including Prometheus metrics) on the local host.
+      - "127.0.0.1:8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://music_rounds:music_rounds@postgres:5432/music_rounds
       PROCRASTINATE_DATABASE_URL: postgresql://music_rounds:music_rounds@postgres:5432/music_rounds
     command: >-
       sh -c 'poetry run alembic upgrade head &&
-      poetry run procrastinate --app=app.tasks.app schema --apply &&
       exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000'
     depends_on:
       postgres:

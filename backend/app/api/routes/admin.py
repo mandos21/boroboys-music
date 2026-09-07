@@ -862,9 +862,6 @@ def retry_publication(
             defer = defer_publication
         db.commit()
         _defer_or_mark_failed(db, publication, round_, defer)
-    elif publication.state is PublicationState.UNPUBLISHING:
-        db.commit()
-        _defer_or_mark_failed(db, publication, round_, defer_retirement)
     else:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="publication is not retryable"

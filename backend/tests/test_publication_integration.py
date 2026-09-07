@@ -35,6 +35,7 @@ from app.services import spotify
 from app.services.publications import (
     PublicationError,
     execute_publication,
+    execute_retirement,
     import_historical_playlist,
     start_publication,
     start_unpublish,
@@ -93,7 +94,7 @@ def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.Monke
                 spotify_track_id=f"track-{suffix}-{index}",
                 name=f"Track {index}",
                 artist="The Testers",
-                spotify_uri=f"spotify:track:{suffix}{index}",
+                spotify_uri=f"spotify:track:track-{suffix}-{index}",
             )
             for index in range(101)
         ]
@@ -131,13 +132,24 @@ def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.Monke
         db.refresh(round_)
         assert round_.publisher_account_id == account.id
         batches: list[list[str]] = []
+        remote_track_ids: list[str] = []
 
         monkeypatch.setattr(spotify, "create_playlist", lambda *_: "playlist-id")
+        monkeypatch.setattr(
+            spotify,
+            "playlist_snapshot",
+            lambda *_: {
+                "id": "playlist-id",
+                "name": "Publication",
+                "items": [{"id": track_id} for track_id in remote_track_ids],
+            },
+        )
 
         def fail_second_batch(_: str, __: str, uris: list[str]) -> None:
             batches.append(uris)
             if len(batches) == 2:
                 raise spotify.SpotifyError("temporary provider failure")
+            remote_track_ids.extend(uri.removeprefix("spotify:track:") for uri in uris)
 
         monkeypatch.setattr(spotify, "add_items", fail_second_batch)
         execute_publication(db, publication.id)
@@ -157,7 +169,16 @@ def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.Monke
             == 100
         )
 
-        monkeypatch.setattr(spotify, "add_items", lambda _token, _playlist, uris: batches.append(uris))
+        # Retrying is an explicit state transition performed by the admin route.
+        publication.state = PublicationState.PUBLISHING
+        round_.status = RoundStatus.PUBLISHING
+        db.commit()
+
+        def add_remaining(_: str, __: str, uris: list[str]) -> None:
+            batches.append(uris)
+            remote_track_ids.extend(uri.removeprefix("spotify:track:") for uri in uris)
+
+        monkeypatch.setattr(spotify, "add_items", add_remaining)
         execute_publication(db, publication.id)
 
         db.refresh(publication)
@@ -278,7 +299,9 @@ def test_historical_playlist_import_preserves_order_without_remote_retirement(
             start_unpublish(db, imported.id)
 
 
-def test_only_latest_published_round_can_begin_unpublishing() -> None:
+def test_only_latest_published_round_can_begin_unpublishing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     suffix = uuid.uuid4().hex[:12]
     now = datetime.now(UTC)
     with get_session_factory()() as db:
@@ -344,7 +367,15 @@ def test_only_latest_published_round_can_begin_unpublishing() -> None:
             spotify_playlist_id=f"latest-{suffix}",
             idempotency_key=f"latest-{suffix}",
         )
-        db.add_all((older_publication, latest_publication))
+        credential = ExternalCredential(
+            external_account_id=account.id,
+            ciphertext=encrypt(
+                json.dumps({"access_token": "test-token"}),
+                get_settings().credential_encryption_key.get_secret_value(),
+            ),
+            key_version="v1",
+        )
+        db.add_all((older_publication, latest_publication, credential))
         db.commit()
 
         with pytest.raises(PublicationError, match="most recently published"):
@@ -353,6 +384,20 @@ def test_only_latest_published_round_can_begin_unpublishing() -> None:
         assert queued.id == latest_publication.id
         assert queued.state is PublicationState.UNPUBLISHING
         assert latest.status is RoundStatus.UNPUBLISHING
+
+        db.commit()
+        monkeypatch.setattr(spotify, "delete_playlist", lambda _token, _playlist: None)
+        execute_retirement(db, latest_publication.id)
+        db.refresh(latest_publication)
+        db.refresh(latest)
+        assert latest_publication.state is PublicationState.UNPUBLISHED
+        assert latest_publication.spotify_playlist_id is None
+        assert latest.status is RoundStatus.CLOSED
+
+        restarted = start_publication(db, latest.id, account.id, publisher.id)
+        assert restarted.id == latest_publication.id
+        assert restarted.state is PublicationState.PUBLISHING
+        assert restarted.spotify_playlist_id is None
 
 
 def test_concurrent_publication_requests_allocate_distinct_series_sequences() -> None:

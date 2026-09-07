@@ -61,6 +61,217 @@
         "title": "CalendarRoundPlan",
         "type": "object"
       },
+      "ConnectionResponse": {
+        "properties": {
+          "disconnectedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disconnectedat"
+          },
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isActive": {
+            "title": "Isactive",
+            "type": "boolean"
+          },
+          "profileImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileimageurl"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "displayName",
+          "profileImageUrl",
+          "visibility",
+          "isActive",
+          "disconnectedAt"
+        ],
+        "title": "ConnectionResponse",
+        "type": "object"
+      },
+      "ContributorResponse": {
+        "properties": {
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "spotifyProfileImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotifyprofileimageurl"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "spotifyProfileImageUrl"
+        ],
+        "title": "ContributorResponse",
+        "type": "object"
+      },
+      "EvidenceItemResponse": {
+        "properties": {
+          "accountId": {
+            "title": "Accountid",
+            "type": "string"
+          },
+          "albumPlaycount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Albumplaycount"
+          },
+          "artistPlaycount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artistplaycount"
+          },
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "title": "Fetchedat",
+            "type": "string"
+          },
+          "isMine": {
+            "title": "Ismine",
+            "type": "boolean"
+          },
+          "playcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playcount"
+          },
+          "refreshAfter": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refreshafter"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "displayName",
+          "isMine",
+          "playcount",
+          "artistPlaycount",
+          "albumPlaycount",
+          "fetchedAt",
+          "refreshAfter",
+          "status"
+        ],
+        "title": "EvidenceItemResponse",
+        "type": "object"
+      },
+      "EvidenceResponse": {
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceItemResponse"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "roundId": {
+            "title": "Roundid",
+            "type": "string"
+          },
+          "trackId": {
+            "title": "Trackid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "roundId",
+          "trackId",
+          "evidence"
+        ],
+        "title": "EvidenceResponse",
+        "type": "object"
+      },
       "EvidenceVisibility": {
         "enum": [
           "round_members",
@@ -194,6 +405,40 @@
           "published_at"
         ],
         "title": "PlaylistImportRequest",
+        "type": "object"
+      },
+      "PolicyResultResponse": {
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "result": {
+            "additionalProperties": true,
+            "title": "Result",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "version",
+          "decision",
+          "message",
+          "result"
+        ],
+        "title": "PolicyResultResponse",
         "type": "object"
       },
       "PublishRequest": {
@@ -369,6 +614,159 @@
         "title": "RoundCreate",
         "type": "object"
       },
+      "RoundDetailResponse": {
+        "properties": {
+          "backgroundArtworkUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backgroundartworkurl"
+          },
+          "canManage": {
+            "title": "Canmanage",
+            "type": "boolean"
+          },
+          "closesAt": {
+            "format": "date-time",
+            "title": "Closesat",
+            "type": "string"
+          },
+          "contributorCount": {
+            "title": "Contributorcount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opensAt": {
+            "format": "date-time",
+            "title": "Opensat",
+            "type": "string"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "publishAt": {
+            "format": "date-time",
+            "title": "Publishat",
+            "type": "string"
+          },
+          "seriesId": {
+            "title": "Seriesid",
+            "type": "string"
+          },
+          "spotifyPlaylistUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotifyplaylisturl"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submissionLimit": {
+            "title": "Submissionlimit",
+            "type": "integer"
+          },
+          "submittedCount": {
+            "title": "Submittedcount",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "opensAt",
+          "closesAt",
+          "publishAt",
+          "submittedCount",
+          "contributorCount",
+          "prompt",
+          "seriesId",
+          "submissionLimit",
+          "spotifyPlaylistUrl",
+          "canManage",
+          "backgroundArtworkUrl"
+        ],
+        "title": "RoundDetailResponse",
+        "type": "object"
+      },
+      "RoundListResponse": {
+        "properties": {
+          "closesAt": {
+            "format": "date-time",
+            "title": "Closesat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opensAt": {
+            "format": "date-time",
+            "title": "Opensat",
+            "type": "string"
+          },
+          "publishAt": {
+            "format": "date-time",
+            "title": "Publishat",
+            "type": "string"
+          },
+          "seriesId": {
+            "title": "Seriesid",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submissionLimit": {
+            "title": "Submissionlimit",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "seriesId",
+          "title",
+          "status",
+          "opensAt",
+          "closesAt",
+          "publishAt",
+          "submissionLimit"
+        ],
+        "title": "RoundListResponse",
+        "type": "object"
+      },
       "RoundMemberUpdate": {
         "properties": {
           "submission_limit_override": {
@@ -385,6 +783,69 @@
           }
         },
         "title": "RoundMemberUpdate",
+        "type": "object"
+      },
+      "RoundPreviewResponse": {
+        "properties": {
+          "closesAt": {
+            "format": "date-time",
+            "title": "Closesat",
+            "type": "string"
+          },
+          "contributorCount": {
+            "title": "Contributorcount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opensAt": {
+            "format": "date-time",
+            "title": "Opensat",
+            "type": "string"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "publishAt": {
+            "format": "date-time",
+            "title": "Publishat",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submittedCount": {
+            "title": "Submittedcount",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "opensAt",
+          "closesAt",
+          "publishAt",
+          "submittedCount",
+          "contributorCount",
+          "prompt"
+        ],
+        "title": "RoundPreviewResponse",
         "type": "object"
       },
       "RoundUpdate": {
@@ -566,6 +1027,273 @@
         "title": "SeriesCreate",
         "type": "object"
       },
+      "SeriesHistoryResponse": {
+        "properties": {
+          "accentColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accentcolor"
+          },
+          "coverImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverimageurl"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "fallbackArtworkUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallbackartworkurl"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isAdmin": {
+            "title": "Isadmin",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rounds": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesHistoryRoundResponse"
+            },
+            "title": "Rounds",
+            "type": "array"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/SeriesStatsResponse"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "timezone",
+          "coverImageUrl",
+          "accentColor",
+          "fallbackArtworkUrl",
+          "isAdmin",
+          "stats",
+          "rounds"
+        ],
+        "title": "SeriesHistoryResponse",
+        "type": "object"
+      },
+      "SeriesHistoryRoundResponse": {
+        "properties": {
+          "artworkUrls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Artworkurls",
+            "type": "array"
+          },
+          "closesAt": {
+            "format": "date-time",
+            "title": "Closesat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opensAt": {
+            "format": "date-time",
+            "title": "Opensat",
+            "type": "string"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "publishAt": {
+            "format": "date-time",
+            "title": "Publishat",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "opensAt",
+          "closesAt",
+          "publishAt",
+          "prompt",
+          "artworkUrls"
+        ],
+        "title": "SeriesHistoryRoundResponse",
+        "type": "object"
+      },
+      "SeriesListResponse": {
+        "properties": {
+          "accentColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accentcolor"
+          },
+          "coverImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverimageurl"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "fallbackArtworkUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallbackartworkurl"
+          },
+          "featuredRound": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoundPreviewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isAdmin": {
+            "title": "Isadmin",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "timezone",
+          "coverImageUrl",
+          "accentColor",
+          "fallbackArtworkUrl",
+          "isAdmin",
+          "featuredRound"
+        ],
+        "title": "SeriesListResponse",
+        "type": "object"
+      },
+      "SeriesStatsResponse": {
+        "properties": {
+          "artistCount": {
+            "title": "Artistcount",
+            "type": "integer"
+          },
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/ContributorResponse"
+            },
+            "title": "Contributors",
+            "type": "array"
+          },
+          "roundCount": {
+            "title": "Roundcount",
+            "type": "integer"
+          },
+          "songCount": {
+            "title": "Songcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "roundCount",
+          "songCount",
+          "artistCount",
+          "contributors"
+        ],
+        "title": "SeriesStatsResponse",
+        "type": "object"
+      },
       "SeriesUpdate": {
         "description": "Mutable series defaults; existing materialized rounds are not rewritten.",
         "properties": {
@@ -695,6 +1423,71 @@
         "title": "SeriesUpdate",
         "type": "object"
       },
+      "SessionResponse": {
+        "properties": {
+          "csrfCookieName": {
+            "title": "Csrfcookiename",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/SessionUserResponse"
+          }
+        },
+        "required": [
+          "user",
+          "expiresAt",
+          "csrfCookieName"
+        ],
+        "title": "SessionResponse",
+        "type": "object"
+      },
+      "SessionUserResponse": {
+        "properties": {
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "platformRole": {
+            "title": "Platformrole",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "platformRole"
+        ],
+        "title": "SessionUserResponse",
+        "type": "object"
+      },
       "SubmissionCreate": {
         "properties": {
           "confirm_warnings": {
@@ -724,6 +1517,39 @@
         "title": "SubmissionCreate",
         "type": "object"
       },
+      "SubmissionDraftResponse": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "track": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Track"
+          }
+        },
+        "required": [
+          "track",
+          "note"
+        ],
+        "title": "SubmissionDraftResponse",
+        "type": "object"
+      },
       "SubmissionDraftUpdate": {
         "properties": {
           "note": {
@@ -750,6 +1576,117 @@
           }
         },
         "title": "SubmissionDraftUpdate",
+        "type": "object"
+      },
+      "SubmissionResponse": {
+        "properties": {
+          "contributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isMine": {
+            "title": "Ismine",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "track": {
+            "$ref": "#/components/schemas/TrackResponse"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "withdrawnAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawnat"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "note",
+          "createdAt",
+          "updatedAt",
+          "withdrawnAt",
+          "isMine",
+          "contributor",
+          "track"
+        ],
+        "title": "SubmissionResponse",
+        "type": "object"
+      },
+      "SubmissionResultResponse": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "policyResults": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyResultResponse"
+            },
+            "title": "Policyresults",
+            "type": "array"
+          },
+          "requiresWarningConfirmation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requireswarningconfirmation"
+          }
+        },
+        "required": [
+          "accepted",
+          "policyResults"
+        ],
+        "title": "SubmissionResultResponse",
         "type": "object"
       },
       "SubmissionUpdate": {
@@ -788,6 +1725,18 @@
       },
       "TrackEvaluationRequest": {
         "properties": {
+          "replacing_submission_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacing Submission Id"
+          },
           "track": {
             "$ref": "#/components/schemas/TrackInput"
           }
@@ -796,6 +1745,42 @@
           "track"
         ],
         "title": "TrackEvaluationRequest",
+        "type": "object"
+      },
+      "TrackEvaluationResponse": {
+        "properties": {
+          "canSubmit": {
+            "title": "Cansubmit",
+            "type": "boolean"
+          },
+          "limitRemaining": {
+            "title": "Limitremaining",
+            "type": "integer"
+          },
+          "policyResults": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyResultResponse"
+            },
+            "title": "Policyresults",
+            "type": "array"
+          },
+          "requiresWarningConfirmation": {
+            "title": "Requireswarningconfirmation",
+            "type": "boolean"
+          },
+          "trackId": {
+            "title": "Trackid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trackId",
+          "canSubmit",
+          "limitRemaining",
+          "requiresWarningConfirmation",
+          "policyResults"
+        ],
+        "title": "TrackEvaluationResponse",
         "type": "object"
       },
       "TrackInput": {
@@ -866,6 +1851,70 @@
           "artist"
         ],
         "title": "TrackInput",
+        "type": "object"
+      },
+      "TrackResponse": {
+        "properties": {
+          "album": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Album"
+          },
+          "artist": {
+            "title": "Artist",
+            "type": "string"
+          },
+          "artworkUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artworkurl"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "providerMetadata": {
+            "additionalProperties": true,
+            "title": "Providermetadata",
+            "type": "object"
+          },
+          "spotifyTrackId": {
+            "title": "Spotifytrackid",
+            "type": "string"
+          },
+          "spotifyUri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotifyuri"
+          }
+        },
+        "required": [
+          "spotifyTrackId",
+          "name",
+          "artist",
+          "album",
+          "spotifyUri",
+          "artworkUrl"
+        ],
+        "title": "TrackResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -2143,9 +3192,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Session Details Api V1 Auth Session Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SessionResponse"
                 }
               }
             },
@@ -2167,8 +3214,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/ConnectionResponse"
                   },
                   "title": "Response List Connections Api V1 Connections Get",
                   "type": "array"
@@ -2510,8 +3556,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/RoundListResponse"
                   },
                   "title": "Response List My Rounds Api V1 Rounds Get",
                   "type": "array"
@@ -2558,9 +3603,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Update Submission Api V1 Rounds Submissions  Submission Id  Patch",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SubmissionResultResponse"
                 }
               }
             },
@@ -2639,9 +3682,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Round Api V1 Rounds  Round Id  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/RoundDetailResponse"
                 }
               }
             },
@@ -2684,9 +3725,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Submission Draft Api V1 Rounds  Round Id  Draft Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SubmissionDraftResponse"
                 }
               }
             },
@@ -2737,9 +3776,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Save Submission Draft Api V1 Rounds  Round Id  Draft Put",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SubmissionDraftResponse"
                 }
               }
             },
@@ -2793,9 +3830,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Evaluate Track Api V1 Rounds  Round Id  Evaluate Track Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/TrackEvaluationResponse"
                 }
               }
             },
@@ -2897,8 +3932,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/SubmissionResponse"
                   },
                   "title": "Response List Round Submissions Api V1 Rounds  Round Id  Submissions Get",
                   "type": "array"
@@ -2952,9 +3986,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Create Submission Api V1 Rounds  Round Id  Submissions Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SubmissionResultResponse"
                 }
               }
             },
@@ -3009,8 +4041,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/TrackResponse"
                   },
                   "title": "Response Search Tracks Api V1 Rounds  Round Id  Track Search Get",
                   "type": "array"
@@ -3066,9 +4097,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Evidence Api V1 Rounds  Round Id  Tracks  Track Id  Evidence Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/EvidenceResponse"
                 }
               }
             },
@@ -3101,8 +4130,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/SeriesListResponse"
                   },
                   "title": "Response List My Series Api V1 Series Get",
                   "type": "array"
@@ -3183,9 +4211,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Series History Api V1 Series  Series Id  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SeriesHistoryResponse"
                 }
               }
             },

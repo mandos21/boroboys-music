@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import HttpUrl, SecretStr, model_validator
+from pydantic import Field, HttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,13 +12,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file="../.env", extra="ignore")
 
-    app_env: str = "development"
+    app_env: Literal["development", "test", "production"] = "development"
     app_base_url: HttpUrl = HttpUrl("http://localhost:5173")
     database_url: str = "postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds"
     procrastinate_database_url: str = (
         "postgresql://music_rounds:music_rounds@localhost:5432/music_rounds"
     )
-    session_secret: SecretStr = SecretStr("development-only-change-me")
     credential_encryption_key: SecretStr = SecretStr("development-only-change-me")
     credential_encryption_key_version: str = "v1"
     oidc_issuer_url: HttpUrl | None = None
@@ -32,8 +32,10 @@ class Settings(BaseSettings):
     oidc_bootstrap_admin_subjects: str = ""
     oidc_admin_claim: str | None = None
     oidc_admin_values: str = ""
-    session_cookie_name: str = "music_rounds_session"
-    session_lifetime_hours: int = 168
+    session_cookie_name: str = Field(
+        default="music_rounds_session", pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+    )
+    session_lifetime_hours: int = Field(default=168, ge=1, le=24 * 365)
     lastfm_api_key: SecretStr | None = None
     lastfm_shared_secret: SecretStr | None = None
     lastfm_callback_url: HttpUrl = HttpUrl(
@@ -83,8 +85,6 @@ class Settings(BaseSettings):
         if self.app_env != "production":
             return self
         insecure = {
-            "SESSION_SECRET": self.session_secret.get_secret_value()
-            == "development-only-change-me",
             "CREDENTIAL_ENCRYPTION_KEY": self.credential_encryption_key.get_secret_value()
             == "development-only-change-me",
         }
