@@ -15,6 +15,8 @@ from app.core.security import hash_secret
 from app.db.models import (
     ContributorGroup,
     ContributorGroupMember,
+    ExternalAccount,
+    ExternalProvider,
     PlatformRole,
     Round,
     RoundMember,
@@ -314,9 +316,20 @@ def _series_stats(db: DbSession, rounds: list[Round]) -> dict[str, object]:
     if not rounds:
         return {"roundCount": 0, "songCount": 0, "artistCount": 0, "contributors": []}
     round_ids = [round_.id for round_ in rounds]
+    spotify_profile_image = (
+        select(ExternalAccount.profile_image_url)
+        .where(
+            ExternalAccount.user_id == User.id,
+            ExternalAccount.provider == ExternalProvider.SPOTIFY,
+            ExternalAccount.is_active.is_(True),
+        )
+        .order_by(ExternalAccount.created_at)
+        .limit(1)
+        .scalar_subquery()
+    )
     rows = list(
         db.execute(
-            select(User.id, User.display_name, User.email, Track.artist)
+            select(User.id, User.display_name, User.email, spotify_profile_image, Track.artist)
             .join(Submission, Submission.contributor_id == User.id)
             .join(Track, Track.id == Submission.track_id)
             .where(
@@ -326,14 +339,20 @@ def _series_stats(db: DbSession, rounds: list[Round]) -> dict[str, object]:
             .order_by(User.display_name, User.email)
         )
     )
-    contributors: dict[uuid.UUID, str] = {}
+    contributors: dict[uuid.UUID, dict[str, str | None]] = {}
     artists: set[str] = set()
-    for user_id, display_name, email, artist in rows:
-        contributors[user_id] = display_name or email or "Unknown listener"
+    for user_id, display_name, email, profile_image_url, artist in rows:
+        contributors[user_id] = {
+            "id": str(user_id),
+            "displayName": display_name or email or "Unknown listener",
+            "spotifyProfileImageUrl": profile_image_url,
+        }
         artists.add(artist.casefold())
     return {
         "roundCount": len(rounds),
         "songCount": len(rows),
         "artistCount": len(artists),
-        "contributors": sorted(contributors.values(), key=str.casefold),
+        "contributors": sorted(
+            contributors.values(), key=lambda contributor: str(contributor["displayName"]).casefold()
+        ),
     }

@@ -133,6 +133,17 @@ def get_round(
             Publication.spotify_playlist_id.is_not(None),
         )
     )
+    background_artwork_url = db.scalar(
+        select(Track.artwork_url)
+        .join(Submission, Submission.track_id == Track.id)
+        .where(
+            Submission.round_id == round_.id,
+            Submission.status == SubmissionStatus.ACCEPTED,
+            Track.artwork_url.is_not(None),
+        )
+        .order_by(func.random())
+        .limit(1)
+    )
     submitted_count = int(
         db.scalar(
             select(func.count(func.distinct(Submission.contributor_id))).where(
@@ -173,6 +184,7 @@ def get_round(
         "submittedCount": submitted_count,
         "contributorCount": contributor_count,
         "canManage": can_manage,
+        "backgroundArtworkUrl": background_artwork_url,
     }
 
 

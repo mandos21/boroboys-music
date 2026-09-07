@@ -24,6 +24,7 @@ type Round = {
   submittedCount: number;
   contributorCount: number;
   canManage: boolean;
+  backgroundArtworkUrl: string | null;
 };
 
 type Submission = {
@@ -44,7 +45,7 @@ type SeriesHistory = {
   coverImageUrl: string | null;
   accentColor: string | null;
   fallbackArtworkUrl: string | null;
-  stats: { roundCount: number; songCount: number; artistCount: number; contributors: string[] };
+  stats: { roundCount: number; songCount: number; artistCount: number; contributors: Array<{ id: string; displayName: string; spotifyProfileImageUrl: string | null }> };
   rounds: Array<
     Pick<Round, "id" | "title" | "status" | "opensAt" | "closesAt" | "publishAt" | "prompt"> & { artworkUrls: string[] }
   >;
@@ -139,7 +140,7 @@ function UnavailableRound() {
 function RoundOverview({ round, mySubmissionCount }: { round: Round; mySubmissionCount: number | undefined }) {
   const hasCapacity = mySubmissionCount === undefined || mySubmissionCount < round.submissionLimit;
   return (
-    <section className="panel detail">
+    <section className="panel detail round-overview" style={{ "--round-cover": round.backgroundArtworkUrl ? `url(${round.backgroundArtworkUrl})` : "none" } as CSSProperties}>
       <span className={`status ${round.status}`}>{round.status}</span>
       <h1>{round.title}</h1>
       <p>Share up to {round.submissionLimit} track{round.submissionLimit === 1 ? "" : "s"} with this group before the release date.</p>
@@ -343,23 +344,27 @@ export function SeriesPage() {
       </main>
     );
   const item = series.data;
+  const featuredRound = item.rounds.find((round) => round.status === "published") ?? item.rounds[0];
+  const otherRounds = item.rounds.filter((round) => round.id !== featuredRound?.id);
   return (
     <main className="shell">
       <Link className="back" to="/">
         ← Your series
       </Link>
-      <section className="panel detail series-history-panel" style={{ "--series-cover": item.coverImageUrl ?? item.fallbackArtworkUrl ? `url(${item.coverImageUrl ?? item.fallbackArtworkUrl})` : "none" } as CSSProperties}>
+      <section className="panel detail series-overview" style={{ "--series-cover": item.coverImageUrl ?? item.fallbackArtworkUrl ? `url(${item.coverImageUrl ?? item.fallbackArtworkUrl})` : "none" } as CSSProperties}>
         <div className="series-page-heading"><div><p className="eyebrow">Series · {item.timezone}</p>
         <h1>{item.name}</h1>
         {item.description && <p>{item.description}</p>}</div>
         {item.isAdmin && <Link className="button button-secondary" to={`/admin/series/${item.id}`}>Manage series</Link>}</div>
-        <p className="muted">A record of the rounds and releases your group has made together. Times shown in {item.timezone}.</p>
-        <section className="series-stats" aria-label="Series statistics"><div><strong>{item.stats.roundCount}</strong><span>rounds</span></div><div><strong>{item.stats.songCount}</strong><span>songs</span></div><div><strong>{item.stats.artistCount}</strong><span>artists</span></div><div className="series-contributors"><strong>Contributors</strong><span>{item.stats.contributors.length ? item.stats.contributors.join(" · ") : "No submissions yet"}</span></div></section>
-        {item.rounds.length === 0 && <StatePanel title="No rounds yet">When this series starts a round, it will appear here.</StatePanel>}
-        {item.rounds[0] && <FeaturedRound round={item.rounds[0]} />}
+        <p className="muted">A record of the rounds and releases your group has made together.</p>
+        <section className="series-stats" aria-label="Series statistics"><div><strong>{item.stats.roundCount}</strong><span>rounds</span></div><div><strong>{item.stats.songCount}</strong><span>songs</span></div><div><strong>{item.stats.artistCount}</strong><span>artists</span></div><SeriesContributors contributors={item.stats.contributors} /></section>
+      </section>
+      {item.rounds.length === 0 && <StatePanel title="No rounds yet">When this series starts a round, it will appear here.</StatePanel>}
+      {featuredRound && <section className="panel series-latest-release"><div className="section-heading"><div><p className="eyebrow">{featuredRound.status === "published" ? "Latest release" : "Current round"}</p><h2>{featuredRound.status === "published" ? "Latest release" : "Current round"}</h2></div></div><FeaturedRound round={featuredRound} /></section>}
+      {(otherRounds.length > 0 || item.rounds.some((round) => round.status !== "published")) && <section className="panel series-release-list"><div className="section-heading"><div><p className="eyebrow">The archive</p><h2>Rounds</h2></div></div>
         {item.rounds.some((round) => round.status !== "published") && <div className="series-timeline" aria-label="Upcoming round timeline">{item.rounds.filter((round) => round.status !== "published").slice(0, 4).map((round) => <Link key={round.id} to={`/rounds/${round.id}`}><span className={`status ${round.status}`}>{round.status}</span><strong>{round.title}</strong><small>{round.status === "open" ? `Closes ${formatDate(round.closesAt)}` : `Opens ${formatDate(round.opensAt)}`}</small></Link>)}</div>}
         <div className="series-round-list">
-          {item.rounds.slice(1).map((round) => (
+          {otherRounds.map((round) => (
             <Link className="series-round-item" key={round.id} to={`/rounds/${round.id}`}>
               {round.artworkUrls.length > 0 && <ArtworkMosaic artworkUrls={round.artworkUrls} label={`Album art from ${round.title}`} />}
               <span className={`status ${round.status}`}>{round.status}</span>
@@ -373,9 +378,13 @@ export function SeriesPage() {
             </Link>
           ))}
         </div>
-      </section>
+      </section>}
     </main>
   );
+}
+
+function SeriesContributors({ contributors }: { contributors: SeriesHistory["stats"]["contributors"] }) {
+  return <div className="series-contributors"><strong>Contributors</strong><div className="contributor-stack">{contributors.length ? contributors.map((contributor) => contributor.spotifyProfileImageUrl ? <img key={contributor.id} src={contributor.spotifyProfileImageUrl} title={contributor.displayName} alt={contributor.displayName} /> : <span key={contributor.id} title={contributor.displayName} style={avatarStyle(contributor.displayName)} aria-label={contributor.displayName}>{contributor.displayName.slice(0, 1).toUpperCase()}</span>) : <small>No submissions yet</small>}</div></div>;
 }
 
 function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
