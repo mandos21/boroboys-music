@@ -66,6 +66,7 @@ export function SubmissionReviewPanel({
       {evidence && (
         <div className="evidence">
           <h3>Group listening evidence</h3>
+          <p className="evidence-explainer">This is cached listening data. It may be slightly behind recent plays, but it is never discarded simply because it is older.</p>
           {evidence.evidence.length === 0 ? (
             <p className="field-hint">No shared Last.fm evidence is cached yet. It will refresh in the background.</p>
           ) : <div className="evidence-list">{evidence.evidence.map((item) => (
@@ -89,7 +90,7 @@ export function SubmissionReviewPanel({
       ) : <p className="field-hint">Your existing note is preserved. You can edit it from the round page.</p>}
       {submissionError && <p className="error-message" role="alert">{submissionError.message}</p>}
       {submissionResult && !submissionResult.accepted && <p className="error-message" role="alert">{submissionResult.requiresWarningConfirmation ? "Confirm the warning before submitting." : "This track cannot be submitted under the current rules."}</p>}
-      <button className="button" type="button" disabled={!canSubmit || (requiresWarningConfirmation && !confirmWarnings)} onClick={onSubmit}>
+      <button className="button submission-submit" type="button" disabled={!canSubmit || (requiresWarningConfirmation && !confirmWarnings)} onClick={onSubmit}>
         {isSubmitting ? "Submitting…" : isReplacing ? "Replace track" : "Submit track"}
       </button>
     </section>

@@ -4,6 +4,7 @@ import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { errorMessage } from "./adminUtils";
@@ -23,6 +24,7 @@ export function PublicationPanel({
     queryFn: () =>
       api<Publication | null>(`/admin/rounds/${round.id}/publication`),
     retry: false,
+    refetchInterval: (query) => ["publishing", "unpublishing"].includes(query.state.data?.state ?? "") ? 5_000 : false,
   });
   const connections = useQuery({
     queryKey: ["connections"],
@@ -65,6 +67,13 @@ export function PublicationPanel({
     (account) => account.provider === "spotify" && account.isActive,
   );
   const current = publication.data;
+  const stateDescription = current && {
+    queued: "The worker will begin this publication shortly.",
+    publishing: "Creating and populating the Spotify playlist. This page refreshes automatically while it runs.",
+    published: "The playlist is published and available to the group.",
+    failed: "The last attempt did not finish. Review the message below, then retry when ready.",
+    unpublishing: "Deleting the Spotify playlist and returning the round to its prior state. This page refreshes automatically while it runs.",
+  }[current.state];
   const error =
     errorMessage(publish.error) ??
     errorMessage(unpublish.error) ??
@@ -72,11 +81,9 @@ export function PublicationPanel({
   return (
     <section className="panel publication-panel">
       <h2>Publication</h2>
-      {publication.isLoading && <p>Loading publication status…</p>}
+      {publication.isLoading && <StatePanel kind="loading" title="Loading publication status">Checking the playlist and its activity history.</StatePanel>}
       {publication.isError && (
-        <p className="error-message" role="alert">
-          Publication status could not be loaded.
-        </p>
+        <StatePanel kind="error" title="We couldn’t load publication status">Refresh the page to see the latest Spotify activity.</StatePanel>
       )}
       {!current && round.status === "closed" && (
         <>
@@ -128,6 +135,7 @@ export function PublicationPanel({
               ? "Historical import"
               : `${current.attemptCount} publish attempt${current.attemptCount === 1 ? "" : "s"}`}
           </p>
+          {stateDescription && <p className="publication-state-copy" aria-live={["publishing", "unpublishing"].includes(current.state) ? "polite" : undefined}>{stateDescription}</p>}
           {current.spotifyPlaylistId && (
             <p>
               <a
@@ -142,12 +150,6 @@ export function PublicationPanel({
           {current.lastError && (
             <p className="error-message" role="alert">
               {current.lastError}
-            </p>
-          )}
-          {["publishing", "unpublishing"].includes(current.state) && (
-            <p aria-live="polite">
-              The worker is processing this publication. Refresh this page for
-              the latest status.
             </p>
           )}
           {current.state === "failed" && (

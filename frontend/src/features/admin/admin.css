@@ -58,6 +58,7 @@
 .publication-panel { max-width: 52rem; }
 .publication-panel > label { max-width: 25rem; }
 .publication-panel > p { color: #64748b; font-size: .9rem; line-height: 1.55; }
+.publication-panel .publication-state-copy { padding: .75rem .85rem; border-left: 3px solid #93c5fd; border-radius: 0 .6rem .6rem 0; background: #f8fbff; color: #475569; }
 .danger-button { margin: 1rem 0 0; padding: .65rem .9rem; border: 1px solid #fecaca; border-radius: .65rem; background: #fff1f2; color: #be123c; font-size: .86rem; font-weight: 800; }
 .danger-button:hover { background: #ffe4e6; }
 .danger-button:disabled { cursor: not-allowed; opacity: .55; }

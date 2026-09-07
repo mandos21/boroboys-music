@@ -208,6 +208,7 @@ input:focus, textarea:focus, select:focus { border-color: #3b82f6; outline: 0; b
 .policy.accept { border-color: #22c55e; }
 .evidence p { margin: .5rem 0; color: #475569; font-size: .85rem; line-height: 1.5; }
 .evidence small { color: #94a3b8; }
+.evidence .evidence-explainer { margin: 0 0 .7rem; color: #64748b; font-size: .78rem; }
 .evidence-list { display: grid; gap: .45rem; }
 .evidence-list p { padding: .65rem .7rem; margin: 0; border-radius: .65rem; background: #f8fafc; }
 .evidence-list strong { color: #334155; }
@@ -238,6 +239,7 @@ input:focus, textarea:focus, select:focus { border-color: #3b82f6; outline: 0; b
   .dashboard-meta { min-width: 0; }
   .submission-layout, .landing-hero { grid-template-columns: 1fr; }
   .review-panel { position: static; }
+  .submission-submit { position: sticky; z-index: 2; bottom: .75rem; width: 100%; box-shadow: 0 12px 24px rgb(37 99 235 / 28%); }
 }
 
 @media (max-width: 40rem) {
