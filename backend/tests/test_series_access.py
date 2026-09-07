@@ -140,6 +140,7 @@ def test_series_membership_makes_an_unscheduled_series_visible() -> None:
                 "timezone": "UTC",
                 "coverImageUrl": None,
                 "accentColor": None,
+                "fallbackArtworkUrl": None,
                 "isAdmin": False,
                 "featuredRound": None,
             }

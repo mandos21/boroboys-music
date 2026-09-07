@@ -71,7 +71,7 @@ export function SubmissionReviewPanel({
             <p className="field-hint">No shared Last.fm evidence is cached yet. It will refresh in the background.</p>
           ) : <div className="evidence-list">{evidence.evidence.map((item) => (
             <p key={item.accountId}>
-              <strong>{item.displayName ?? "A contributor"}</strong>: at least {item.playcount ?? 0} listens <small>observed {formatDate(item.fetchedAt)}</small>
+              <strong>{item.isMine ? "You" : item.displayName ?? "A contributor"}</strong>: song {item.playcount ?? 0} · artist {item.artistPlaycount ?? "—"}{item.albumPlaycount !== null ? ` · album ${item.albumPlaycount}` : ""} <small>observed {formatDate(item.fetchedAt)}</small>
             </p>
           ))}</div>}
         </div>

@@ -17,7 +17,7 @@ class LastfmError(Exception):
     pass
 
 
-def monthly_top_tracks(settings: Settings, username: str, limit: int = 8) -> list[dict[str, str]]:
+def monthly_top_tracks(settings: Settings, username: str, limit: int = 8) -> list[dict[str, str | None]]:
     """Return a listener's recent top tracks for voluntary submission suggestions."""
     if not settings.lastfm_api_key:
         raise LastfmError("Last.fm is not configured")
@@ -39,13 +39,18 @@ def monthly_top_tracks(settings: Settings, username: str, limit: int = 8) -> lis
     rows = container.get("track") if isinstance(container, dict) else None
     if not isinstance(rows, list):
         return []
-    suggestions: list[dict[str, str]] = []
+    suggestions: list[dict[str, str | None]] = []
     for item in rows:
         artist = item.get("artist") if isinstance(item, dict) else None
         artist_name = artist.get("name") if isinstance(artist, dict) else None
         name = item.get("name") if isinstance(item, dict) else None
         if isinstance(name, str) and isinstance(artist_name, str):
-            suggestions.append({"name": name, "artist": artist_name})
+            images = item.get("image")
+            artwork_url = None
+            if isinstance(images, list):
+                image_urls = [image.get("#text") for image in images if isinstance(image, dict)]
+                artwork_url = next((url for url in reversed(image_urls) if isinstance(url, str) and url), None)
+            suggestions.append({"name": name, "artist": artist_name, "artworkUrl": artwork_url})
     return suggestions
 
 

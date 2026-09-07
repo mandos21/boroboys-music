@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { api, patch, post, put } from "../../api/client";
@@ -24,6 +24,7 @@ import {
 export function SubmissionPage() {
   const { roundId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const replaceId = searchParams.get("replace");
@@ -50,7 +51,7 @@ export function SubmissionPage() {
     enabled: Boolean(roundId && evaluation.data?.trackId),
   });
   const draft = useQuery({ queryKey: ["submission-draft", roundId], queryFn: () => api<SubmissionDraft>(`/rounds/${roundId}/draft`), enabled: Boolean(roundId && !replaceId), retry: false });
-  const suggestions = useQuery({ queryKey: ["listening-suggestions", roundId], queryFn: () => api<Array<{ name: string; artist: string }>>(`/rounds/${roundId}/listening-suggestions`), enabled: Boolean(roundId && !replaceId), retry: false });
+  const suggestions = useQuery({ queryKey: ["listening-suggestions", roundId], queryFn: () => api<Array<{ name: string; artist: string; artworkUrl: string | null }>>(`/rounds/${roundId}/listening-suggestions`), enabled: Boolean(roundId && !replaceId), retry: false });
   const submission = useMutation({
     mutationFn: () => {
       if (!selected) throw new Error("Select a track before submitting.");
@@ -70,6 +71,9 @@ export function SubmissionPage() {
     },
     onSuccess: (result) => {
       if (result.accepted) {
+        void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
+        void queryClient.invalidateQueries({ queryKey: ["round-submissions", roundId] });
+        void queryClient.invalidateQueries({ queryKey: ["series"] });
         showToast({ title: replaceId ? "Track replaced" : "Track submitted", description: "Your choice is now part of this round." });
         navigate(`/rounds/${roundId}`);
       }

@@ -8,7 +8,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.db.models import ExternalAccount, ExternalProvider, ListeningEvidence, RoundMember, Track
 
 
@@ -55,29 +55,23 @@ def _refresh_account(db: Session, account: ExternalAccount, track: Track) -> Non
     if evidence is not None and evidence.refresh_after is not None and evidence.refresh_after > now:
         return
     try:
-        response = httpx.get(
-            "https://ws.audioscrobbler.com/2.0/",
-            params={
-                "method": "track.getInfo",
-                "api_key": settings.lastfm_api_key.get_secret_value()
-                if settings.lastfm_api_key
-                else "",
-                "user": account.provider_subject,
-                "artist": track.artist,
-                "track": track.name,
-                "format": "json",
-            },
-            timeout=10.0,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        playcount = _playcount(payload)
+        playcount = _lastfm_playcount(settings, account.provider_subject, "track.getInfo", track)
     except (httpx.HTTPError, ValueError, TypeError):
         if evidence is not None:
             evidence.refresh_after = now + timedelta(hours=1)
         return
+    artist_playcount = _optional_lastfm_playcount(
+        settings, account.provider_subject, "artist.getInfo", track
+    )
+    album_playcount = (
+        _optional_lastfm_playcount(settings, account.provider_subject, "album.getInfo", track)
+        if track.album
+        else None
+    )
     values = {
         "playcount": playcount,
+        "artist_playcount": artist_playcount,
+        "album_playcount": album_playcount,
         "match_confidence": "exact",
         "fetched_at": now,
         "refresh_after": now + timedelta(hours=settings.lastfm_evidence_refresh_hours),
@@ -94,21 +88,52 @@ def _refresh_account(db: Session, account: ExternalAccount, track: Track) -> Non
         )
     else:
         # Listening data is monotonic. Never replace a stronger cached positive result.
-        evidence.playcount = max(
-            value for value in (evidence.playcount, playcount) if value is not None
-        )
+        evidence.playcount = _highest_count(evidence.playcount, playcount)
+        evidence.artist_playcount = _highest_count(evidence.artist_playcount, artist_playcount)
+        evidence.album_playcount = _highest_count(evidence.album_playcount, album_playcount)
         for key, value in values.items():
-            if key != "playcount":
+            if key not in {"playcount", "artist_playcount", "album_playcount"}:
                 setattr(evidence, key, value)
 
 
-def _playcount(payload: object) -> int:
+def _lastfm_playcount(settings: Settings, username: str, method: str, track: Track) -> int:
+    api_key = settings.lastfm_api_key
+    response = httpx.get(
+        "https://ws.audioscrobbler.com/2.0/",
+        params={
+            "method": method,
+            "api_key": api_key.get_secret_value() if api_key else "",
+            "user": username,
+            "artist": track.artist,
+            **({"track": track.name} if method == "track.getInfo" else {}),
+            **({"album": track.album} if method == "album.getInfo" and track.album else {}),
+            "format": "json",
+        },
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    return _playcount(response.json(), method.split(".")[0])
+
+
+def _optional_lastfm_playcount(settings: Settings, username: str, method: str, track: Track) -> int | None:
+    try:
+        return _lastfm_playcount(settings, username, method, track)
+    except (httpx.HTTPError, ValueError, TypeError):
+        return None
+
+
+def _highest_count(previous: int | None, fresh: int | None) -> int | None:
+    values = [value for value in (previous, fresh) if value is not None]
+    return max(values) if values else None
+
+
+def _playcount(payload: object, key: str = "track") -> int:
     if not isinstance(payload, dict):
         return 0
-    track = payload.get("track")
-    if not isinstance(track, dict):
+    item = payload.get(key)
+    if not isinstance(item, dict):
         return 0
-    raw = track.get("userplaycount", 0)
+    raw = item.get("userplaycount", 0)
     try:
         return max(0, int(raw))
     except (TypeError, ValueError):

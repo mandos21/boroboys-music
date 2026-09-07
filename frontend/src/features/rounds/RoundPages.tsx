@@ -7,6 +7,7 @@ import { api, patch, post } from "../../api/client";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
+import { avatarStyle } from "../../lib/avatar";
 import { formatDate } from "../../lib/format";
 
 type Round = {
@@ -22,6 +23,7 @@ type Round = {
   prompt: string | null;
   submittedCount: number;
   contributorCount: number;
+  canManage: boolean;
 };
 
 type Submission = {
@@ -41,8 +43,10 @@ type SeriesHistory = {
   isAdmin: boolean;
   coverImageUrl: string | null;
   accentColor: string | null;
+  fallbackArtworkUrl: string | null;
+  stats: { roundCount: number; songCount: number; artistCount: number; contributors: string[] };
   rounds: Array<
-    Pick<Round, "id" | "title" | "status" | "opensAt" | "closesAt" | "publishAt" | "prompt">
+    Pick<Round, "id" | "title" | "status" | "opensAt" | "closesAt" | "publishAt" | "prompt"> & { artworkUrls: string[] }
   >;
 };
 
@@ -99,8 +103,8 @@ export function RoundPage() {
   const mySubmissionCount = submissions.data?.filter((entry) => entry.isMine && entry.status === "accepted").length;
   return (
     <main className="shell round-page-shell">
-      <Link className="back" to="/">
-        ← Your series
+      <Link className="back" to={item.seriesId ? `/series/${item.seriesId}` : "/"}>
+        ← Back to series
       </Link>
       <RoundOverview round={item} mySubmissionCount={mySubmissionCount} />
       {item.status === "published" && submissions.data && <ReleaseRecap round={item} submissions={submissions.data} />}
@@ -168,7 +172,7 @@ function RoundOverview({ round, mySubmissionCount }: { round: Round; mySubmissio
           Choose a track
         </Link>
       ) : round.status === "open" ? (
-        <p className="round-capacity-note">You’ve used all {round.submissionLimit} submission{round.submissionLimit === 1 ? "" : "s"}. You can still replace or withdraw one below.</p>
+        <p className="round-capacity-note">You&apos;re all set! You can still change your mind before the end of the round by modifying your submissions below.</p>
       ) : (
         <p className="muted">Submissions are currently closed.</p>
       )}
@@ -177,19 +181,48 @@ function RoundOverview({ round, mySubmissionCount }: { round: Round; mySubmissio
           View series history
         </Link>
       )}
+      {round.canManage && <Link className="history-link" to={`/admin/rounds/${round.id}`}>Manage this round</Link>}
     </section>
   );
 }
 
 function ReleaseRecap({ round, submissions }: { round: Round; submissions: Submission[] }) {
-  const artwork = submissions.flatMap((submission) => submission.track.artworkUrl ? [submission.track.artworkUrl] : []).slice(0, 8);
+  const artwork = balancedArtwork(submissions);
   return (
     <section className="panel release-recap">
       <div><p className="eyebrow">Release recap</p><h2>{round.title}</h2><p>{round.submittedCount} contributor{round.submittedCount === 1 ? "" : "s"} shared {submissions.length} track{submissions.length === 1 ? "" : "s"}.</p></div>
-      {artwork.length > 0 && <div className="artwork-mosaic" aria-label="Album art from this release">{artwork.map((url, index) => <img key={`${url}-${index}`} src={url} alt="" />)}</div>}
-      <p className="now-spinning" aria-label="Now spinning"><span>Now spinning</span><strong>{submissions.slice(0, 4).map((submission) => `${submission.track.name} — ${submission.track.artist}`).join(" · ")}</strong></p>
+      {artwork.length > 0 && <ArtworkMosaic artworkUrls={artwork} label="Album art from this release" />}
+      <NowSpinning tracks={submissions.slice(0, 4).map((submission) => `${submission.track.name} — ${submission.track.artist}`)} />
     </section>
   );
+}
+
+function balancedArtwork(submissions: Submission[], limit = 8): string[] {
+  const byContributor = new Map<string, string[]>();
+  for (const submission of submissions) {
+    if (!submission.track.artworkUrl) continue;
+    const picks = byContributor.get(submission.contributor.id) ?? [];
+    picks.push(submission.track.artworkUrl);
+    byContributor.set(submission.contributor.id, picks);
+  }
+  const result: string[] = [];
+  while (byContributor.size && result.length < limit) {
+    for (const [contributorId, picks] of byContributor) {
+      const next = picks.shift();
+      if (next) result.push(next);
+      if (!picks.length) byContributor.delete(contributorId);
+      if (result.length === limit) break;
+    }
+  }
+  return result;
+}
+
+function ArtworkMosaic({ artworkUrls, label }: { artworkUrls: string[]; label: string }) {
+  return <div className="artwork-mosaic" aria-label={label}>{artworkUrls.map((url, index) => <img key={`${url}-${index}`} src={url} alt="" />)}</div>;
+}
+
+function NowSpinning({ tracks }: { tracks: string[] }) {
+  return <p className="now-spinning" aria-label="Now spinning"><span>Now spinning</span><span className="now-spinning-viewport"><strong>{tracks.join(" · ")}</strong></span></p>;
 }
 
 function RoundSubmissions({
@@ -242,7 +275,7 @@ function RoundSubmissions({
                 {entry.contributor.spotifyProfileImageUrl ? (
                   <img className="contributor-avatar" src={entry.contributor.spotifyProfileImageUrl} alt={`${entry.contributor.displayName ?? "Contributor"}'s Spotify profile`} />
                 ) : (
-                  <span className="contributor-avatar contributor-avatar-fallback" aria-label={`${entry.contributor.displayName ?? "Unknown listener"}'s profile`}>
+                  <span className="contributor-avatar contributor-avatar-fallback" style={avatarStyle(entry.contributor.displayName)} aria-label={`${entry.contributor.displayName ?? "Unknown listener"}'s profile`}>
                     {(entry.contributor.displayName ?? "?").slice(0, 1).toUpperCase()}
                   </span>
                 )}
@@ -315,18 +348,20 @@ export function SeriesPage() {
       <Link className="back" to="/">
         ← Your series
       </Link>
-      <section className="panel detail series-history-panel" style={{ "--series-cover": item.coverImageUrl ? `url(${item.coverImageUrl})` : "none" } as CSSProperties}>
+      <section className="panel detail series-history-panel" style={{ "--series-cover": item.coverImageUrl ?? item.fallbackArtworkUrl ? `url(${item.coverImageUrl ?? item.fallbackArtworkUrl})` : "none" } as CSSProperties}>
         <div className="series-page-heading"><div><p className="eyebrow">Series · {item.timezone}</p>
         <h1>{item.name}</h1>
         {item.description && <p>{item.description}</p>}</div>
         {item.isAdmin && <Link className="button button-secondary" to={`/admin/series/${item.id}`}>Manage series</Link>}</div>
         <p className="muted">A record of the rounds and releases your group has made together. Times shown in {item.timezone}.</p>
+        <section className="series-stats" aria-label="Series statistics"><div><strong>{item.stats.roundCount}</strong><span>rounds</span></div><div><strong>{item.stats.songCount}</strong><span>songs</span></div><div><strong>{item.stats.artistCount}</strong><span>artists</span></div><div className="series-contributors"><strong>Contributors</strong><span>{item.stats.contributors.length ? item.stats.contributors.join(" · ") : "No submissions yet"}</span></div></section>
         {item.rounds.length === 0 && <StatePanel title="No rounds yet">When this series starts a round, it will appear here.</StatePanel>}
         {item.rounds[0] && <FeaturedRound round={item.rounds[0]} />}
         {item.rounds.some((round) => round.status !== "published") && <div className="series-timeline" aria-label="Upcoming round timeline">{item.rounds.filter((round) => round.status !== "published").slice(0, 4).map((round) => <Link key={round.id} to={`/rounds/${round.id}`}><span className={`status ${round.status}`}>{round.status}</span><strong>{round.title}</strong><small>{round.status === "open" ? `Closes ${formatDate(round.closesAt)}` : `Opens ${formatDate(round.opensAt)}`}</small></Link>)}</div>}
         <div className="series-round-list">
           {item.rounds.slice(1).map((round) => (
             <Link className="series-round-item" key={round.id} to={`/rounds/${round.id}`}>
+              {round.artworkUrls.length > 0 && <ArtworkMosaic artworkUrls={round.artworkUrls} label={`Album art from ${round.title}`} />}
               <span className={`status ${round.status}`}>{round.status}</span>
               <div>
                 <h2>{round.title}</h2>
@@ -348,6 +383,7 @@ function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
   return (
     <Link className="series-featured-round" to={`/rounds/${round.id}`}>
       <div><p className="eyebrow">{active ? "Current round" : "Latest release"}</p><h2>{round.title}</h2><p>{active ? `Closes ${formatDate(round.closesAt)}` : `Released ${formatDate(round.publishAt)}`}</p>{round.prompt && <p className="featured-prompt">Prompt: {round.prompt}</p>}</div>
+      {round.artworkUrls.length > 0 && <ArtworkMosaic artworkUrls={round.artworkUrls} label={`Album art from ${round.title}`} />}
       <div><span className={`status ${round.status}`}>{round.status}</span></div>
     </Link>
   );

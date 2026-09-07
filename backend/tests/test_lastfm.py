@@ -32,7 +32,7 @@ def test_monthly_top_tracks_returns_usable_track_suggestions(monkeypatch: pytest
 
     tracks = lastfm.monthly_top_tracks(Settings(lastfm_api_key="api-key"), "listener", limit=4)
 
-    assert tracks == [{"name": "A Track", "artist": "An Artist"}]
+    assert tracks == [{"name": "A Track", "artist": "An Artist", "artworkUrl": None}]
     assert observed["params"] == {
         "method": "user.getTopTracks",
         "api_key": "api-key",

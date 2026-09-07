@@ -15,12 +15,12 @@ import { formatDate } from "../lib/format";
 
 type Session = { user: { id: string; email: string | null; displayName: string | null; platformRole: string } };
 type RoundPreview = { id: string; title: string; status: string; opensAt: string; closesAt: string; publishAt: string; submittedCount: number; contributorCount: number; prompt: string | null };
-type SeriesPreview = { id: string; name: string; description: string | null; isAdmin: boolean; coverImageUrl: string | null; accentColor: string | null; featuredRound: RoundPreview | null };
+type SeriesPreview = { id: string; name: string; description: string | null; isAdmin: boolean; coverImageUrl: string | null; fallbackArtworkUrl: string | null; accentColor: string | null; featuredRound: RoundPreview | null };
 
 function seriesAccent(series: SeriesPreview) {
   if (series.accentColor) return series.accentColor;
   // A stable companion color without processing remote artwork in the browser.
-  const seed = series.coverImageUrl ?? series.name;
+  const seed = series.coverImageUrl ?? series.fallbackArtworkUrl ?? series.name;
   const hash = [...seed].reduce((value, character) => (value * 31 + character.charCodeAt(0)) >>> 0, 7);
   return ["#15803d", "#0f766e", "#4d7c0f", "#9a3412", "#7e22ce"][hash % 5];
 }
@@ -45,7 +45,6 @@ function HomePage() {
         </div>
         <div className="dashboard-meta" aria-label="Series overview"><ListMusic aria-hidden="true" size={20} /><span>{items.length} series</span></div>
       </header>
-      {currentUser.platformRole === "admin" && <SeriesCreatePanel />}
       {openSeries && <FeaturedOpenSeries series={openSeries} />}
       <section aria-labelledby="series-heading" className="content-section">
         <div className="section-heading"><div><h2 id="series-heading">{openSeries ? "Other series" : "Series"}</h2></div></div>
@@ -54,23 +53,24 @@ function HomePage() {
         {series.data?.length === 0 && <StatePanel title="No series yet">Once you are added to a series, its active round and listening history will appear here.</StatePanel>}
         <div className="series-card-grid">{otherSeries.map((item) => <SeriesCard key={item.id} series={item} />)}</div>
       </section>
+      {currentUser.platformRole === "admin" && <SeriesCreatePanel />}
     </main>
   );
 }
 
 function FeaturedOpenSeries({ series }: { series: SeriesPreview }) {
   const round = series.featuredRound;
+  const cover = series.coverImageUrl ?? series.fallbackArtworkUrl;
   if (!round) return null;
   return (
-    <article className="featured-open-series" style={{ "--series-accent": seriesAccent(series), "--series-cover": series.coverImageUrl ? `url(${series.coverImageUrl})` : "none" } as CSSProperties}>
+    <article className="featured-open-series" style={{ "--series-accent": seriesAccent(series), "--series-cover": cover ? `url(${cover})` : "none" } as CSSProperties}>
       <Link aria-label={`Open ${series.name}`} className="featured-open-series-link" to={`/series/${series.id}`} />
       <div className="featured-open-series-copy">
-        <p className="eyebrow">Open now</p>
+        <p className="eyebrow open-now-label"><RoundPulse />Open now</p>
         <h2>{series.name}</h2>
         <p>{series.description ?? "A place to trade what you have been listening to."}</p>
         <p className="next-action">Your next step: pick a track for this round.</p>
       </div>
-      <span className="round-pulse" aria-label="Round is open"><i /><i /><i /></span>
       <Link className="featured-open-series-round" to={`/rounds/${round.id}`}>
         <span>Current round</span>
         <strong>{round.title}</strong>
@@ -83,17 +83,20 @@ function FeaturedOpenSeries({ series }: { series: SeriesPreview }) {
   );
 }
 
+function RoundPulse() { return <span className="round-pulse" aria-label="Round is open"><i /><i /><i /></span>; }
+
 function SeriesCard({ series }: { series: SeriesPreview }) {
   const round = series.featuredRound;
   const isActive = round && round.status !== "published";
   const isOpen = round?.status === "open";
+  const cover = series.coverImageUrl ?? series.fallbackArtworkUrl;
   return (
-    <article className="series-card" style={{ "--series-accent": seriesAccent(series), "--series-cover": series.coverImageUrl ? `url(${series.coverImageUrl})` : "none" } as CSSProperties}>
+    <article className="series-card" style={{ "--series-accent": seriesAccent(series), "--series-cover": cover ? `url(${cover})` : "none" } as CSSProperties}>
       <Link aria-label={`Open ${series.name}`} className="series-card-link-to-series" to={`/series/${series.id}`} />
-      <div className="series-card-heading"><div><h3>{series.name}</h3></div><span>{isOpen && <span className="round-pulse compact" aria-label="Round is open"><i /><i /><i /></span>}{round && <span className={`status ${round.status}`}>{round.status}</span>}</span></div>
+      <div className="series-card-heading"><div><h3>{series.name}</h3></div><span>{isOpen && <RoundPulse />}{round && <span className={`status ${round.status}`}>{round.status}</span>}</span></div>
       <p>{series.description ?? "A place to trade what you have been listening to."}</p>
       {round ? (
-        <Link className="series-card-round series-card-round-link" to={`/rounds/${round.id}`}><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isOpen ? <>{round.submittedCount} of {round.contributorCount} people have submitted · closes {formatDate(round.closesAt)}</> : isActive ? <>Opens {formatDate(round.opensAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small>{isOpen && <progress aria-label={`${round.submittedCount} of ${round.contributorCount} contributors have submitted`} max={Math.max(round.contributorCount, 1)} value={round.submittedCount} />}{round.prompt && <small className="featured-prompt">Prompt: {round.prompt}</small>}{!isActive && <small className="now-spinning"><span>Now spinning</span><strong>{round.title}</strong></small>}</Link>
+        <Link className="series-card-round series-card-round-link" to={`/rounds/${round.id}`}><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isOpen ? <>{round.submittedCount} of {round.contributorCount} people have submitted · closes {formatDate(round.closesAt)}</> : isActive ? <>Opens {formatDate(round.opensAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small>{isOpen && <progress aria-label={`${round.submittedCount} of ${round.contributorCount} contributors have submitted`} max={Math.max(round.contributorCount, 1)} value={round.submittedCount} />}{round.prompt && <small className="featured-prompt">Prompt: {round.prompt}</small>}{!isActive && <small className="now-spinning"><span>Now spinning</span><span className="now-spinning-viewport"><strong>{round.title}</strong></span></small>}</Link>
       ) : <div className="series-card-round series-card-empty"><span>No rounds yet</span><small>Its first listening window will show up here.</small></div>}
     </article>
   );

@@ -41,7 +41,10 @@ export type Evidence = {
   evidence: Array<{
     accountId: string;
     displayName: string | null;
+    isMine: boolean;
     playcount: number | null;
+    artistPlaycount: number | null;
+    albumPlaycount: number | null;
     fetchedAt: string;
     refreshAfter: string | null;
     status: string;

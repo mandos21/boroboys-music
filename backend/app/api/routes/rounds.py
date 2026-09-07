@@ -150,6 +150,15 @@ def get_round(
         )
         or 0
     )
+    can_manage = user.platform_role is PlatformRole.ADMIN or (
+        db.scalar(
+            select(SeriesAdmin.id).where(
+                SeriesAdmin.series_id == round_.series_id,
+                SeriesAdmin.user_id == user.id,
+            )
+        )
+        is not None
+    )
     return {
         "id": str(round_.id),
         "seriesId": str(round_.series_id),
@@ -163,6 +172,7 @@ def get_round(
         "prompt": round_.prompt,
         "submittedCount": submitted_count,
         "contributorCount": contributor_count,
+        "canManage": can_manage,
     }
 
 
@@ -205,7 +215,7 @@ def get_listening_suggestions(
     round_id: uuid.UUID,
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
-) -> list[dict[str, str]]:
+) -> list[dict[str, str | None]]:
     _member_round(db, round_id, user.id)
     account = db.scalar(
         select(ExternalAccount).where(
@@ -395,7 +405,10 @@ def get_evidence(
             {
                 "accountId": str(account.id),
                 "displayName": account.display_name,
+                "isMine": account.user_id == user.id,
                 "playcount": item.playcount,
+                "artistPlaycount": item.artist_playcount,
+                "albumPlaycount": item.album_playcount,
                 "fetchedAt": item.fetched_at.isoformat(),
                 "refreshAfter": item.refresh_after.isoformat() if item.refresh_after else None,
                 "status": item.response_status,

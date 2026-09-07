@@ -396,6 +396,8 @@ class ListeningEvidence(UUIDTimestampMixin, Base):
     )
     source: Mapped[str] = mapped_column(String(64), nullable=False)
     playcount: Mapped[int | None] = mapped_column(Integer)
+    artist_playcount: Mapped[int | None] = mapped_column(Integer)
+    album_playcount: Mapped[int | None] = mapped_column(Integer)
     last_played_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     match_confidence: Mapped[str] = mapped_column(String(32), nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(

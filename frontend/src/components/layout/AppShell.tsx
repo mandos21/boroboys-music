@@ -5,13 +5,14 @@ import { LogOut, Menu, Music2, UserRound, X } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 import { api, logout } from "../../api/client";
+import { avatarStyle } from "../../lib/avatar";
 import { ThemeToggle } from "../ui/ThemeToggle";
 
 type Session = { user: { email: string | null; displayName: string | null; platformRole: string } };
 type AppShellProps = { children: ReactNode };
 
 function AccountIdentity({ user, compact = false }: { user: Session["user"]; compact?: boolean }) {
-  return <><span className="account-avatar" aria-hidden="true">{(user.displayName ?? user.email ?? "M").slice(0, 1).toUpperCase()}</span>{!compact && <span className="account-copy"><strong>{user.displayName ?? "Listener"}</strong><small>{user.platformRole}</small></span>}</>;
+  return <><span className="account-avatar" style={avatarStyle(user.displayName ?? user.email)} aria-hidden="true">{(user.displayName ?? user.email ?? "M").slice(0, 1).toUpperCase()}</span>{!compact && <span className="account-copy"><strong>{user.displayName ?? "Listener"}</strong><small>{user.platformRole}</small></span>}</>;
 }
 
 export function AppShell({ children }: AppShellProps) {

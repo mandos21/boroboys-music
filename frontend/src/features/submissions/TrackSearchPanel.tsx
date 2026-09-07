@@ -10,8 +10,8 @@ type TrackSearchPanelProps = {
   tracks: Track[] | undefined;
   onQueryChange: (value: string) => void;
   onSelect: (track: Track) => void;
-  suggestions?: Array<{ name: string; artist: string }>;
-  onSuggestion: (suggestion: { name: string; artist: string }) => void;
+  suggestions?: Array<{ name: string; artist: string; artworkUrl: string | null }>;
+  onSuggestion: (suggestion: { name: string; artist: string; artworkUrl: string | null }) => void;
 };
 
 function SearchResult({ track, onSelect }: { track: Track; onSelect: (track: Track) => void }) {
@@ -55,7 +55,7 @@ export function TrackSearchPanel({
         <div className="listening-suggestions">
           <p className="eyebrow">Your month on Last.fm</p>
           <p className="field-hint">Start with something you have been returning to lately.</p>
-          <div>{suggestions.map((suggestion) => <button key={`${suggestion.artist}-${suggestion.name}`} type="button" onClick={() => onSuggestion(suggestion)}>{suggestion.name}<small>{suggestion.artist}</small></button>)}</div>
+          <div>{suggestions.map((suggestion) => <button key={`${suggestion.artist}-${suggestion.name}`} type="button" onClick={() => onSuggestion(suggestion)}>{suggestion.artworkUrl ? <img src={suggestion.artworkUrl} alt="" /> : <span className="suggestion-artwork-placeholder" aria-hidden="true">♫</span>}<span><strong>{suggestion.name}</strong><small>{suggestion.artist}</small></span></button>)}</div>
         </div>
       )}
       <div className="track-results">

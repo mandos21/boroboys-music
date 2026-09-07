@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 
 from app.db.models import ExternalAccount, ExternalProvider, ListeningEvidence, Track, User
 from app.db.session import get_session_factory
@@ -93,3 +94,54 @@ def test_stale_evidence_refresh_keeps_the_stronger_playcount(monkeypatch: pytest
 
         assert row.playcount == 7
         assert row.refresh_after is not None and row.refresh_after > datetime.now(UTC)
+
+
+def test_refresh_caches_track_artist_and_album_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    with get_session_factory()() as db:
+        user = User(oidc_issuer="https://issuer.test", oidc_subject=f"breakdown-{suffix}")
+        db.add(user)
+        db.flush()
+        account = ExternalAccount(
+            user_id=user.id,
+            provider=ExternalProvider.LASTFM,
+            provider_subject=f"breakdown-{suffix}",
+        )
+        track = Track(
+            spotify_track_id=f"breakdown-track-{suffix}",
+            name="Breakdown",
+            artist="The Cache",
+            album="Details",
+        )
+        db.add_all((account, track))
+        db.commit()
+
+        class Response:
+            def __init__(self, method: str) -> None:
+                self.method = method
+
+            def raise_for_status(self) -> None:
+                return None
+
+            def json(self) -> dict[str, object]:
+                key = self.method.split(".")[0]
+                count = {"track": "3", "artist": "11", "album": "7"}[key]
+                return {key: {"userplaycount": count}}
+
+        def fake_get(*_args: object, **kwargs: object) -> Response:
+            params = kwargs["params"]
+            assert isinstance(params, dict)
+            return Response(str(params["method"]))
+
+        monkeypatch.setattr(evidence.httpx, "get", fake_get)
+        evidence._refresh_account(db, account, track)
+        db.commit()
+
+        row = db.scalar(
+            select(ListeningEvidence).where(
+                ListeningEvidence.external_account_id == account.id,
+                ListeningEvidence.track_id == track.id,
+            )
+        )
+        assert row is not None
+        assert (row.playcount, row.artist_playcount, row.album_playcount) == (3, 11, 7)
