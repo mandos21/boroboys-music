@@ -5,6 +5,7 @@ import { Link, Route, Routes, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { AppShell } from "../components/layout/AppShell";
 import { StatePanel } from "../components/ui/StatePanel";
+import { ToastProvider } from "../components/ui/ToastProvider";
 import {
   AdminIndexPage,
   AdminRoundPage,
@@ -183,7 +184,7 @@ function ShellRoute({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <>
+    <ToastProvider>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <div id="main-content" tabIndex={-1}>
         <Routes>
@@ -200,6 +201,6 @@ export function App() {
           <Route path="*" element={<ShellRoute><NotFoundPage /></ShellRoute>} />
         </Routes>
       </div>
-    </>
+    </ToastProvider>
   );
 }

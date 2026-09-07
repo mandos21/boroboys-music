@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { errorMessage } from "./adminUtils";
 import type { AdminRound, Connection, Publication } from "./types";
@@ -15,6 +17,7 @@ export function PublicationPanel({
   onChanged: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const publication = useQuery({
     queryKey: ["publication", round.id],
     queryFn: () =>
@@ -27,6 +30,7 @@ export function PublicationPanel({
     retry: false,
   });
   const [publisherId, setPublisherId] = useState("");
+  const [unpublishRequested, setUnpublishRequested] = useState(false);
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["publication", round.id] });
     onChanged();
@@ -36,16 +40,26 @@ export function PublicationPanel({
       post(`/admin/rounds/${round.id}/publish`, {
         publisher_account_id: publisherId,
       }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Publication queued", description: "Music Rounds is creating the Spotify playlist in the background." });
+    },
   });
   const unpublish = useMutation({
     mutationFn: () => post(`/admin/rounds/${round.id}/unpublish`, {}),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setUnpublishRequested(false);
+      showToast({ title: "Playlist retirement queued", description: "The latest playlist will be removed before the round returns to its prior state." });
+    },
   });
   const retry = useMutation({
     mutationFn: (publicationId: string) =>
       post(`/admin/publications/${publicationId}/retry`, {}),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Publication retry queued", description: "The worker will attempt the operation again shortly." });
+    },
   });
   const spotifyAccounts = (connections.data ?? []).filter(
     (account) => account.provider === "spotify" && account.isActive,
@@ -155,7 +169,7 @@ export function PublicationPanel({
               type="button"
               className="danger-button"
               disabled={unpublish.isPending}
-              onClick={() => unpublish.mutate()}
+              onClick={() => setUnpublishRequested(true)}
             >
               {unpublish.isPending
                 ? "Queueing reversal…"
@@ -188,6 +202,15 @@ export function PublicationPanel({
           {error}
         </p>
       )}
+      <ConfirmDialog
+        open={unpublishRequested}
+        title="Unpublish this latest round?"
+        description="Music Rounds will delete the associated Spotify playlist and return the round to its prior state. This is only available for the most recently published round."
+        confirmLabel="Unpublish and delete playlist"
+        isPending={unpublish.isPending}
+        onOpenChange={(open) => { if (!open && !unpublish.isPending) setUnpublishRequested(false); }}
+        onConfirm={() => unpublish.mutate()}
+      />
     </section>
   );
 }

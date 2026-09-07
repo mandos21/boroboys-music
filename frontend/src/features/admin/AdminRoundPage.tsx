@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
 import { api, del, put } from "../../api/client";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { useToast } from "../../components/ui/ToastProvider";
 import { PublicationPanel } from "./PublicationPanel";
 import { errorMessage } from "./adminUtils";
 import type { AdminRound, User } from "./types";
@@ -10,6 +12,7 @@ import type { AdminRound, User } from "./types";
 export function AdminRoundPage() {
   const { roundId } = useParams();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const detail = useQuery({
     queryKey: ["admin-round", roundId],
     queryFn: () => api<AdminRound>(`/admin/rounds/${roundId}`),
@@ -19,6 +22,7 @@ export function AdminRoundPage() {
   const [search, setSearch] = useState("");
   const [newLimit, setNewLimit] = useState("");
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [memberToRemove, setMemberToRemove] = useState<User | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["admin-round", roundId] });
@@ -35,12 +39,21 @@ export function AdminRoundPage() {
       put(`/admin/rounds/${roundId}/members/${userId}`, {
         submission_limit_override: value === "" ? null : Number(value),
       }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Contributor updated", description: "Their round access and submission limit are saved." });
+    },
+    onError: () => showToast({ title: "Couldn’t update contributor", description: "Try again in a moment.", tone: "error" }),
   });
   const removeMember = useMutation({
     mutationFn: (userId: string) =>
       del(`/admin/rounds/${roundId}/members/${userId}`),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setMemberToRemove(null);
+      showToast({ title: "Contributor removed", description: "Their existing submissions remain attributable in this round." });
+    },
+    onError: () => showToast({ title: "Couldn’t remove contributor", description: "Try again in a moment.", tone: "error" }),
   });
   if (detail.isLoading)
     return (
@@ -172,7 +185,7 @@ export function AdminRoundPage() {
                         className="text-button danger"
                         type="button"
                         disabled={removeMember.isPending || !membershipEditable}
-                        onClick={() => removeMember.mutate(member.id)}
+                        onClick={() => setMemberToRemove(member)}
                       >
                         Remove
                       </button>
@@ -205,6 +218,15 @@ export function AdminRoundPage() {
         </section>
       )}
       <PublicationPanel round={round} onChanged={invalidate} />
+      <ConfirmDialog
+        open={Boolean(memberToRemove)}
+        title={`Remove ${memberToRemove?.displayName ?? memberToRemove?.email ?? "this contributor"}?`}
+        description="They will lose access to this round. Any existing submissions stay in the historical record under their name."
+        confirmLabel="Remove contributor"
+        isPending={removeMember.isPending}
+        onOpenChange={(open) => { if (!open && !removeMember.isPending) setMemberToRemove(null); }}
+        onConfirm={() => { if (memberToRemove) removeMember.mutate(memberToRemove.id); }}
+      />
     </main>
   );
 }

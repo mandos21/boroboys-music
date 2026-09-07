@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Disc3, Eye, Headphones, Link2, ShieldCheck, Unplug } from "lucide-react";
 import { Link } from "react-router";
 
 import { api, del, patch } from "../../api/client";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
+import { useToast } from "../../components/ui/ToastProvider";
 import "./connections.css";
 
 type Connection = {
@@ -30,6 +33,8 @@ const providerInfo = {
 
 export function ConnectionsPage() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [connectionToDisconnect, setConnectionToDisconnect] = useState<Connection | null>(null);
   const connections = useQuery({
     queryKey: ["connections"],
     queryFn: () => api<Connection[]>("/connections"),
@@ -38,11 +43,20 @@ export function ConnectionsPage() {
   const visibility = useMutation({
     mutationFn: ({ id, value }: { id: string; value: Connection["visibility"] }) =>
       patch(`/connections/${id}/visibility`, { visibility: value }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Privacy setting saved", description: "Your listening-evidence visibility has been updated." });
+    },
+    onError: () => showToast({ title: "Couldn’t save privacy setting", description: "Try again in a moment.", tone: "error" }),
   });
   const disconnect = useMutation({
     mutationFn: (id: string) => del(`/connections/${id}`),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setConnectionToDisconnect(null);
+      showToast({ title: "Service disconnected", description: "You can link it again at any time." });
+    },
+    onError: () => showToast({ title: "Couldn’t disconnect service", description: "Try again in a moment.", tone: "error" }),
   });
   const active = new Map(
     (connections.data ?? [])
@@ -90,7 +104,7 @@ export function ConnectionsPage() {
                         </select>
                       </label>
                     )}
-                    <button className="text-button danger connection-disconnect" type="button" disabled={disconnect.isPending} onClick={() => disconnect.mutate(connection.id)}>
+                    <button className="text-button danger connection-disconnect" type="button" disabled={disconnect.isPending} onClick={() => setConnectionToDisconnect(connection)}>
                       <Unplug aria-hidden="true" size={16} /> Disconnect {name}
                     </button>
                   </div>
@@ -104,6 +118,15 @@ export function ConnectionsPage() {
           })}
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(connectionToDisconnect)}
+        title={`Disconnect ${connectionToDisconnect ? providerInfo[connectionToDisconnect.provider].name : "service"}?`}
+        description="This removes its stored connection from Music Rounds. Your provider account and past round history are not deleted."
+        confirmLabel="Disconnect service"
+        isPending={disconnect.isPending}
+        onOpenChange={(open) => { if (!open && !disconnect.isPending) setConnectionToDisconnect(null); }}
+        onConfirm={() => { if (connectionToDisconnect) disconnect.mutate(connectionToDisconnect.id); }}
+      />
     </main>
   );
 }
