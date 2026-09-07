@@ -27,6 +27,7 @@ type Session = {
 
 type Round = {
   id: string;
+  seriesId: string;
   title: string;
   status: string;
   closesAt: string;
@@ -50,6 +51,8 @@ function HomePage() {
   if (session.isError || !session.data) return <LandingPage />;
 
   const currentUser = session.data.user;
+  const actionableRounds = (rounds.data ?? []).filter((round) => !["published", "cancelled"].includes(round.status));
+  const historySeries = [...new Set((rounds.data ?? []).filter((round) => round.status === "published").map((round) => round.seriesId))];
   return (
     <main className="shell page-shell dashboard-shell">
       <header className="page-heading dashboard-heading">
@@ -60,7 +63,7 @@ function HomePage() {
         </div>
         <div className="dashboard-meta" aria-label="Round overview">
           <ListMusic aria-hidden="true" size={20} />
-          <span>{rounds.data?.length ?? 0} available round{rounds.data?.length === 1 ? "" : "s"}</span>
+          <span>{actionableRounds.length} active round{actionableRounds.length === 1 ? "" : "s"}</span>
         </div>
       </header>
       <section aria-labelledby="rounds-heading" className="content-section">
@@ -78,8 +81,11 @@ function HomePage() {
         {rounds.data?.length === 0 && (
           <StatePanel title="Nothing scheduled for you yet">When an administrator adds you to a round, it will appear here with everything you need to participate.</StatePanel>
         )}
+        {rounds.data && actionableRounds.length === 0 && rounds.data.length > 0 && (
+          <StatePanel title="No current rounds">Your completed listening history is still here. {historySeries.length > 0 && <Link to={`/series/${historySeries[0]}`}>Browse series history</Link>}</StatePanel>
+        )}
         <div className="round-grid">
-          {rounds.data?.map((round) => (
+          {actionableRounds.map((round) => (
             <article className="round-card" key={round.id}>
               <div className="round-card-topline">
                 <span className={`status ${round.status}`}>{round.status}</span>
@@ -102,6 +108,9 @@ function HomePage() {
             </article>
           ))}
         </div>
+        {historySeries.length > 0 && actionableRounds.length > 0 && (
+          <div className="dashboard-history-link"><ListMusic aria-hidden="true" size={17} /><span>Looking for a past playlist?</span><Link to={`/series/${historySeries[0]}`}>Browse series history</Link></div>
+        )}
       </section>
     </main>
   );

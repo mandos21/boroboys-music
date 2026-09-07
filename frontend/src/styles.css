@@ -88,6 +88,9 @@ img { display: block; max-width: 100%; }
 .round-card dt { display: flex; align-items: center; gap: .35rem; color: #64748b; font-size: .74rem; font-weight: 700; }
 .round-card dd { margin: .18rem 0 0 1.25rem; color: #334155; font-size: .84rem; font-weight: 700; }
 .card-action { width: 100%; justify-content: space-between; padding-top: .9rem; border-top: 1px solid #eef2f7; }
+.dashboard-history-link { display: flex; align-items: center; gap: .45rem; padding: .85rem 1rem; border: 1px solid #dbe7f6; border-radius: .8rem; background: rgb(255 255 255 / 68%); color: #64748b; font-size: .84rem; }
+.dashboard-history-link svg { color: #2563eb; }
+.dashboard-history-link a { margin-left: auto; color: #1d4ed8; font-weight: 800; }
 
 .status, .role { display: inline-flex; align-items: center; width: fit-content; border-radius: 999px; padding: .25rem .55rem; background: #e8effb; color: #36517c; font-size: .69rem; font-weight: 800; letter-spacing: .025em; text-transform: capitalize; }
 .status.open { background: #dcfce7; color: #15803d; }
@@ -245,6 +248,8 @@ input:focus, textarea:focus, select:focus { border-color: #3b82f6; outline: 0; b
   .page-heading { margin-bottom: 2rem; }
   .page-heading h1, .submission-heading h1, .hero h1, .panel > h1 { font-size: clamp(1.85rem, 10vw, 2.45rem); }
   .section-heading { align-items: start; flex-direction: column; }
+  .dashboard-history-link { align-items: start; flex-wrap: wrap; }
+  .dashboard-history-link a { width: 100%; margin-left: 1.45rem; }
   .timeline { grid-template-columns: 1fr; gap: .8rem; }
   .timeline div { grid-template-columns: 5.5rem 1fr; align-items: center; }
   .timeline strong { grid-column: 1; }

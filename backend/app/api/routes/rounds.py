@@ -85,6 +85,7 @@ def list_my_rounds(
     return [
         {
             "id": str(round_.id),
+            "seriesId": str(round_.series_id),
             "title": round_.title,
             "status": round_.status.value,
             "opensAt": round_.opens_at.isoformat(),
