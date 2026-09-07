@@ -360,7 +360,7 @@ export function SeriesPage() {
         <section className="series-stats" aria-label="Series statistics"><div><strong>{item.stats.roundCount}</strong><span>rounds</span></div><div><strong>{item.stats.songCount}</strong><span>songs</span></div><div><strong>{item.stats.artistCount}</strong><span>artists</span></div><SeriesContributors contributors={item.stats.contributors} /></section>
       </section>
       {item.rounds.length === 0 && <StatePanel title="No rounds yet">When this series starts a round, it will appear here.</StatePanel>}
-      {featuredRound && <section className="panel series-latest-release"><div className="section-heading"><div><p className="eyebrow">{featuredRound.status === "published" ? "Latest release" : "Current round"}</p><h2>{featuredRound.status === "published" ? "Latest release" : "Current round"}</h2></div></div><FeaturedRound round={featuredRound} /></section>}
+      {featuredRound && <FeaturedRound round={featuredRound} />}
       {(otherRounds.length > 0 || item.rounds.some((round) => round.status !== "published")) && <section className="panel series-release-list"><div className="section-heading"><div><p className="eyebrow">The archive</p><h2>Rounds</h2></div></div>
         {item.rounds.some((round) => round.status !== "published") && <div className="series-timeline" aria-label="Upcoming round timeline">{item.rounds.filter((round) => round.status !== "published").slice(0, 4).map((round) => <Link key={round.id} to={`/rounds/${round.id}`}><span className={`status ${round.status}`}>{round.status}</span><strong>{round.title}</strong><small>{round.status === "open" ? `Closes ${formatDate(round.closesAt)}` : `Opens ${formatDate(round.opensAt)}`}</small></Link>)}</div>}
         <div className="series-round-list">
