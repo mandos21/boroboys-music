@@ -6,7 +6,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from app.api.deps import DbSession, get_current_user
 from app.db.models import (
@@ -17,6 +17,8 @@ from app.db.models import (
     RoundMember,
     Series,
     SeriesAdmin,
+    Submission,
+    SubmissionStatus,
     User,
 )
 from app.services.lifecycle import reconcile_round_status
@@ -64,7 +66,8 @@ def list_my_series(
                 .order_by(Series.name)
             )
         )
-    return [_series_payload(db, series, user) for series in series_items]
+    payloads = [_series_payload(db, series, user) for series in series_items]
+    return sorted(payloads, key=_series_sort_key)
 
 
 @router.get("/{series_id}")
@@ -109,7 +112,10 @@ def get_series_history(
 def _series_payload(db: DbSession, series: Series, user: User) -> dict[str, object]:
     is_admin = _is_series_admin(db, series.id, user)
     rounds = _visible_rounds(db, series.id, user, is_admin)
-    active = next((round_ for round_ in rounds if round_.status.value != "published"), None)
+    active = next((round_ for round_ in rounds if round_.status.value == "open"), None)
+    active = active or next(
+        (round_ for round_ in rounds if round_.status.value != "published"), None
+    )
     latest = active or (rounds[0] if rounds else None)
     return {
         "id": str(series.id),
@@ -117,8 +123,14 @@ def _series_payload(db: DbSession, series: Series, user: User) -> dict[str, obje
         "description": series.description,
         "timezone": series.timezone,
         "isAdmin": is_admin,
-        "featuredRound": _round_payload(latest) if latest else None,
+        "featuredRound": _round_payload(db, latest) if latest else None,
     }
+
+
+def _series_sort_key(item: dict[str, object]) -> tuple[bool, str]:
+    featured = item["featuredRound"]
+    is_open = isinstance(featured, dict) and featured.get("status") == "open"
+    return (not is_open, str(item["name"]).lower())
 
 
 def _visible_rounds(db: DbSession, series_id: uuid.UUID, user: User, is_admin: bool) -> list[Round]:
@@ -134,7 +146,14 @@ def _visible_rounds(db: DbSession, series_id: uuid.UUID, user: User, is_admin: b
         db.commit()
     return sorted(
         rounds,
-        key=lambda round_: (round_.status.value == "published", -round_.opens_at.timestamp()),
+        key=lambda round_: (
+            0
+            if round_.status.value == "open"
+            else 1
+            if round_.status.value != "published"
+            else 2,
+            -round_.opens_at.timestamp(),
+        ),
     )
 
 
@@ -164,7 +183,24 @@ def _has_series_membership(db: DbSession, series_id: uuid.UUID, user_id: uuid.UU
     )
 
 
-def _round_payload(round_: Round) -> dict[str, object]:
+def _round_payload(db: DbSession, round_: Round) -> dict[str, object]:
+    submitted_count = int(
+        db.scalar(
+            select(func.count(func.distinct(Submission.contributor_id))).where(
+                Submission.round_id == round_.id,
+                Submission.status == SubmissionStatus.ACCEPTED,
+            )
+        )
+        or 0
+    )
+    contributor_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(RoundMember)
+            .where(RoundMember.round_id == round_.id, RoundMember.removed_at.is_(None))
+        )
+        or 0
+    )
     return {
         "id": str(round_.id),
         "title": round_.title,
@@ -172,4 +208,6 @@ def _round_payload(round_: Round) -> dict[str, object]:
         "opensAt": round_.opens_at.isoformat(),
         "closesAt": round_.closes_at.isoformat(),
         "publishAt": round_.publish_at.isoformat(),
+        "submittedCount": submitted_count,
+        "contributorCount": contributor_count,
     }

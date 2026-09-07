@@ -401,6 +401,7 @@ def create_series(
     db.add(series)
     db.flush()
     db.add(SeriesAdmin(series_id=series.id, user_id=user.id))
+    _ensure_series_member(db, series.id, user.id)
     db.commit()
     return {"id": str(series.id), "slug": series.slug}
 
@@ -453,6 +454,7 @@ def add_series_admin(
     ):
         return
     db.add(SeriesAdmin(series_id=series_id, user_id=user_id))
+    _ensure_series_member(db, series_id, user_id)
     db.commit()
 
 
@@ -564,6 +566,11 @@ def update_round(
     _require_series_admin(db, user, round_.series_id)
     if round_.status not in {RoundStatus.DRAFT, RoundStatus.SCHEDULED, RoundStatus.OPEN}:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="round schedule is frozen")
+    if round_.status is RoundStatus.OPEN and "opens_at" in payload.model_fields_set:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="an open round's opening time cannot be changed",
+        )
     opens_at = payload.opens_at or round_.opens_at
     closes_at = payload.closes_at or round_.closes_at
     publish_at = payload.publish_at or round_.publish_at
@@ -836,6 +843,27 @@ def _defer_or_mark_failed(
 def _require_platform_admin(user: User) -> None:
     if user.platform_role is not PlatformRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform admin required")
+
+
+def _ensure_series_member(db: DbSession, series_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Include a new series administrator by default without coupling access to membership."""
+    group = db.scalar(
+        select(ContributorGroup).where(
+            ContributorGroup.series_id == series_id,
+            ContributorGroup.name == "Series members",
+        )
+    )
+    if group is None:
+        group = ContributorGroup(series_id=series_id, name="Series members")
+        db.add(group)
+        db.flush()
+    if db.scalar(
+        select(ContributorGroupMember).where(
+            ContributorGroupMember.group_id == group.id,
+            ContributorGroupMember.user_id == user_id,
+        )
+    ) is None:
+        db.add(ContributorGroupMember(group_id=group.id, user_id=user_id))
 
 
 def _require_series_admin(db: DbSession, user: User, series_id: uuid.UUID) -> Series:

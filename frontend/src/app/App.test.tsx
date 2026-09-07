@@ -66,6 +66,8 @@ describe("application recovery screens", () => {
               opensAt: "2026-09-01T00:00:00Z",
               closesAt: "2026-09-30T23:59:59Z",
               publishAt: "2026-10-01T12:00:00Z",
+              submittedCount: 2,
+              contributorCount: 5,
             },
           }]), { status: 200 }));
         }

@@ -65,6 +65,24 @@ def refresh_token(settings: Settings, refresh_token_value: str) -> dict[str, Any
     return payload
 
 
+def client_credentials_token(settings: Settings) -> str:
+    """Obtain an application token for non-user-specific Spotify metadata."""
+    if not settings.spotify_client_id or not settings.spotify_client_secret:
+        raise SpotifyError("Spotify is not configured")
+    response = httpx.post(
+        f"{SPOTIFY_ACCOUNTS}/api/token",
+        data={"grant_type": "client_credentials"},
+        auth=(settings.spotify_client_id, settings.spotify_client_secret.get_secret_value()),
+        timeout=15.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    token = payload.get("access_token") if isinstance(payload, dict) else None
+    if not isinstance(token, str):
+        raise SpotifyError("Spotify returned no application access token")
+    return token
+
+
 def current_profile(access_token: str) -> dict[str, Any]:
     response = httpx.get(f"{SPOTIFY_API}/me", headers=_headers(access_token), timeout=15.0)
     response.raise_for_status()

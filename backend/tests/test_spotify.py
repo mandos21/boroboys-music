@@ -139,6 +139,20 @@ def test_refresh_token_uses_confidential_client_auth(monkeypatch: pytest.MonkeyP
     assert observed["auth"] == ("client", "secret")
 
 
+def test_client_credentials_token_uses_application_grant(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_post(*_: object, **kwargs: object) -> FakeResponse:
+        observed.update(kwargs)
+        return FakeResponse({"access_token": "application-token"})
+
+    monkeypatch.setattr(spotify.httpx, "post", fake_post)
+
+    assert spotify.client_credentials_token(Settings(spotify_client_id="client", spotify_client_secret="secret")) == "application-token"
+    assert observed["data"] == {"grant_type": "client_credentials"}
+    assert observed["auth"] == ("client", "secret")
+
+
 def test_profile_image_uses_the_first_spotify_image() -> None:
     assert _spotify_profile_image({"images": [{"url": "https://cdn.test/avatar.jpg"}]}) == (
         "https://cdn.test/avatar.jpg"

@@ -64,6 +64,7 @@ img { display: block; max-width: 100%; }
 .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 2rem; margin-bottom: clamp(2rem, 4vw, 3.5rem); }
 .page-heading > div:first-child { max-width: 47rem; }
 .page-heading h1, .submission-heading h1, .hero h1, .panel > h1 { margin: 0; color: #172554; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.05; letter-spacing: -.055em; }
+.dashboard-user-name { white-space: nowrap; }
 .page-heading p:not(.eyebrow), .submission-heading p, .hero > p, .panel > p, .landing-copy > p { max-width: 43rem; margin: .9rem 0 0; color: #58677d; font-size: 1rem; line-height: 1.65; }
 .dashboard-meta { display: inline-flex; min-width: 10rem; align-items: center; gap: .55rem; padding: .7rem .85rem; border: 1px solid #d7eadc; border-radius: .8rem; background: rgb(255 255 255 / 70%); color: #42526a; font-size: .82rem; font-weight: 700; }
 .dashboard-meta svg { color: #15803d; }
@@ -113,8 +114,8 @@ img { display: block; max-width: 100%; }
 .series-card-round > span { color: #15803d; font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .series-card-round strong { overflow: hidden; color: #334155; font-size: .92rem; text-overflow: ellipsis; white-space: nowrap; }
 .series-card-round small { color: #64748b; font-size: .76rem; }
-.series-card-round-link { z-index: 3 !important; color: inherit; cursor: pointer; pointer-events: auto !important; transition: border-color .16s ease, background .16s ease; }
-.series-card-round-link:hover { border-color: #86efac; background: #f0fdf4; text-decoration: none; }
+.series-card-round-link { z-index: 3 !important; color: inherit; cursor: pointer; pointer-events: auto !important; transition: border-color .16s ease, background .16s ease, box-shadow .16s ease; }
+.series-card-round-link:hover, .series-card-round-link:focus-visible { border-color: #4ade80; background: #f0fdf4; box-shadow: 0 0 0 2px rgb(74 222 128 / 32%); text-decoration: none; }
 .series-card-empty { border-style: dashed; background: transparent; }
 .series-card .card-action { margin-top: .9rem; }
 

@@ -5,9 +5,15 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import pytest
+from fastapi import HTTPException
+from sqlalchemy import select
+
 from app.api.routes.admin import (
     RoundUpdate,
+    SeriesCreate,
     SeriesUpdate,
+    create_series,
     get_round_for_administration,
     get_series_for_administration,
     list_series_for_administration,
@@ -95,6 +101,35 @@ def test_series_admin_reads_only_assigned_series_and_searches_active_users() -> 
                 "email": member.email,
             }
         ]
+
+
+def test_creating_a_series_adds_its_administrator_as_a_default_member() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    with get_session_factory()() as db:
+        admin = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"creator-{suffix}",
+            platform_role=PlatformRole.ADMIN,
+        )
+        db.add(admin)
+        db.commit()
+
+        result = create_series(
+            SeriesCreate(name="New series", slug=f"new-series-{suffix}"),
+            db,
+            admin,
+        )
+
+        group_member = db.scalar(
+            select(ContributorGroupMember)
+            .join(ContributorGroup, ContributorGroup.id == ContributorGroupMember.group_id)
+            .where(
+                ContributorGroup.series_id == uuid.UUID(result["id"]),
+                ContributorGroup.name == "Series members",
+                ContributorGroupMember.user_id == admin.id,
+            )
+        )
+        assert group_member is not None
 
 
 def test_round_administration_exposes_member_limit_overrides_and_removals() -> None:
@@ -223,6 +258,14 @@ def test_series_admin_can_update_a_scheduled_round_and_its_status_is_recalculate
         assert result["title"] == "Now open"
         assert result["submissionLimit"] == 3
         assert result["status"] == "open"
+
+        with pytest.raises(HTTPException, match="opening time cannot be changed"):
+            update_round(
+                round_.id,
+                RoundUpdate(opens_at=now - timedelta(hours=2)),
+                db,
+                admin,
+            )
 
 
 def test_series_admin_can_replace_a_future_successor_plan_without_rewriting_rounds() -> None:

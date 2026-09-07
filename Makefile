@@ -79,9 +79,8 @@ history-import: ## Import private history (also set CONFIRM_HISTORICAL_IMPORT=ye
 	@test -n "$(IDENTITY_MAP)" || (echo "IDENTITY_MAP is required" >&2; exit 2)
 	cd backend && "$(POETRY)" run python -m app.cli.import_historical_playlists --series-slug "$(SERIES_SLUG)" --publisher-account-id "$(PUBLISHER_ACCOUNT_ID)" --playlist-dir ../playlist_rounds --identity-map "$(IDENTITY_MAP)"
 
-history-artwork: ## Cache album art for existing imported tracks (requires PUBLISHER_ACCOUNT_ID)
-	@test -n "$(PUBLISHER_ACCOUNT_ID)" || (echo "PUBLISHER_ACCOUNT_ID is required" >&2; exit 2)
-	cd backend && "$(POETRY)" run python -m app.cli.backfill_track_artwork --publisher-account-id "$(PUBLISHER_ACCOUNT_ID)"
+history-artwork: ## Cache album art using configured Spotify app credentials
+	cd backend && "$(POETRY)" run python -m app.cli.backfill_track_artwork --client-credentials
 
 docker-env: ## Create a local Docker environment file if needed
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example; review local secrets before starting"; fi

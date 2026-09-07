@@ -13,8 +13,8 @@ import { SubmissionPage } from "../features/submissions/SubmissionPage";
 import { formatDate } from "../lib/format";
 
 type Session = { user: { id: string; email: string | null; displayName: string | null; platformRole: string } };
-type RoundPreview = { id: string; title: string; status: string; opensAt: string; closesAt: string; publishAt: string };
-type SeriesPreview = { id: string; name: string; description: string | null; timezone: string; isAdmin: boolean; featuredRound: RoundPreview | null };
+type RoundPreview = { id: string; title: string; status: string; opensAt: string; closesAt: string; publishAt: string; submittedCount: number; contributorCount: number };
+type SeriesPreview = { id: string; name: string; description: string | null; isAdmin: boolean; featuredRound: RoundPreview | null };
 
 function HomePage() {
   const session = useQuery({ queryKey: ["session"], queryFn: () => api<Session>("/auth/session"), retry: false });
@@ -29,7 +29,7 @@ function HomePage() {
       <header className="page-heading dashboard-heading">
         <div>
           <p className="eyebrow">Your listening room</p>
-          <h1>Good to have you here, {currentUser.displayName ?? "listener"}.</h1>
+          <h1>Good to have you here, <span className="dashboard-user-name">{currentUser.displayName ?? "listener"}</span>.</h1>
           <p>Keep up with what your friends have been into, leave a few things you cannot stop playing, and come back when the playlist lands.</p>
         </div>
         <div className="dashboard-meta" aria-label="Series overview"><ListMusic aria-hidden="true" size={20} /><span>{items.length} series</span></div>
@@ -49,13 +49,14 @@ function HomePage() {
 function SeriesCard({ series }: { series: SeriesPreview }) {
   const round = series.featuredRound;
   const isActive = round && round.status !== "published";
+  const isOpen = round?.status === "open";
   return (
     <article className="series-card">
       <Link aria-label={`Open ${series.name}`} className="series-card-link-to-series" to={`/series/${series.id}`} />
-      <div className="series-card-heading"><div><p className="eyebrow">{series.timezone}</p><h3>{series.name}</h3></div>{round && <span className={`status ${round.status}`}>{round.status}</span>}</div>
+      <div className="series-card-heading"><div><h3>{series.name}</h3></div>{round && <span className={`status ${round.status}`}>{round.status}</span>}</div>
       <p>{series.description ?? "A place to trade what you have been listening to."}</p>
       {round ? (
-        <Link className="series-card-round series-card-round-link" to={`/rounds/${round.id}`}><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isActive ? <>Closes {formatDate(round.closesAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small></Link>
+        <Link className="series-card-round series-card-round-link" to={`/rounds/${round.id}`}><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isOpen ? <>{round.submittedCount} of {round.contributorCount} people have submitted · closes {formatDate(round.closesAt)}</> : isActive ? <>Opens {formatDate(round.opensAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small></Link>
       ) : <div className="series-card-round series-card-empty"><span>No rounds yet</span><small>Its first listening window will show up here.</small></div>}
     </article>
   );

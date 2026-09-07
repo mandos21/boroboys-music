@@ -93,6 +93,7 @@ export function AdminRoundPage() {
   const membershipEditable = ["draft", "scheduled", "open"].includes(
     round.status,
   );
+  const openingEditable = ["draft", "scheduled"].includes(round.status);
   const selectedTitle = title || round.title;
   const selectedOpensAt = opensAt || dateTimeInput(round.opensAt);
   const selectedClosesAt = closesAt || dateTimeInput(round.closesAt);
@@ -103,7 +104,13 @@ export function AdminRoundPage() {
     if (!selectedTitle.trim()) return showToast({ title: "Add a round title", tone: "error" });
     if (new Date(selectedOpensAt) >= new Date(selectedClosesAt)) return showToast({ title: "Closing must follow opening", tone: "error" });
     if (new Date(selectedClosesAt) > new Date(selectedPublishAt)) return showToast({ title: "Publish after the round closes", tone: "error" });
-    saveRound.mutate({ title: selectedTitle, opens_at: new Date(selectedOpensAt).toISOString(), closes_at: new Date(selectedClosesAt).toISOString(), publish_at: new Date(selectedPublishAt).toISOString(), submission_limit: Number(selectedLimit) });
+    saveRound.mutate({
+      title: selectedTitle,
+      ...(openingEditable ? { opens_at: new Date(selectedOpensAt).toISOString() } : {}),
+      closes_at: new Date(selectedClosesAt).toISOString(),
+      publish_at: new Date(selectedPublishAt).toISOString(),
+      submission_limit: Number(selectedLimit),
+    });
   }
   return (
     <main className="shell admin-shell">
@@ -129,7 +136,7 @@ export function AdminRoundPage() {
         {membershipEditable ? (
           <form className="admin-round-form" noValidate onSubmit={submitSettings}>
             <label>Title<input value={selectedTitle} required onChange={(event) => setTitle(event.target.value)} /></label>
-            <label>Opens<input type="datetime-local" value={selectedOpensAt} required onChange={(event) => setOpensAt(event.target.value)} /></label>
+            <label>Opens<input type="datetime-local" value={selectedOpensAt} required disabled={!openingEditable} onChange={(event) => setOpensAt(event.target.value)} />{!openingEditable && <span className="field-hint">An open round keeps its original opening time.</span>}</label>
             <label>Closes<input type="datetime-local" min={selectedOpensAt} value={selectedClosesAt} required onChange={(event) => setClosesAt(event.target.value)} /></label>
             <label>Publishes<input type="datetime-local" min={selectedClosesAt} value={selectedPublishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label>
             <label>Submissions per contributor<input type="number" min="0" value={selectedLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>

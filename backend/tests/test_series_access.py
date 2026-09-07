@@ -143,6 +143,83 @@ def test_series_membership_makes_an_unscheduled_series_visible() -> None:
         assert history["rounds"] == []
 
 
+def test_open_series_are_listed_first_with_contributor_progress() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        listener = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"progress-listener-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        another_contributor = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"progress-other-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        open_series = Series(
+            name=f"Open series {suffix}", slug=f"open-series-{suffix}", timezone="UTC", default_policies=[]
+        )
+        closed_series = Series(
+            name=f"Closed series {suffix}", slug=f"closed-series-{suffix}", timezone="UTC", default_policies=[]
+        )
+        db.add_all((listener, another_contributor, open_series, closed_series))
+        db.flush()
+        open_round = Round(
+            series_id=open_series.id,
+            title="Open now",
+            timezone="UTC",
+            submission_limit=3,
+            opens_at=now - timedelta(days=1),
+            closes_at=now + timedelta(days=1),
+            publish_at=now + timedelta(days=2),
+            status=RoundStatus.OPEN,
+            policy_snapshot=[],
+        )
+        closed_round = Round(
+            series_id=closed_series.id,
+            title="Old news",
+            timezone="UTC",
+            submission_limit=3,
+            opens_at=now - timedelta(days=3),
+            closes_at=now - timedelta(days=2),
+            publish_at=now - timedelta(days=1),
+            status=RoundStatus.PUBLISHED,
+            policy_snapshot=[],
+        )
+        track = Track(spotify_track_id=f"progress-track-{suffix}", name="Track", artist="Artist")
+        db.add_all((open_round, closed_round, track))
+        db.flush()
+        db.add_all(
+            (
+                RoundMember(round_id=open_round.id, user_id=listener.id),
+                RoundMember(round_id=open_round.id, user_id=another_contributor.id),
+                RoundMember(round_id=closed_round.id, user_id=listener.id),
+                Submission(
+                    round_id=open_round.id,
+                    contributor_id=another_contributor.id,
+                    track_id=track.id,
+                    status=SubmissionStatus.ACCEPTED,
+                ),
+            )
+        )
+        db.commit()
+
+        items = list_my_series(db, listener)
+
+        assert [item["id"] for item in items] == [str(open_series.id), str(closed_series.id)]
+        assert items[0]["featuredRound"] == {
+            "id": str(open_round.id),
+            "title": "Open now",
+            "status": "open",
+            "opensAt": open_round.opens_at.isoformat(),
+            "closesAt": open_round.closes_at.isoformat(),
+            "publishAt": open_round.publish_at.isoformat(),
+            "submittedCount": 1,
+            "contributorCount": 2,
+        }
+
+
 def test_round_submissions_fall_back_to_email_for_unnamed_contributors() -> None:
     suffix = uuid.uuid4().hex[:12]
     now = datetime.now(UTC)

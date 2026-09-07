@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     spotify_client_id: str | None = None
     spotify_client_secret: SecretStr | None = None
     spotify_redirect_uri: HttpUrl = HttpUrl(
-        "http://localhost:8000/api/v1/connections/spotify/callback"
+        "http://127.0.0.1:8000/api/v1/connections/spotify/callback"
     )
 
     @property
