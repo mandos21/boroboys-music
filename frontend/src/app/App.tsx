@@ -109,7 +109,7 @@ function HomePage() {
           ))}
         </div>
         {historySeries.length > 0 && actionableRounds.length > 0 && (
-          <div className="dashboard-history-link"><ListMusic aria-hidden="true" size={17} /><span>Looking for a past playlist?</span><Link to={`/series/${historySeries[0]}`}>Browse series history</Link></div>
+          <div className="dashboard-history-link"><ListMusic aria-hidden="true" size={17} /><span>Looking for a past playlist?</span><Link className="dashboard-history-action" to={`/series/${historySeries[0]}`}>Browse series history <ChevronRight aria-hidden="true" size={16} /></Link></div>
         )}
       </section>
     </main>

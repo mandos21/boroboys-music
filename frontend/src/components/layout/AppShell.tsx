@@ -5,6 +5,7 @@ import { LogOut, Menu, Music2, Settings2, ShieldCheck, X } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router";
 
 import { api, logout } from "../../api/client";
+import { ThemeToggle } from "../ui/ThemeToggle";
 
 type Session = {
   user: {
@@ -72,6 +73,7 @@ export function AppShell({ children }: AppShellProps) {
           {isSignedIn ? (
             <>
               <div className="desktop-navigation">{navigation()}</div>
+              <ThemeToggle />
               <div className="desktop-account">
                 <span className="account-avatar" aria-hidden="true">
                   {(user?.displayName ?? user?.email ?? "M").slice(0, 1).toUpperCase()}
@@ -116,9 +118,12 @@ export function AppShell({ children }: AppShellProps) {
               </Dialog.Root>
             </>
           ) : (
-            <a className="header-sign-in" href={`/api/v1/auth/login?return=${encodeURIComponent(location.pathname)}`}>
-              Sign in
-            </a>
+            <div className="header-signed-out-actions">
+              <ThemeToggle />
+              <a className="header-sign-in" href={`/api/v1/auth/login?return=${encodeURIComponent(location.pathname)}`}>
+                Sign in
+              </a>
+            </div>
           )}
         </div>
       </header>

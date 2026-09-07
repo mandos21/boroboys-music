@@ -2,12 +2,12 @@
 .settings-heading { margin-bottom: 2rem; }
 .connection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .connection-card { display: flex; min-height: 20rem; flex-direction: column; gap: 1rem; }
-.connection-card.connection-active { border-color: #cfe2ff; }
+.connection-card.connection-active { border-color: #ccefd8; }
 .connection-card-heading { display: flex; align-items: center; gap: .8rem; }
 .connection-card-heading .eyebrow { margin-bottom: .3rem; }
 .connection-card h2 { font-size: 1.2rem; }
 .connection-card > p { margin: 0; color: #64748b; font-size: .9rem; line-height: 1.6; }
-.provider-icon { display: grid; width: 2.8rem; height: 2.8rem; flex: none; place-items: center; border-radius: .8rem; background: #ecf4ff; color: #2563eb; }
+.provider-icon { display: grid; width: 2.8rem; height: 2.8rem; flex: none; place-items: center; border-radius: .8rem; background: #ecfdf5; color: #15803d; }
 .connection-controls { display: grid; gap: .9rem; margin-top: auto; }
 .connection-state { display: inline-flex; align-items: center; gap: .4rem; margin: 0; color: #15803d; font-size: .82rem; font-weight: 750; }
 .connection-field > span { display: inline-flex; align-items: center; gap: .35rem; }
@@ -18,3 +18,6 @@
   .connection-grid { grid-template-columns: 1fr; }
   .connection-card { min-height: 0; }
 }
+
+html[data-theme="dark"] .provider-icon { background: #173525; color: #86efac; }
+html[data-theme="dark"] .connection-state { color: #86efac; }
