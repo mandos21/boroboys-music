@@ -13,6 +13,7 @@ export function SeriesCreatePanel() {
   const { showToast } = useToast();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
   const [timezone, setTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
@@ -31,7 +32,7 @@ export function SeriesCreatePanel() {
       queryClient.invalidateQueries({ queryKey: ["admin-series"] });
       showToast({
         title: "Series created",
-        description: "Add members, a schedule, and automation in its workspace.",
+        description: "Add people, a schedule, and automation in its workspace.",
       });
       navigate(`/admin/series/${result.id}`);
     },
@@ -53,7 +54,7 @@ export function SeriesCreatePanel() {
       <div>
         <p className="eyebrow">Start something new</p>
         <h2 id="create-series-heading">Create a series</h2>
-        <p>A series keeps its members, history, and future listening rhythm together.</p>
+        <p>Make a monthly check-in, a themed prompt, or an ongoing place to swap what has caught your ear.</p>
       </div>
       <form onSubmit={submit}>
         <label>
@@ -64,7 +65,7 @@ export function SeriesCreatePanel() {
             maxLength={200}
             onChange={(event) => {
               setName(event.target.value);
-              if (!slug) {
+              if (!slugEdited) {
                 setSlug(
                   event.target.value
                     .toLowerCase()
@@ -75,20 +76,29 @@ export function SeriesCreatePanel() {
             }}
           />
         </label>
-        <label>
-          URL name
-          <input
-            value={slug}
-            required
-            pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-            maxLength={100}
-            onChange={(event) => setSlug(event.target.value)}
-          />
-        </label>
-        <label>
-          Timezone
-          <input value={timezone} required onChange={(event) => setTimezone(event.target.value)} />
-        </label>
+        <details className="advanced-options">
+          <summary>Advanced options</summary>
+          <div>
+            <label>
+              URL name
+              <input
+                value={slug}
+                required
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                maxLength={100}
+                onChange={(event) => {
+                  setSlugEdited(true);
+                  setSlug(event.target.value);
+                }}
+              />
+            </label>
+            <label>
+              Timezone
+              <input value={timezone} required onChange={(event) => setTimezone(event.target.value)} />
+              <span className="field-hint">Detected from this browser. Change it if the series follows another place.</span>
+            </label>
+          </div>
+        </details>
         <button className="button" disabled={create.isPending}>
           {create.isPending ? "Creating…" : "Create series"}
         </button>

@@ -64,9 +64,10 @@ def create_rolling_successor(
     plan = series.round_plan
     if plan.get("kind") != "rolling":
         return None
+    duration_days = _positive_int(plan, "duration_days")
     duration_hours = _positive_int(plan, "duration_hours")
     publish_delay_minutes = _nonnegative_int(plan, "publish_delay_minutes", 0)
-    if duration_hours is None:
+    if duration_days is None and duration_hours is None:
         return None
     existing = db.scalar(
         select(Round).where(Round.successor_of_round_id == published_round.id)
@@ -74,7 +75,11 @@ def create_rolling_successor(
     if existing is not None:
         return existing
     opens_at = now or datetime.now(UTC)
-    closes_at = opens_at + timedelta(hours=duration_hours)
+    closes_at = opens_at + (
+        timedelta(days=duration_days)
+        if duration_days is not None
+        else timedelta(hours=duration_hours or 0)
+    )
     configured_limit = _nonnegative_int_or_none(plan, "submission_limit")
     successor = Round(
         series_id=series.id,

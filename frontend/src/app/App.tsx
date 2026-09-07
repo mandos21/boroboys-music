@@ -30,13 +30,13 @@ function HomePage() {
         <div>
           <p className="eyebrow">Your listening room</p>
           <h1>Good to have you here, {currentUser.displayName ?? "listener"}.</h1>
-          <p>Series are the homes for your group’s listening rituals: what is open now, what was released last, and what comes next.</p>
+          <p>Keep up with what your friends have been into, leave a few things you cannot stop playing, and come back when the playlist lands.</p>
         </div>
         <div className="dashboard-meta" aria-label="Series overview"><ListMusic aria-hidden="true" size={20} /><span>{items.length} series</span></div>
       </header>
       {currentUser.platformRole === "admin" && <SeriesCreatePanel />}
       <section aria-labelledby="series-heading" className="content-section">
-        <div className="section-heading"><div><p className="eyebrow">Your groups</p><h2 id="series-heading">Your series</h2></div></div>
+        <div className="section-heading"><div><p className="eyebrow">Your people</p><h2 id="series-heading">Your series</h2></div></div>
         {series.isLoading && <StatePanel kind="loading" title="Finding your series">This usually takes just a moment.</StatePanel>}
         {series.isError && <StatePanel kind="error" title="We couldn’t load your series">Refresh the page to try again.</StatePanel>}
         {series.data?.length === 0 && <StatePanel title="No series yet">Once you are added to a series, its active round and listening history will appear here.</StatePanel>}
@@ -52,7 +52,7 @@ function SeriesCard({ series }: { series: SeriesPreview }) {
   return (
     <article className="series-card">
       <div className="series-card-heading"><div><p className="eyebrow">{series.timezone}</p><h3>{series.name}</h3></div>{round && <span className={`status ${round.status}`}>{round.status}</span>}</div>
-      <p>{series.description ?? "A shared listening series."}</p>
+      <p>{series.description ?? "A place to trade what you have been listening to."}</p>
       {round ? (
         <div className="series-card-round"><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isActive ? <>Closes {formatDate(round.closesAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small></div>
       ) : <div className="series-card-round series-card-empty"><span>No rounds yet</span><small>Its first listening window will show up here.</small></div>}
@@ -62,7 +62,7 @@ function SeriesCard({ series }: { series: SeriesPreview }) {
 }
 
 function LandingPage() {
-  return <main className="shell landing-shell"><section className="landing-hero"><div className="landing-copy"><p className="eyebrow"><Sparkles aria-hidden="true" size={15} /> Music for the group chat</p><h1>Give every listening session a little more intention.</h1><p>BoroCrew Music is a private home for timed recommendations, shared listening history, and playlists your group will actually return to.</p><a className="button" href="/api/v1/auth/login">Sign in to BoroCrew Music <ChevronRight aria-hidden="true" size={18} /></a></div><aside className="landing-card" aria-label="How BoroCrew Music works"><span className="landing-card-icon"><ListMusic aria-hidden="true" size={25} /></span><h2>A better ritual for sharing music.</h2><ol><li>Choose tracks within your group’s window.</li><li>See listening context when it’s shared.</li><li>Meet the finished playlist on release day.</li></ol></aside></section></main>;
+  return <main className="shell landing-shell"><section className="landing-hero"><div className="landing-copy"><p className="eyebrow"><Sparkles aria-hidden="true" size={15} /> Music for the group chat</p><h1>What have you been listening to?</h1><p>BoroCrew Music is for passing songs around with friends—monthly favorites, a strange theme somebody picked, or whatever has been stuck in your head lately.</p><a className="button" href="/api/v1/auth/login">Sign in to BoroCrew Music <ChevronRight aria-hidden="true" size={18} /></a></div><aside className="landing-card" aria-label="How BoroCrew Music works"><span className="landing-card-icon"><ListMusic aria-hidden="true" size={25} /></span><h2>Keep the thread going.</h2><ol><li>Pick something for the prompt or moment.</li><li>See what everyone else has brought in.</li><li>Meet the finished playlist when it is ready.</li></ol></aside></section></main>;
 }
 
 function LoadingPage({ message }: { message: string }) { return <main className="shell page-shell"><StatePanel kind="loading" title={message}>Checking your session and available series.</StatePanel></main>; }

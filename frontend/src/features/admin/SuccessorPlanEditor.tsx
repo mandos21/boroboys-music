@@ -19,11 +19,15 @@ export function SuccessorPlanEditor({
     series.roundPlan?.kind === "calendar"
       ? series.roundPlan.kind
       : "none";
+  const legacyDurationHours = Number(series.roundPlan?.duration_hours ?? 0);
+  const legacyDurationDays = legacyDurationHours > 0
+    ? Math.max(1, Math.round(legacyDurationHours / 24))
+    : "";
   const [kind, setKind] = useState<"none" | "rolling" | "calendar">(
     initialKind,
   );
-  const [rollingHours, setRollingHours] = useState(
-    String(series.roundPlan?.duration_hours ?? ""),
+  const [rollingDays, setRollingDays] = useState(
+    String(series.roundPlan?.duration_days ?? legacyDurationDays),
   );
   const [limit, setLimit] = useState(
     String(series.roundPlan?.submission_limit ?? ""),
@@ -37,7 +41,7 @@ export function SuccessorPlanEditor({
           kind === "rolling"
             ? {
                 kind: "rolling",
-                duration_hours: Number(rollingHours),
+                duration_days: Number(rollingDays),
                 submission_limit: limit ? Number(limit) : null,
               }
             : kind === "calendar"
@@ -85,18 +89,18 @@ export function SuccessorPlanEditor({
         </label>
         {kind === "rolling" && (
           <label>
-            How long should each rolling round stay open? (hours)
+            How many days should each rolling round stay open?
             <input
               type="number"
               required
               min="1"
-              max="8760"
-              value={rollingHours}
-              onChange={(event) => setRollingHours(event.target.value)}
+              max="365"
+              value={rollingDays}
+              onChange={(event) => setRollingDays(event.target.value)}
             />
           </label>
         )}
-        {kind === "rolling" && <p className="field-hint">The next round opens as soon as the previous playlist is published, then releases when this duration ends.</p>}
+        {kind === "rolling" && <p className="field-hint">Use this for an ongoing cadence rather than a calendar date. The next round opens when the previous playlist is published, stays open for this many days, then releases. A delayed release shifts the next round with it.</p>}
         {kind === "calendar" && <p className="field-hint">Each successor opens on the first, accepts submissions through the end of that month, and publishes the following day.</p>}
         <label>
           Tracks each contributor can submit in future rounds (optional)

@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
@@ -19,6 +19,14 @@ function dateTimeInput(value: string) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+function suggestedOpening(rounds: SeriesDetail["rounds"] | undefined) {
+  if (!rounds?.length) return "";
+  const mostRecent = [...rounds].sort(
+    (first, second) => Date.parse(second.publishAt) - Date.parse(first.publishAt),
+  )[0];
+  return mostRecent ? dateTimeInput(mostRecent.publishAt) : "";
+}
+
 export function AdminSeriesPage() {
   const { seriesId } = useParams();
   const queryClient = useQueryClient();
@@ -34,6 +42,8 @@ export function AdminSeriesPage() {
   const [memberSearch, setMemberSearch] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<User | null>(null);
   const deferredMemberSearch = useDeferredValue(memberSearch.trim());
+  const defaultOpensAt = suggestedOpening(detail.data?.rounds);
+  const selectedOpensAt = opensAt || defaultOpensAt;
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-series", seriesId] });
     queryClient.invalidateQueries({ queryKey: ["series", seriesId] });
@@ -41,20 +51,14 @@ export function AdminSeriesPage() {
     queryClient.invalidateQueries({ queryKey: ["series"] });
   };
 
-  useEffect(() => {
-    if (opensAt || !detail.data?.rounds.length) return;
-    const mostRecent = [...detail.data.rounds].sort((a, b) => Date.parse(b.publishAt) - Date.parse(a.publishAt))[0];
-    if (mostRecent) setOpensAt(dateTimeInput(mostRecent.publishAt));
-  }, [detail.data, opensAt]);
-
   const createRound = useMutation({
     mutationFn: () => post("/admin/rounds", {
       series_id: seriesId, title: roundTitle, timezone: detail.data?.timezone,
-      opens_at: new Date(opensAt).toISOString(), closes_at: new Date(closesAt).toISOString(), publish_at: new Date(publishAt).toISOString(),
+      opens_at: new Date(selectedOpensAt).toISOString(), closes_at: new Date(closesAt).toISOString(), publish_at: new Date(publishAt).toISOString(),
       submission_limit: Number(submissionLimit), contributor_user_ids: (members.data ?? []).map((member) => member.id),
       policy_snapshot: policies.length > 0 ? policies : undefined,
     }),
-    onSuccess: () => { setRoundTitle(""); setPolicies([]); invalidate(); showToast({ title: "Round scheduled", description: "Every current series member will be included." }); },
+    onSuccess: () => { setRoundTitle(""); setOpensAt(""); setClosesAt(""); setPublishAt(""); setPolicies([]); invalidate(); showToast({ title: "Round scheduled", description: "Every current series member will be included." }); },
     onError: () => showToast({ title: "Couldn’t schedule round", description: "Check the schedule and try again.", tone: "error" }),
   });
   const matchingUsers = useQuery({ queryKey: ["series-users", seriesId, deferredMemberSearch], queryFn: () => api<User[]>(`/admin/series/${seriesId}/users?query=${encodeURIComponent(deferredMemberSearch)}`), enabled: Boolean(seriesId) && deferredMemberSearch.length >= 2 });
@@ -91,7 +95,7 @@ export function AdminSeriesPage() {
         </section>
         <section className="panel" id="rounds"><h2>Schedule a round</h2><form className="admin-round-form" onSubmit={(event) => { event.preventDefault(); createRound.mutate(); }}>
           <label>Title<input value={roundTitle} required maxLength={200} onChange={(event) => setRoundTitle(event.target.value)} /></label>
-          <label>Opens<input type="datetime-local" value={opensAt} required onChange={(event) => setOpensAt(event.target.value)} /><span className="field-hint">Defaults to the most recent round’s release. Change it if you want overlap.</span></label>
+          <label>Opens<input type="datetime-local" value={selectedOpensAt} required onChange={(event) => setOpensAt(event.target.value)} /><span className="field-hint">Defaults to the most recent round’s release. Change it if you want overlap.</span></label>
           <label>Closes<input type="datetime-local" value={closesAt} required onChange={(event) => setClosesAt(event.target.value)} /></label>
           <label>Publishes<input type="datetime-local" value={publishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label>
           <label>Submissions per contributor<input type="number" min="0" value={submissionLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>

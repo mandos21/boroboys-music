@@ -177,11 +177,31 @@
       },
       "RollingRoundPlan": {
         "properties": {
+          "duration_days": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Days"
+          },
           "duration_hours": {
-            "maximum": 8760.0,
-            "minimum": 1.0,
-            "title": "Duration Hours",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 8760.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Hours"
           },
           "kind": {
             "const": "rolling",
@@ -216,8 +236,7 @@
           }
         },
         "required": [
-          "kind",
-          "duration_hours"
+          "kind"
         ],
         "title": "RollingRoundPlan",
         "type": "object"

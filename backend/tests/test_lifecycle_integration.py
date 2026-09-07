@@ -35,7 +35,7 @@ def test_published_rolling_round_creates_one_open_successor_with_member_snapshot
             auto_start_next_round=True,
             round_plan={
                 "kind": "rolling",
-                "duration_hours": 72,
+                "duration_days": 3,
                 "publish_delay_minutes": 30,
                 "submission_limit": 3,
                 "title_template": "Next after {previous_title}",

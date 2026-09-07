@@ -42,10 +42,18 @@ LOGGER = logging.getLogger(__name__)
 
 class RollingRoundPlan(BaseModel):
     kind: Literal["rolling"]
-    duration_hours: int = Field(ge=1, le=8_760)
+    duration_days: int | None = Field(default=None, ge=1, le=365)
+    # Preserve existing API-managed hourly plans while the UI moves to days.
+    duration_hours: int | None = Field(default=None, ge=1, le=8_760)
     publish_delay_minutes: int = Field(default=0, ge=0, le=43_200)
     submission_limit: int | None = Field(default=None, ge=0)
     title_template: str = Field(default="{previous_title} — next", min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def has_duration(self) -> RollingRoundPlan:
+        if self.duration_days is None and self.duration_hours is None:
+            raise ValueError("rolling plan requires duration_days")
+        return self
 
 
 class CalendarRoundPlan(BaseModel):

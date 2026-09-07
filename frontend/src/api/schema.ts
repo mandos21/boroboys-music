@@ -802,8 +802,10 @@ export interface components {
         };
         /** RollingRoundPlan */
         RollingRoundPlan: {
+            /** Duration Days */
+            duration_days?: number | null;
             /** Duration Hours */
-            duration_hours: number;
+            duration_hours?: number | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
