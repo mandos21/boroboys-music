@@ -141,8 +141,19 @@ def list_round_submissions(
     visible_statuses = Submission.status == SubmissionStatus.ACCEPTED
     if membership is not None:
         visible_statuses = visible_statuses | (Submission.contributor_id == user.id)
+    spotify_profile_image = (
+        select(ExternalAccount.profile_image_url)
+        .where(
+            ExternalAccount.user_id == Submission.contributor_id,
+            ExternalAccount.provider == ExternalProvider.SPOTIFY,
+            ExternalAccount.is_active.is_(True),
+        )
+        .order_by(ExternalAccount.created_at)
+        .limit(1)
+        .scalar_subquery()
+    )
     rows = db.execute(
-        select(Submission, Track, User)
+        select(Submission, Track, User, spotify_profile_image)
         .join(Track, Track.id == Submission.track_id)
         .join(User, User.id == Submission.contributor_id)
         .where(
@@ -163,10 +174,11 @@ def list_round_submissions(
             "contributor": {
                 "id": str(contributor.id),
                 "displayName": contributor.display_name,
+                "spotifyProfileImageUrl": profile_image_url,
             },
             "track": _track_payload(track),
         }
-        for submission, track, contributor in rows
+        for submission, track, contributor, profile_image_url in rows
     ]
 
 

@@ -49,6 +49,7 @@ def list_connections(
             "id": str(account.id),
             "provider": account.provider.value,
             "displayName": account.display_name,
+            "profileImageUrl": account.profile_image_url,
             "visibility": account.evidence_visibility.value,
             "isActive": account.is_active,
             "disconnectedAt": account.disconnected_at.isoformat()
@@ -144,6 +145,7 @@ def complete_spotify_link(
             display_name=profile.get("display_name")
             if isinstance(profile.get("display_name"), str)
             else profile["id"],
+            profile_image_url=_spotify_profile_image(profile),
             scopes=str(token.get("scope", "")).split(),
         )
         db.add(account)
@@ -156,6 +158,7 @@ def complete_spotify_link(
             if isinstance(profile.get("display_name"), str)
             else profile["id"]
         )
+        account.profile_image_url = _spotify_profile_image(profile)
     credential = db.scalar(
         select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
     )
@@ -173,6 +176,18 @@ def complete_spotify_link(
         credential.ciphertext, credential.expires_at = ciphertext, spotify.token_expiry(token)
     db.commit()
     return RedirectResponse(f"{str(settings.app_base_url).rstrip('/')}/", status_code=303)
+
+
+def _spotify_profile_image(profile: dict[str, object]) -> str | None:
+    images = profile.get("images")
+    if not isinstance(images, list):
+        return None
+    for image in images:
+        if isinstance(image, dict):
+            url = image.get("url")
+            if isinstance(url, str):
+                return url
+    return None
 
 
 @router.get("/lastfm/login")

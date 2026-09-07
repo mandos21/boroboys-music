@@ -25,12 +25,6 @@ export function SuccessorPlanEditor({
   const [rollingHours, setRollingHours] = useState(
     String(series.roundPlan?.duration_hours ?? ""),
   );
-  const [calendarDay, setCalendarDay] = useState(
-    String(series.roundPlan?.open_day ?? 1),
-  );
-  const [calendarDuration, setCalendarDuration] = useState(
-    String(series.roundPlan?.duration_days ?? 7),
-  );
   const [limit, setLimit] = useState(
     String(series.roundPlan?.submission_limit ?? ""),
   );
@@ -49,8 +43,9 @@ export function SuccessorPlanEditor({
             : kind === "calendar"
               ? {
                   kind: "calendar",
-                  open_day: Number(calendarDay),
-                  duration_days: Number(calendarDuration),
+                  open_day: 1,
+                  duration_days: 1,
+                  full_month: true,
                   submission_limit: limit ? Number(limit) : null,
                 }
               : null,
@@ -84,13 +79,13 @@ export function SuccessorPlanEditor({
             }
           >
             <option value="none">None — schedule rounds manually</option>
-            <option value="rolling">Rolling — starts after publication</option>
-            <option value="calendar">Calendar — monthly schedule</option>
+            <option value="rolling">Rolling — a continuous duration after publication</option>
+            <option value="calendar">Monthly — first through last day of each month</option>
           </select>
         </label>
         {kind === "rolling" && (
           <label>
-            Round duration in hours
+            How long should each rolling round stay open? (hours)
             <input
               type="number"
               required
@@ -101,34 +96,10 @@ export function SuccessorPlanEditor({
             />
           </label>
         )}
-        {kind === "calendar" && (
-          <>
-            <label>
-              Open on day of month
-              <input
-                type="number"
-                required
-                min="1"
-                max="28"
-                value={calendarDay}
-                onChange={(event) => setCalendarDay(event.target.value)}
-              />
-            </label>
-            <label>
-              Submission window in days
-              <input
-                type="number"
-                required
-                min="1"
-                max="366"
-                value={calendarDuration}
-                onChange={(event) => setCalendarDuration(event.target.value)}
-              />
-            </label>
-          </>
-        )}
+        {kind === "rolling" && <p className="field-hint">The next round opens as soon as the previous playlist is published, then releases when this duration ends.</p>}
+        {kind === "calendar" && <p className="field-hint">Each successor opens on the first, accepts submissions through the end of that month, and publishes the following day.</p>}
         <label>
-          Successor submission limit (optional)
+          Tracks each contributor can submit in future rounds (optional)
           <input
             type="number"
             min="0"
@@ -136,6 +107,7 @@ export function SuccessorPlanEditor({
             value={limit}
             onChange={(event) => setLimit(event.target.value)}
           />
+          <span className="field-hint">Leave blank to reuse the submission limit from the round that was just published.</span>
         </label>
         <label className="check-label">
           <input
@@ -144,7 +116,7 @@ export function SuccessorPlanEditor({
             disabled={kind === "none"}
             onChange={(event) => setAutoStart(event.target.checked)}
           />
-          Start the successor automatically
+          Create the next round automatically when this one is published
         </label>
         <button className="button" disabled={save.isPending}>
           {save.isPending ? "Saving…" : "Save plan"}

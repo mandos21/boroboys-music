@@ -2,13 +2,18 @@
   "components": {
     "schemas": {
       "CalendarRoundPlan": {
-        "description": "A monthly calendar rule in the series timezone.\n\nLimiting the day to 1\u201328 gives every configured rule a valid date, including\nFebruary, while still covering ordinary monthly schedules.",
+        "description": "A calendar rule in the series timezone.\n\n``full_month`` is the friendly monthly cadence exposed by the application:\nopen on the first, close at the end of the month, and release the next day.\nThe existing day/duration fields remain for imported and API-managed custom\ncalendar rules.",
         "properties": {
           "duration_days": {
             "maximum": 366.0,
             "minimum": 1.0,
             "title": "Duration Days",
             "type": "integer"
+          },
+          "full_month": {
+            "default": false,
+            "title": "Full Month",
+            "type": "boolean"
           },
           "kind": {
             "const": "calendar",
@@ -230,6 +235,14 @@
               "type": "string"
             },
             "title": "Contributor Group Ids",
+            "type": "array"
+          },
+          "contributor_user_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Contributor User Ids",
             "type": "array"
           },
           "opens_at": {
@@ -1455,6 +1468,146 @@
         ]
       }
     },
+    "/api/v1/admin/series/{series_id}/members": {
+      "get": {
+        "description": "Expose the union of configured contributor groups as a simple member list.",
+        "operationId": "list_series_members_api_v1_admin_series__series_id__members_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Series Members Api V1 Admin Series  Series Id  Members Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Series Members",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
+    "/api/v1/admin/series/{series_id}/members/{user_id}": {
+      "delete": {
+        "operationId": "remove_series_member_api_v1_admin_series__series_id__members__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Series Member",
+        "tags": [
+          "administration"
+        ]
+      },
+      "put": {
+        "description": "Add a member through the default group while retaining group support internally.",
+        "operationId": "add_series_member_api_v1_admin_series__series_id__members__user_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Series Member",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
     "/api/v1/admin/series/{series_id}/users": {
       "get": {
         "operationId": "search_users_for_series_api_v1_admin_series__series_id__users_get",
@@ -2451,6 +2604,33 @@
         "summary": "Get Evidence",
         "tags": [
           "rounds"
+        ]
+      }
+    },
+    "/api/v1/series": {
+      "get": {
+        "description": "List every series a listener can enter, with a useful round preview.",
+        "operationId": "list_my_series_api_v1_series_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List My Series Api V1 Series Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List My Series",
+        "tags": [
+          "series"
         ]
       }
     },

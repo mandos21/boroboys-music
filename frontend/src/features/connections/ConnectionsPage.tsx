@@ -66,12 +66,12 @@ export function ConnectionsPage() {
 
   return (
     <main className="shell settings-shell">
-      <Link className="back" to="/">← Your rounds</Link>
+      <Link className="back" to="/">← Your series</Link>
       <header className="page-heading settings-heading">
         <div>
-          <p className="eyebrow">Account settings</p>
-          <h1>Connected services</h1>
-          <p>Bring the services you already use into your rounds. You stay in control of what is connected and what listening evidence is shared.</p>
+          <p className="eyebrow">Your profile</p>
+          <h1>Profile &amp; connected services</h1>
+          <p>Bring the services you already use into your series. You stay in control of what is connected and what listening evidence is shared.</p>
         </div>
       </header>
       {connections.isLoading && <StatePanel kind="loading" title="Checking your connections">Looking for linked services.</StatePanel>}
@@ -121,7 +121,7 @@ export function ConnectionsPage() {
       <ConfirmDialog
         open={Boolean(connectionToDisconnect)}
         title={`Disconnect ${connectionToDisconnect ? providerInfo[connectionToDisconnect.provider].name : "service"}?`}
-        description="This removes its stored connection from Music Rounds. Your provider account and past round history are not deleted."
+        description="This removes its stored connection from BoroCrew Music. Your provider account and past round history are not deleted."
         confirmLabel="Disconnect service"
         isPending={disconnect.isPending}
         onOpenChange={(open) => { if (!open && !disconnect.isPending) setConnectionToDisconnect(null); }}

@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.db.models import (
@@ -49,15 +49,18 @@ class RollingRoundPlan(BaseModel):
 
 
 class CalendarRoundPlan(BaseModel):
-    """A monthly calendar rule in the series timezone.
+    """A calendar rule in the series timezone.
 
-    Limiting the day to 1–28 gives every configured rule a valid date, including
-    February, while still covering ordinary monthly schedules.
+    ``full_month`` is the friendly monthly cadence exposed by the application:
+    open on the first, close at the end of the month, and release the next day.
+    The existing day/duration fields remain for imported and API-managed custom
+    calendar rules.
     """
 
     kind: Literal["calendar"]
     open_day: int = Field(ge=1, le=28)
     duration_days: int = Field(ge=1, le=366)
+    full_month: bool = False
     publish_delay_minutes: int = Field(default=0, ge=0, le=43_200)
     submission_limit: int | None = Field(default=None, ge=0)
     title_template: str = Field(default="{year}-{month:02d}", min_length=1, max_length=200)
@@ -122,6 +125,7 @@ class RoundCreate(BaseModel):
     publish_at: datetime
     submission_limit: int = Field(ge=0)
     contributor_group_ids: list[uuid.UUID] = Field(default_factory=list)
+    contributor_user_ids: list[uuid.UUID] = Field(default_factory=list)
     policy_snapshot: list[dict[str, Any]] | None = None
 
     @field_validator("timezone")
@@ -291,6 +295,84 @@ def search_users_for_series(
     return [_user_summary(candidate) for candidate in users]
 
 
+@router.get("/series/{series_id}/members")
+def list_series_members(
+    series_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, object]]:
+    """Expose the union of configured contributor groups as a simple member list."""
+    _require_series_admin(db, user, series_id)
+    members = db.scalars(
+        select(User)
+        .join(ContributorGroupMember, ContributorGroupMember.user_id == User.id)
+        .join(ContributorGroup, ContributorGroup.id == ContributorGroupMember.group_id)
+        .where(ContributorGroup.series_id == series_id)
+        .distinct()
+        .order_by(User.display_name, User.email, User.id)
+    )
+    return [_user_summary(member) for member in members]
+
+
+@router.put(
+    "/series/{series_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
+)
+def add_series_member(
+    series_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """Add a member through the default group while retaining group support internally."""
+    _require_series_admin(db, user, series_id)
+    _require_user(db, user_id)
+    group = db.scalar(
+        select(ContributorGroup).where(
+            ContributorGroup.series_id == series_id,
+            ContributorGroup.name == "Series members",
+        )
+    )
+    if group is None:
+        group = ContributorGroup(series_id=series_id, name="Series members")
+        db.add(group)
+        db.flush()
+    existing = db.scalar(
+        select(ContributorGroupMember).where(
+            ContributorGroupMember.group_id == group.id,
+            ContributorGroupMember.user_id == user_id,
+        )
+    )
+    if existing is None:
+        db.add(ContributorGroupMember(group_id=group.id, user_id=user_id))
+        db.commit()
+
+
+@router.delete(
+    "/series/{series_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    response_model=None,
+)
+def remove_series_member(
+    series_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    _require_series_admin(db, user, series_id)
+    group_ids = select(ContributorGroup.id).where(ContributorGroup.series_id == series_id)
+    db.execute(
+        delete(ContributorGroupMember).where(
+            ContributorGroupMember.group_id.in_(group_ids),
+            ContributorGroupMember.user_id == user_id,
+        )
+    )
+    db.commit()
+
+
 @router.post("/series", status_code=status.HTTP_201_CREATED)
 def create_series(
     payload: SeriesCreate,
@@ -439,6 +521,14 @@ def create_round(
             )
         )
     )
+    requested_members = set(payload.contributor_user_ids)
+    if requested_members:
+        valid_members = set(
+            db.scalars(select(User.id).where(User.id.in_(requested_members), User.is_active.is_(True)))
+        )
+        if valid_members != requested_members:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid user")
+        member_ids.update(requested_members)
     db.add_all(RoundMember(round_id=round_.id, user_id=member_id) for member_id in member_ids)
     db.commit()
     return {"id": str(round_.id)}

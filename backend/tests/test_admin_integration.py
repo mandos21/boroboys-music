@@ -226,9 +226,10 @@ def test_series_admin_can_replace_a_future_successor_plan_without_rewriting_roun
         assert result["autoStartNextRound"] is False
         assert result["roundPlan"] == {
             "kind": "calendar",
-            "open_day": 1,
-            "duration_days": 7,
-            "publish_delay_minutes": 0,
+                "open_day": 1,
+                "duration_days": 7,
+                "full_month": False,
+                "publish_delay_minutes": 0,
             "submission_limit": None,
             "title_template": "{year}-{month:02d}",
         }

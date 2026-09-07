@@ -200,3 +200,46 @@ def test_calendar_successor_skips_elapsed_windows_and_keeps_the_series_timezone(
             == 1
         )
         assert create_calendar_successor(db, published, now=published_at) is successor
+
+
+def test_full_month_successor_closes_at_month_end_and_releases_next_day() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    with get_session_factory()() as db:
+        series = Series(
+            name=f"Monthly {suffix}",
+            slug=f"monthly-{suffix}",
+            timezone="America/New_York",
+            default_policies=[],
+            auto_start_next_round=True,
+            round_plan={
+                "kind": "calendar",
+                "open_day": 1,
+                "duration_days": 1,
+                "full_month": True,
+            },
+        )
+        db.add(series)
+        db.flush()
+        timezone = ZoneInfo("America/New_York")
+        published = Round(
+            series_id=series.id,
+            title="January",
+            timezone="America/New_York",
+            submission_limit=2,
+            opens_at=datetime(2026, 1, 1, 9, tzinfo=timezone),
+            closes_at=datetime(2026, 2, 1, 9, tzinfo=timezone),
+            publish_at=datetime(2026, 2, 2, 9, tzinfo=timezone),
+            status=RoundStatus.PUBLISHED,
+            policy_snapshot=[],
+        )
+        db.add(published)
+        db.commit()
+
+        successor = create_calendar_successor(
+            db, published, now=datetime(2026, 2, 2, 15, tzinfo=UTC)
+        )
+
+        assert successor is not None
+        assert successor.opens_at == datetime(2026, 2, 1, 14, tzinfo=UTC)
+        assert successor.closes_at == datetime(2026, 3, 1, 14, tzinfo=UTC)
+        assert successor.publish_at == datetime(2026, 3, 2, 14, tzinfo=UTC)

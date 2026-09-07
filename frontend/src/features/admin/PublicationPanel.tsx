@@ -44,7 +44,7 @@ export function PublicationPanel({
       }),
     onSuccess: () => {
       invalidate();
-      showToast({ title: "Publication queued", description: "Music Rounds is creating the Spotify playlist in the background." });
+      showToast({ title: "Publication queued", description: "BoroCrew Music is creating the Spotify playlist in the background." });
     },
   });
   const unpublish = useMutation({
@@ -207,7 +207,7 @@ export function PublicationPanel({
       <ConfirmDialog
         open={unpublishRequested}
         title="Unpublish this latest round?"
-        description="Music Rounds will delete the associated Spotify playlist and return the round to its prior state. This is only available for the most recently published round."
+        description="BoroCrew Music will delete the associated Spotify playlist and return the round to its prior state. This is only available for the most recently published round."
         confirmLabel="Unpublish and delete playlist"
         isPending={unpublish.isPending}
         onOpenChange={(open) => { if (!open && !unpublish.isPending) setUnpublishRequested(false); }}

@@ -9,8 +9,17 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.routes.rounds import get_round, list_round_submissions
-from app.api.routes.series import get_series_history
-from app.db.models import PlatformRole, Round, RoundMember, RoundStatus, Series, User
+from app.api.routes.series import get_series_history, list_my_series
+from app.db.models import (
+    ContributorGroup,
+    ContributorGroupMember,
+    PlatformRole,
+    Round,
+    RoundMember,
+    RoundStatus,
+    Series,
+    User,
+)
 from app.db.session import get_session_factory
 
 
@@ -91,3 +100,41 @@ def test_series_history_does_not_leak_another_group_round() -> None:
         with pytest.raises(HTTPException, match="series access required") as error:
             get_series_history(series.id, db, outsider)
         assert error.value.status_code == 403
+
+
+def test_series_membership_makes_an_unscheduled_series_visible() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    with get_session_factory()() as db:
+        member = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"future-series-member-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        series = Series(
+            name=f"Future series {suffix}",
+            slug=f"future-series-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((member, series))
+        db.flush()
+        group = ContributorGroup(series_id=series.id, name="Series members")
+        db.add(group)
+        db.flush()
+        db.add(ContributorGroupMember(group_id=group.id, user_id=member.id))
+        db.commit()
+
+        items = list_my_series(db, member)
+        history = get_series_history(series.id, db, member)
+
+        assert items == [
+            {
+                "id": str(series.id),
+                "name": series.name,
+                "description": None,
+                "timezone": "UTC",
+                "isAdmin": False,
+                "featuredRound": None,
+            }
+        ]
+        assert history["rounds"] == []

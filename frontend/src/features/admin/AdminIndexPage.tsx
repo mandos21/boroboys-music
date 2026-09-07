@@ -75,7 +75,7 @@ export function AdminIndexPage() {
   return (
     <main className="shell admin-shell">
       <Link className="back" to="/">
-        ← Your rounds
+        ← Your series
       </Link>
       <header className="submission-heading">
         <p className="eyebrow">Administration</p>

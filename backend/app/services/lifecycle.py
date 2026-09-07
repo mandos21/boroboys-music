@@ -137,12 +137,19 @@ def create_calendar_successor(
     timezone = ZoneInfo(published_round.timezone)
     local_previous_open = published_round.opens_at.astimezone(timezone)
     candidate = _next_month_start(local_previous_open, open_day)
-    while candidate + timedelta(days=duration_days) <= instant.astimezone(timezone):
+    closes_candidate = _calendar_close(candidate, duration_days, plan)
+    while closes_candidate <= instant.astimezone(timezone):
         candidate = _next_month_start(candidate, open_day)
+        closes_candidate = _calendar_close(candidate, duration_days, plan)
     opens_at = candidate.astimezone(UTC)
-    closes_at = (candidate + timedelta(days=duration_days)).astimezone(UTC)
-    publish_delay_minutes = _nonnegative_int(plan, "publish_delay_minutes", 0)
-    publish_at = closes_at + timedelta(minutes=publish_delay_minutes)
+    closes_at = closes_candidate.astimezone(UTC)
+    if plan.get("full_month") is True:
+        # A full monthly window is intentionally released the following day,
+        # rather than at the instant submissions close.
+        publish_at = closes_at + timedelta(days=1)
+    else:
+        publish_delay_minutes = _nonnegative_int(plan, "publish_delay_minutes", 0)
+        publish_at = closes_at + timedelta(minutes=publish_delay_minutes)
     title = _calendar_successor_title(plan, published_round.title, candidate)
     existing = db.scalar(
         select(Round).where(Round.successor_of_round_id == published_round.id)
@@ -192,6 +199,13 @@ def _next_month_start(local_datetime: datetime, open_day: int) -> datetime:
     year = local_datetime.year + (local_datetime.month == 12)
     month = 1 if local_datetime.month == 12 else local_datetime.month + 1
     return local_datetime.replace(year=year, month=month, day=open_day)
+
+
+def _calendar_close(candidate: datetime, duration_days: int, plan: dict[str, Any]) -> datetime:
+    """Return the local closing instant for either calendar plan flavour."""
+    if plan.get("full_month") is True:
+        return _next_month_start(candidate, 1)
+    return candidate + timedelta(days=duration_days)
 
 
 def _copy_active_members(db: Session, previous: Round, successor: Round) -> None:

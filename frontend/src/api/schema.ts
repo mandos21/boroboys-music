@@ -234,6 +234,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/series/{series_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Series Members
+         * @description Expose the union of configured contributor groups as a simple member list.
+         */
+        get: operations["list_series_members_api_v1_admin_series__series_id__members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/series/{series_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add Series Member
+         * @description Add a member through the default group while retaining group support internally.
+         */
+        put: operations["add_series_member_api_v1_admin_series__series_id__members__user_id__put"];
+        post?: never;
+        /** Remove Series Member */
+        delete: operations["remove_series_member_api_v1_admin_series__series_id__members__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/series/{series_id}/users": {
         parameters: {
             query?: never;
@@ -622,6 +663,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Series
+         * @description List every series a listener can enter, with a useful round preview.
+         */
+        get: operations["list_my_series_api_v1_series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{series_id}": {
         parameters: {
             query?: never;
@@ -652,14 +713,21 @@ export interface components {
     schemas: {
         /**
          * CalendarRoundPlan
-         * @description A monthly calendar rule in the series timezone.
+         * @description A calendar rule in the series timezone.
          *
-         *     Limiting the day to 1–28 gives every configured rule a valid date, including
-         *     February, while still covering ordinary monthly schedules.
+         *     ``full_month`` is the friendly monthly cadence exposed by the application:
+         *     open on the first, close at the end of the month, and release the next day.
+         *     The existing day/duration fields remain for imported and API-managed custom
+         *     calendar rules.
          */
         CalendarRoundPlan: {
             /** Duration Days */
             duration_days: number;
+            /**
+             * Full Month
+             * @default false
+             */
+            full_month: boolean;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -763,6 +831,8 @@ export interface components {
             closes_at: string;
             /** Contributor Group Ids */
             contributor_group_ids?: string[];
+            /** Contributor User Ids */
+            contributor_user_ids?: string[];
             /**
              * Opens At
              * Format: date-time
@@ -1444,6 +1514,99 @@ export interface operations {
             };
         };
     };
+    list_series_members_api_v1_admin_series__series_id__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_series_member_api_v1_admin_series__series_id__members__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_series_member_api_v1_admin_series__series_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_users_for_series_api_v1_admin_series__series_id__users_get: {
         parameters: {
             query: {
@@ -2113,6 +2276,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_series_api_v1_series_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
                 };
             };
         };

@@ -42,7 +42,7 @@ describe("application recovery screens", () => {
     );
   });
 
-  it("gives signed-in contributors an actionable round dashboard", async () => {
+  it("organizes a signed-in contributor's home around series", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((input: string | URL | Request) => {
@@ -52,14 +52,21 @@ describe("application recovery screens", () => {
             user: { id: "listener-1", email: "listener@example.test", displayName: "Lena", platformRole: "member" },
           }), { status: 200 }));
         }
-        if (url.endsWith("/rounds")) {
+        if (url.endsWith("/series")) {
           return Promise.resolve(new Response(JSON.stringify([{
-            id: "round-1",
-            title: "September picks",
-            status: "open",
-            closesAt: "2026-09-30T23:59:59Z",
-            publishAt: "2026-10-01T12:00:00Z",
-            submissionLimit: 2,
+            id: "series-1",
+            name: "Monthly picks",
+            description: "A monthly listening ritual.",
+            timezone: "UTC",
+            isAdmin: false,
+            featuredRound: {
+              id: "round-1",
+              title: "September picks",
+              status: "open",
+              opensAt: "2026-09-01T00:00:00Z",
+              closesAt: "2026-09-30T23:59:59Z",
+              publishAt: "2026-10-01T12:00:00Z",
+            },
           }]), { status: 200 }));
         }
         return Promise.resolve(new Response(JSON.stringify({ detail: "not found" }), { status: 404 }));
@@ -68,10 +75,10 @@ describe("application recovery screens", () => {
 
     renderApp("/");
 
-    expect(await screen.findByRole("heading", { name: "Your rounds" })).toBeTruthy();
-    expect(await screen.findByRole("link", { name: /Open round/i })).toHaveProperty(
+    expect(await screen.findByRole("heading", { name: "Your series" })).toBeTruthy();
+    expect(await screen.findByRole("link", { name: /Open series/i })).toHaveProperty(
       "href",
-      expect.stringContaining("/rounds/round-1"),
+      expect.stringContaining("/series/series-1"),
     );
   });
 });

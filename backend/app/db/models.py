@@ -144,6 +144,7 @@ class ExternalAccount(UUIDTimestampMixin, Base):
     provider: Mapped[ExternalProvider] = mapped_column(nullable=False)
     provider_subject: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(200))
+    profile_image_url: Mapped[str | None] = mapped_column(String(1000))
     scopes: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     evidence_visibility: Mapped[EvidenceVisibility] = mapped_column(
         default=EvidenceVisibility.ROUND_MEMBERS, nullable=False

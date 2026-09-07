@@ -25,7 +25,7 @@ type Submission = {
   status: "accepted" | "withdrawn";
   note: string | null;
   isMine: boolean;
-  contributor: { id: string; displayName: string | null };
+  contributor: { id: string; displayName: string | null; spotifyProfileImageUrl: string | null };
   track: { name: string; artist: string; album: string | null; artworkUrl?: string | null };
 };
 
@@ -34,8 +34,9 @@ type SeriesHistory = {
   name: string;
   description: string | null;
   timezone: string;
+  isAdmin: boolean;
   rounds: Array<
-    Pick<Round, "id" | "title" | "status" | "opensAt" | "publishAt">
+    Pick<Round, "id" | "title" | "status" | "opensAt" | "closesAt" | "publishAt">
   >;
 };
 
@@ -93,7 +94,7 @@ export function RoundPage() {
   return (
     <main className="shell round-page-shell">
       <Link className="back" to="/">
-        ← Your rounds
+        ← Your series
       </Link>
       <RoundOverview round={item} mySubmissionCount={mySubmissionCount} />
       <RoundSubmissions
@@ -211,12 +212,15 @@ function RoundSubmissions({
                   {entry.track.artist}
                   {entry.track.album ? ` · ${entry.track.album}` : ""}
                 </span>
-                <small>
-                  {entry.isMine
-                    ? "Your submission"
-                    : (entry.contributor.displayName ?? "A contributor")}
-                </small>
+                <small>Submitted by {entry.contributor.displayName ?? "Unnamed member"}{entry.isMine ? " (you)" : ""}</small>
               </div>
+              {entry.contributor.spotifyProfileImageUrl ? (
+                <img className="contributor-avatar" src={entry.contributor.spotifyProfileImageUrl} alt={`${entry.contributor.displayName ?? "Contributor"}'s Spotify profile`} />
+              ) : (
+                <span className="contributor-avatar contributor-avatar-fallback" aria-label={`${entry.contributor.displayName ?? "Unnamed member"}'s profile`}>
+                  {(entry.contributor.displayName ?? "?").slice(0, 1).toUpperCase()}
+                </span>
+              )}
               {entry.note && <p>{entry.note}</p>}
               {entry.isMine && entry.status === "accepted" && roundIsOpen && (
                 <details>
@@ -276,23 +280,25 @@ export function SeriesPage() {
   if (series.isError || !series.data)
     return (
       <main className="shell narrow-page-shell">
-        <StatePanel kind="error" title="Series unavailable">You do not have access to this series. <Link to="/">Return to your rounds</Link></StatePanel>
+        <StatePanel kind="error" title="Series unavailable">You do not have access to this series. <Link to="/">Return to your series</Link></StatePanel>
       </main>
     );
   const item = series.data;
   return (
     <main className="shell">
       <Link className="back" to="/">
-        ← Your rounds
+        ← Your series
       </Link>
       <section className="panel detail series-history-panel">
-        <p className="eyebrow">Series history · {item.timezone}</p>
+        <div className="series-page-heading"><div><p className="eyebrow">Series · {item.timezone}</p>
         <h1>{item.name}</h1>
-        {item.description && <p>{item.description}</p>}
+        {item.description && <p>{item.description}</p>}</div>
+        {item.isAdmin && <Link className="button button-secondary" to={`/admin/series/${item.id}`}>Manage series</Link>}</div>
         <p className="muted">A record of the rounds and releases your group has made together. Times shown in {item.timezone}.</p>
-        {item.rounds.length === 0 && <StatePanel title="No released rounds yet">When this series completes a round, it will appear here.</StatePanel>}
+        {item.rounds.length === 0 && <StatePanel title="No rounds yet">When this series starts a round, it will appear here.</StatePanel>}
+        {item.rounds[0] && <FeaturedRound round={item.rounds[0]} />}
         <div className="series-round-list">
-          {item.rounds.map((round) => (
+          {item.rounds.slice(1).map((round) => (
             <article key={round.id}>
               <span className={`status ${round.status}`}>{round.status}</span>
               <div>
@@ -308,5 +314,15 @@ export function SeriesPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
+  const active = round.status !== "published";
+  return (
+    <article className="series-featured-round">
+      <div><p className="eyebrow">{active ? "Current round" : "Latest release"}</p><h2>{round.title}</h2><p>{active ? `Closes ${formatDate(round.closesAt)}` : `Released ${formatDate(round.publishAt)}`}</p></div>
+      <div><span className={`status ${round.status}`}>{round.status}</span><Link className="button" to={`/rounds/${round.id}`}>{active ? "Open round" : "Revisit round"}</Link></div>
+    </article>
   );
 }

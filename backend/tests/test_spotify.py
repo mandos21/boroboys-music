@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
+from app.api.routes.connections import _spotify_profile_image
 from app.core.config import Settings
 from app.services import spotify
 
@@ -123,3 +124,10 @@ def test_refresh_token_uses_confidential_client_auth(monkeypatch: pytest.MonkeyP
 
     assert payload["access_token"] == "refreshed"
     assert observed["auth"] == ("client", "secret")
+
+
+def test_profile_image_uses_the_first_spotify_image() -> None:
+    assert _spotify_profile_image({"images": [{"url": "https://cdn.test/avatar.jpg"}]}) == (
+        "https://cdn.test/avatar.jpg"
+    )
+    assert _spotify_profile_image({"images": []}) is None
