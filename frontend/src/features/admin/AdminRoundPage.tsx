@@ -34,6 +34,8 @@ export function AdminRoundPage() {
   const [closesAt, setClosesAt] = useState("");
   const [publishAt, setPublishAt] = useState("");
   const [submissionLimit, setSubmissionLimit] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [promptEdited, setPromptEdited] = useState(false);
   const deferredSearch = useDeferredValue(search.trim());
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["admin-round", roundId] });
@@ -99,6 +101,7 @@ export function AdminRoundPage() {
   const selectedClosesAt = closesAt || dateTimeInput(round.closesAt);
   const selectedPublishAt = publishAt || dateTimeInput(round.publishAt);
   const selectedLimit = submissionLimit || String(round.submissionLimit);
+  const selectedPrompt = promptEdited ? prompt : round.prompt ?? "";
   function submitSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedTitle.trim()) return showToast({ title: "Add a round title", tone: "error" });
@@ -110,6 +113,7 @@ export function AdminRoundPage() {
       closes_at: new Date(selectedClosesAt).toISOString(),
       publish_at: new Date(selectedPublishAt).toISOString(),
       submission_limit: Number(selectedLimit),
+      prompt: selectedPrompt.trim() || null,
     });
   }
   return (
@@ -140,6 +144,7 @@ export function AdminRoundPage() {
             <label>Closes<input type="datetime-local" min={selectedOpensAt} value={selectedClosesAt} required onChange={(event) => setClosesAt(event.target.value)} /></label>
             <label>Publishes<input type="datetime-local" min={selectedClosesAt} value={selectedPublishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label>
             <label>Submissions per contributor<input type="number" min="0" value={selectedLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>
+            <label>Prompt <span className="field-hint">Optional</span><textarea value={selectedPrompt} maxLength={2000} onChange={(event) => { setPromptEdited(true); setPrompt(event.target.value); }} placeholder="A theme, question, or loose idea for this round." /></label>
             <button className="button" disabled={saveRound.isPending}>{saveRound.isPending ? "Saving…" : "Save round settings"}</button>
           </form>
         ) : <p className="muted">The schedule and default limit are frozen once a round has closed.</p>}

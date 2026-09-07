@@ -9,7 +9,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.routes.rounds import get_round, list_round_submissions
-from app.api.routes.series import get_series_history, list_my_series
+from app.api.routes.series import accept_series_invite, get_series_history, list_my_series
+from app.core.security import hash_secret
 from app.db.models import (
     ContributorGroup,
     ContributorGroupMember,
@@ -18,6 +19,7 @@ from app.db.models import (
     RoundMember,
     RoundStatus,
     Series,
+    SeriesInvite,
     Submission,
     SubmissionStatus,
     Track,
@@ -136,6 +138,8 @@ def test_series_membership_makes_an_unscheduled_series_visible() -> None:
                 "name": series.name,
                 "description": None,
                 "timezone": "UTC",
+                "coverImageUrl": None,
+                "accentColor": None,
                 "isAdmin": False,
                 "featuredRound": None,
             }
@@ -217,6 +221,7 @@ def test_open_series_are_listed_first_with_contributor_progress() -> None:
             "publishAt": open_round.publish_at.isoformat(),
             "submittedCount": 1,
             "contributorCount": 2,
+            "prompt": None,
         }
 
 
@@ -272,3 +277,52 @@ def test_round_submissions_fall_back_to_email_for_unnamed_contributors() -> None
         entries = list_round_submissions(round_.id, db, contributor)
 
         assert entries[0]["contributor"]["displayName"] == contributor.email
+
+
+def test_series_invite_adds_a_member_once_and_respects_its_use_limit() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    with get_session_factory()() as db:
+        owner = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"invite-owner-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        listener = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"invite-listener-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        another_listener = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"invite-other-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        series = Series(
+            name=f"Invite series {suffix}",
+            slug=f"invite-series-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((owner, listener, another_listener, series))
+        db.flush()
+        invite = SeriesInvite(
+            series_id=series.id,
+            created_by_id=owner.id,
+            token_hash=hash_secret(f"invite-{suffix}"),
+            role="contributor",
+            expires_at=datetime.now(UTC) + timedelta(days=1),
+            max_uses=1,
+        )
+        db.add(invite)
+        db.commit()
+
+        accepted = accept_series_invite(f"invite-{suffix}", db, listener)
+        assert accepted == {"seriesId": str(series.id), "role": "contributor"}
+        assert list_my_series(db, listener)[0]["id"] == str(series.id)
+        # Returning through the same link is harmless and does not consume a
+        # scarce single-use invitation a second time.
+        assert accept_series_invite(f"invite-{suffix}", db, listener) == accepted
+
+        with pytest.raises(HTTPException, match="invite is unavailable") as error:
+            accept_series_invite(f"invite-{suffix}", db, another_listener)
+        assert error.value.status_code == 404

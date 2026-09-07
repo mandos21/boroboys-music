@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Clock3, Disc3, ListMusic, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
@@ -19,6 +19,9 @@ type Round = {
   publishAt: string;
   submissionLimit: number;
   spotifyPlaylistUrl: string | null;
+  prompt: string | null;
+  submittedCount: number;
+  contributorCount: number;
 };
 
 type Submission = {
@@ -36,8 +39,10 @@ type SeriesHistory = {
   description: string | null;
   timezone: string;
   isAdmin: boolean;
+  coverImageUrl: string | null;
+  accentColor: string | null;
   rounds: Array<
-    Pick<Round, "id" | "title" | "status" | "opensAt" | "closesAt" | "publishAt">
+    Pick<Round, "id" | "title" | "status" | "opensAt" | "closesAt" | "publishAt" | "prompt">
   >;
 };
 
@@ -98,6 +103,7 @@ export function RoundPage() {
         ← Your series
       </Link>
       <RoundOverview round={item} mySubmissionCount={mySubmissionCount} />
+      {item.status === "published" && submissions.data && <ReleaseRecap round={item} submissions={submissions.data} />}
       <RoundSubmissions
         roundId={item.id}
         submissions={submissions}
@@ -133,6 +139,7 @@ function RoundOverview({ round, mySubmissionCount }: { round: Round; mySubmissio
       <span className={`status ${round.status}`}>{round.status}</span>
       <h1>{round.title}</h1>
       <p>Share up to {round.submissionLimit} track{round.submissionLimit === 1 ? "" : "s"} with this group before the release date.</p>
+      {round.prompt && <p className="round-prompt">Prompt: {round.prompt}</p>}
       <div className="round-summary" aria-label="Round summary">
         <div><ListMusic aria-hidden="true" size={18} /><span><strong>{mySubmissionCount === undefined ? "…" : `${mySubmissionCount} of ${round.submissionLimit}`}</strong><small>Your submissions</small></span></div>
         <div><UsersRound aria-hidden="true" size={18} /><span><strong>{round.status === "open" ? "Open now" : round.status}</strong><small>Round status</small></span></div>
@@ -170,6 +177,17 @@ function RoundOverview({ round, mySubmissionCount }: { round: Round; mySubmissio
           View series history
         </Link>
       )}
+    </section>
+  );
+}
+
+function ReleaseRecap({ round, submissions }: { round: Round; submissions: Submission[] }) {
+  const artwork = submissions.flatMap((submission) => submission.track.artworkUrl ? [submission.track.artworkUrl] : []).slice(0, 8);
+  return (
+    <section className="panel release-recap">
+      <div><p className="eyebrow">Release recap</p><h2>{round.title}</h2><p>{round.submittedCount} contributor{round.submittedCount === 1 ? "" : "s"} shared {submissions.length} track{submissions.length === 1 ? "" : "s"}.</p></div>
+      {artwork.length > 0 && <div className="artwork-mosaic" aria-label="Album art from this release">{artwork.map((url, index) => <img key={`${url}-${index}`} src={url} alt="" />)}</div>}
+      <p className="now-spinning" aria-label="Now spinning"><span>Now spinning</span><strong>{submissions.slice(0, 4).map((submission) => `${submission.track.name} — ${submission.track.artist}`).join(" · ")}</strong></p>
     </section>
   );
 }
@@ -297,7 +315,7 @@ export function SeriesPage() {
       <Link className="back" to="/">
         ← Your series
       </Link>
-      <section className="panel detail series-history-panel">
+      <section className="panel detail series-history-panel" style={{ "--series-cover": item.coverImageUrl ? `url(${item.coverImageUrl})` : "none" } as CSSProperties}>
         <div className="series-page-heading"><div><p className="eyebrow">Series · {item.timezone}</p>
         <h1>{item.name}</h1>
         {item.description && <p>{item.description}</p>}</div>
@@ -305,6 +323,7 @@ export function SeriesPage() {
         <p className="muted">A record of the rounds and releases your group has made together. Times shown in {item.timezone}.</p>
         {item.rounds.length === 0 && <StatePanel title="No rounds yet">When this series starts a round, it will appear here.</StatePanel>}
         {item.rounds[0] && <FeaturedRound round={item.rounds[0]} />}
+        {item.rounds.some((round) => round.status !== "published") && <div className="series-timeline" aria-label="Upcoming round timeline">{item.rounds.filter((round) => round.status !== "published").slice(0, 4).map((round) => <Link key={round.id} to={`/rounds/${round.id}`}><span className={`status ${round.status}`}>{round.status}</span><strong>{round.title}</strong><small>{round.status === "open" ? `Closes ${formatDate(round.closesAt)}` : `Opens ${formatDate(round.opensAt)}`}</small></Link>)}</div>}
         <div className="series-round-list">
           {item.rounds.slice(1).map((round) => (
             <Link className="series-round-item" key={round.id} to={`/rounds/${round.id}`}>
@@ -328,7 +347,7 @@ function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
   const active = round.status !== "published";
   return (
     <Link className="series-featured-round" to={`/rounds/${round.id}`}>
-      <div><p className="eyebrow">{active ? "Current round" : "Latest release"}</p><h2>{round.title}</h2><p>{active ? `Closes ${formatDate(round.closesAt)}` : `Released ${formatDate(round.publishAt)}`}</p></div>
+      <div><p className="eyebrow">{active ? "Current round" : "Latest release"}</p><h2>{round.title}</h2><p>{active ? `Closes ${formatDate(round.closesAt)}` : `Released ${formatDate(round.publishAt)}`}</p>{round.prompt && <p className="featured-prompt">Prompt: {round.prompt}</p>}</div>
       <div><span className={`status ${round.status}`}>{round.status}</span></div>
     </Link>
   );

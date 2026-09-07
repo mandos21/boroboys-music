@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_, select
 
-from app.api.deps import DbSession, get_current_user
+from app.api.deps import DbSession, get_current_user, require_csrf
+from app.core.security import hash_secret
 from app.db.models import (
     ContributorGroup,
     ContributorGroupMember,
@@ -17,13 +19,52 @@ from app.db.models import (
     RoundMember,
     Series,
     SeriesAdmin,
+    SeriesInvite,
     Submission,
     SubmissionStatus,
     User,
 )
 from app.services.lifecycle import reconcile_round_status
+from app.services.membership import ensure_default_series_membership
 
 router = APIRouter(prefix="/series", tags=["series"])
+
+
+@router.post("/invites/{token}/accept", dependencies=[Depends(require_csrf)])
+def accept_series_invite(
+    token: str,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    invite = db.scalar(
+        select(SeriesInvite)
+        .where(SeriesInvite.token_hash == hash_secret(token))
+        .with_for_update()
+    )
+    already_member = invite is not None and _has_series_membership(db, invite.series_id, user.id)
+    if (
+        invite is None
+        or invite.revoked_at is not None
+        or invite.expires_at <= datetime.now(UTC)
+        or (
+            not already_member
+            and invite.max_uses is not None
+            and invite.use_count >= invite.max_uses
+        )
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="invite is unavailable")
+    ensure_default_series_membership(db, invite.series_id, user.id)
+    if invite.role == "admin" and not db.scalar(
+        select(SeriesAdmin.id).where(
+            SeriesAdmin.series_id == invite.series_id,
+            SeriesAdmin.user_id == user.id,
+        )
+    ):
+        db.add(SeriesAdmin(series_id=invite.series_id, user_id=user.id))
+    if not already_member:
+        invite.use_count += 1
+    db.commit()
+    return {"seriesId": str(invite.series_id), "role": invite.role}
 
 
 @router.get("")
@@ -94,6 +135,8 @@ def get_series_history(
         "name": series.name,
         "description": series.description,
         "timezone": series.timezone,
+        "coverImageUrl": series.cover_image_url,
+        "accentColor": series.accent_color,
         "isAdmin": is_admin,
         "rounds": [
             {
@@ -103,6 +146,7 @@ def get_series_history(
                 "opensAt": round_.opens_at.isoformat(),
                 "closesAt": round_.closes_at.isoformat(),
                 "publishAt": round_.publish_at.isoformat(),
+                "prompt": round_.prompt,
             }
             for round_ in rounds
         ],
@@ -122,6 +166,8 @@ def _series_payload(db: DbSession, series: Series, user: User) -> dict[str, obje
         "name": series.name,
         "description": series.description,
         "timezone": series.timezone,
+        "coverImageUrl": series.cover_image_url,
+        "accentColor": series.accent_color,
         "isAdmin": is_admin,
         "featuredRound": _round_payload(db, latest) if latest else None,
     }
@@ -210,4 +256,5 @@ def _round_payload(db: DbSession, round_: Round) -> dict[str, object]:
         "publishAt": round_.publish_at.isoformat(),
         "submittedCount": submitted_count,
         "contributorCount": contributor_count,
+        "prompt": round_.prompt,
     }

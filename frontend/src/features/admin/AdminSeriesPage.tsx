@@ -2,12 +2,13 @@ import { useDeferredValue, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
-import { api, del, post, put } from "../../api/client";
+import { api, del, patch, post, put } from "../../api/client";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { HistoricalImportPanel } from "./HistoricalImportPanel";
+import { InvitePanel } from "./InvitePanel";
 import { PolicyEditor } from "./PolicyEditor";
 import { SuccessorPlanEditor } from "./SuccessorPlanEditor";
 import { errorMessage } from "./adminUtils";
@@ -59,6 +60,7 @@ export function AdminSeriesPage() {
   const [closesAt, setClosesAt] = useState("");
   const [publishAt, setPublishAt] = useState("");
   const [submissionLimit, setSubmissionLimit] = useState("3");
+  const [prompt, setPrompt] = useState("");
   const [titleEdited, setTitleEdited] = useState(false);
   const [closeEdited, setCloseEdited] = useState(false);
   const [publishEdited, setPublishEdited] = useState(false);
@@ -85,8 +87,9 @@ export function AdminSeriesPage() {
       opens_at: new Date(selectedOpensAt).toISOString(), closes_at: new Date(selectedClosesAt).toISOString(), publish_at: new Date(selectedPublishAt).toISOString(),
       submission_limit: Number(submissionLimit), contributor_user_ids: (members.data ?? []).map((member) => member.id),
       policy_snapshot: policies.length > 0 ? policies : undefined,
+      prompt: prompt.trim() || null,
     }),
-    onSuccess: () => { setRoundTitle(""); setTitleEdited(false); setOpensAt(""); setClosesAt(""); setCloseEdited(false); setPublishAt(""); setPublishEdited(false); setPolicies([]); invalidate(); showToast({ title: "Round scheduled", description: "Every current series member will be included." }); },
+    onSuccess: () => { setRoundTitle(""); setTitleEdited(false); setOpensAt(""); setClosesAt(""); setCloseEdited(false); setPublishAt(""); setPublishEdited(false); setPrompt(""); setPolicies([]); invalidate(); showToast({ title: "Round scheduled", description: "Every current series member will be included." }); },
     onError: (error) => showToast({ title: "Couldn’t schedule round", description: errorMessage(error) ?? "Check the schedule and try again.", tone: "error" }),
   });
   const matchingUsers = useQuery({ queryKey: ["series-users", seriesId, deferredMemberSearch], queryFn: () => api<User[]>(`/admin/series/${seriesId}/users?query=${encodeURIComponent(deferredMemberSearch)}`), enabled: Boolean(seriesId) && deferredMemberSearch.length >= 2 });
@@ -99,6 +102,11 @@ export function AdminSeriesPage() {
     mutationFn: (userId: string) => del(`/admin/series/${seriesId}/members/${userId}`),
     onSuccess: () => { setMemberToRemove(null); invalidate(); showToast({ title: "Member removed", description: "They will not be included in future rounds." }); },
     onError: () => showToast({ title: "Couldn’t remove member", description: "Try again in a moment.", tone: "error" }),
+  });
+  const saveIdentity = useMutation({
+    mutationFn: (payload: { cover_image_url: string | null; accent_color: string | null }) => patch(`/admin/series/${seriesId}`, payload),
+    onSuccess: () => { invalidate(); showToast({ title: "Series look saved", description: "Its cover and accent are ready to use." }); },
+    onError: (error) => showToast({ title: "Couldn’t save series look", description: errorMessage(error) ?? "Try again in a moment.", tone: "error" }),
   });
 
   if (detail.isLoading) return <main className="shell narrow-page-shell"><StatePanel kind="loading" title="Loading series workspace">Gathering its rounds, members, and automation settings.</StatePanel></main>;
@@ -120,6 +128,7 @@ export function AdminSeriesPage() {
       <nav className="admin-section-nav" aria-label="Series workspace sections"><a href="#rounds">Rounds</a><a href="#members">Members</a><a href="#automation">Automation</a><a href="#history">History</a></nav>
       <section className="series-health" aria-label="Series overview"><div><strong>{series.rounds.filter((round) => round.status === "open").length}</strong><span>open round{series.rounds.filter((round) => round.status === "open").length === 1 ? "" : "s"}</span></div><div><strong>{currentMembers.length}</strong><span>series member{currentMembers.length === 1 ? "" : "s"}</span></div><div><strong>{series.autoStartNextRound ? "On" : "Off"}</strong><span>automatic successor</span></div></section>
       <section id="automation" className="admin-workspace-section"><div className="workspace-section-heading"><div><p className="eyebrow">Future rounds</p><h2>Automation</h2></div><p>Apply a successor plan after each successful publication.</p></div><SuccessorPlanEditor key={`${series.id}:${JSON.stringify(series.roundPlan)}:${series.autoStartNextRound}`} series={series} onSaved={invalidate} /></section>
+      <details className="panel series-identity"><summary>Series look</summary><form onSubmit={(event) => { event.preventDefault(); const fields = new FormData(event.currentTarget); saveIdentity.mutate({ cover_image_url: String(fields.get("cover") || "").trim() || null, accent_color: String(fields.get("accent") || "").trim() || null }); }}><label>Cover image URL<input name="cover" type="url" defaultValue={series.coverImageUrl ?? ""} placeholder="https://…" /></label><label>Accent color<input name="accent" defaultValue={series.accentColor ?? "#15803d"} pattern="#[0-9a-fA-F]{6}" /></label><button className="button button-secondary" disabled={saveIdentity.isPending}>{saveIdentity.isPending ? "Saving…" : "Save series look"}</button></form></details>
       <div className="admin-columns">
         <section className="panel" id="members"><h2>Series members</h2><p className="field-hint">Add people individually. Membership applies to rounds you schedule from now on.</p>
           <section className="member-picker"><label>Add a signed-in user<input value={memberSearch} placeholder="Name or email" onChange={(event) => setMemberSearch(event.target.value)} /></label>
@@ -135,6 +144,7 @@ export function AdminSeriesPage() {
           <label>Closes<input type="datetime-local" min={selectedOpensAt || undefined} value={selectedClosesAt} required onChange={(event) => { setCloseEdited(true); setClosesAt(event.target.value); if (monthly && !publishEdited) setPublishAt(""); }} /></label>
           <label>Publishes<input type="datetime-local" min={selectedClosesAt || undefined} value={selectedPublishAt} required onChange={(event) => { setPublishEdited(true); setPublishAt(event.target.value); }} /></label>
           <label>Submissions per contributor<input type="number" min="0" value={submissionLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>
+          <label>Prompt <span className="field-hint">Optional</span><textarea value={prompt} maxLength={2000} onChange={(event) => setPrompt(event.target.value)} placeholder="A theme, question, or loose idea for this round." /></label>
           <p className="field-hint">{currentMembers.length ? `${currentMembers.length} current series member${currentMembers.length === 1 ? "" : "s"} will be included.` : "Add members before scheduling this round."}</p>
           <PolicyEditor value={policies} onChange={setPolicies} />
           <button className="button" disabled={createRound.isPending || currentMembers.length === 0}>{createRound.isPending ? "Scheduling…" : "Schedule round"}</button>
@@ -142,6 +152,7 @@ export function AdminSeriesPage() {
         </form></section>
       </div>
       <section className="panel admin-history" id="history"><h2>Rounds</h2>{series.rounds.length === 0 ? <p>No rounds are scheduled yet.</p> : <div className="admin-items">{series.rounds.map((round) => <article key={round.id}><div><span className={`status ${round.status}`}>{round.status}</span><strong>{round.title}</strong><span>Opens {formatDate(round.opensAt)} · closes {formatDate(round.closesAt)}</span></div><Link to={`/admin/rounds/${round.id}`}>Manage contributors</Link></article>)}</div>}</section>
+      <InvitePanel seriesId={series.id} />
       <HistoricalImportPanel seriesId={series.id} onImported={invalidate} />
       <ConfirmDialog open={Boolean(memberToRemove)} title="Remove this member?" description={<>They will remain part of already-created rounds, but will not be added to future rounds in {series.name}.</>} confirmLabel="Remove member" isPending={removeMember.isPending} onOpenChange={(open) => { if (!open && !removeMember.isPending) setMemberToRemove(null); }} onConfirm={() => { if (memberToRemove) removeMember.mutate(memberToRemove.id); }} />
     </main>

@@ -1,8 +1,8 @@
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
-import { api, patch, post } from "../../api/client";
+import { api, patch, post, put } from "../../api/client";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
@@ -15,8 +15,10 @@ import {
   type Round,
   type SubmissionCreate,
   type SubmissionResult,
+  type SubmissionDraft,
   type Track,
   type TrackEvaluationRequest,
+  trackFromInput,
 } from "./types";
 
 export function SubmissionPage() {
@@ -47,6 +49,8 @@ export function SubmissionPage() {
     queryFn: () => api<Evidence>(`/rounds/${roundId}/tracks/${evaluation.data?.trackId}/evidence`),
     enabled: Boolean(roundId && evaluation.data?.trackId),
   });
+  const draft = useQuery({ queryKey: ["submission-draft", roundId], queryFn: () => api<SubmissionDraft>(`/rounds/${roundId}/draft`), enabled: Boolean(roundId && !replaceId), retry: false });
+  const suggestions = useQuery({ queryKey: ["listening-suggestions", roundId], queryFn: () => api<Array<{ name: string; artist: string }>>(`/rounds/${roundId}/listening-suggestions`), enabled: Boolean(roundId && !replaceId), retry: false });
   const submission = useMutation({
     mutationFn: () => {
       if (!selected) throw new Error("Select a track before submitting.");
@@ -81,6 +85,21 @@ export function SubmissionPage() {
     evaluation.mutate(track);
   }
 
+  useEffect(() => {
+    if (!selected && draft.data?.track) {
+      chooseTrack(trackFromInput(draft.data.track));
+      setNote(draft.data.note ?? "");
+    }
+  }, [draft.data]);
+
+  useEffect(() => {
+    if (!roundId || replaceId || !draft.isSuccess) return;
+    const timer = window.setTimeout(() => {
+      void put(`/rounds/${roundId}/draft`, { track: selected ? asTrackInput(selected) : null, note: note || null });
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [draft.isSuccess, note, replaceId, roundId, selected]);
+
   if (round.isLoading) return <main className="shell narrow-page-shell"><StatePanel kind="loading" title="Preparing your submission">Loading the round’s rules and timing.</StatePanel></main>;
   if (round.isError || !round.data) return <main className="shell narrow-page-shell"><StatePanel kind="error" title="Round unavailable"><Link to="/">Return to your rounds</Link></StatePanel></main>;
   if (round.data.status !== "open") return <main className="shell narrow-page-shell"><StatePanel title="This round is not accepting submissions">It closes {formatDate(round.data.closesAt)}. <Link to={`/rounds/${roundId}`}>View round</Link></StatePanel></main>;
@@ -90,9 +109,9 @@ export function SubmissionPage() {
   return (
     <main className="shell submission-shell">
       <Link className="back" to={`/rounds/${roundId}`}>← {round.data.title}</Link>
-      <header className="submission-heading"><p className="eyebrow">Your submission</p><h1>{replaceId ? "Replace your track." : "Choose a track."}</h1><p>{replaceId ? "The new track must pass the same round checks before it replaces your existing submission." : `You have room for ${evaluation.data?.limitRemaining ?? round.data.submissionLimit} submissions in this round.`}</p></header>
+      <header className="submission-heading"><p className="eyebrow">Your submission</p><h1>{replaceId ? "Replace your track." : "Choose a track."}</h1><p>{replaceId ? "The new track must pass the same round checks before it replaces your existing submission." : `You have room for ${evaluation.data?.limitRemaining ?? round.data.submissionLimit} submissions in this round.`}</p>{round.data.prompt && <p className="round-prompt">Prompt: {round.data.prompt}</p>}</header>
       <div className="submission-layout">
-        <TrackSearchPanel query={query} deferredQuery={deferredQuery} isSearching={tracks.isFetching} hasError={tracks.isError} tracks={tracks.data} onQueryChange={setQuery} onSelect={chooseTrack} />
+        <TrackSearchPanel query={query} deferredQuery={deferredQuery} isSearching={tracks.isFetching} hasError={tracks.isError} tracks={tracks.data} onQueryChange={setQuery} onSelect={chooseTrack} suggestions={suggestions.data} onSuggestion={(suggestion) => setQuery(`${suggestion.artist} ${suggestion.name}`)} />
         <SubmissionReviewPanel
           selected={selected}
           isEvaluating={evaluation.isPending}

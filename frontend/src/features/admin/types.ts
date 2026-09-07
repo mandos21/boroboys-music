@@ -10,6 +10,8 @@ export type Series = {
   roundPlan: Record<string, unknown> | null;
   autoStartNextRound: boolean;
   isArchived: boolean;
+  coverImageUrl: string | null;
+  accentColor: string | null;
 };
 
 export type User = {
@@ -34,6 +36,7 @@ export type Round = {
   closesAt: string;
   publishAt: string;
   submissionLimit: number;
+  prompt: string | null;
 };
 
 export type SeriesDetail = Series & { groups: Group[]; rounds: Round[] };

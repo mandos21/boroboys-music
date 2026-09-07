@@ -197,6 +197,8 @@ class Series(UUIDTimestampMixin, Base):
     round_plan: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     auto_start_next_round: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    cover_image_url: Mapped[str | None] = mapped_column(String(1000))
+    accent_color: Mapped[str | None] = mapped_column(String(32))
 
 
 class SeriesAdmin(UUIDTimestampMixin, Base):
@@ -274,6 +276,7 @@ class Round(UUIDTimestampMixin, Base):
         JSONB, default=list, nullable=False
     )
     published_sequence: Mapped[int | None] = mapped_column(Integer)
+    prompt: Mapped[str | None] = mapped_column(Text)
 
 
 class RoundMember(UUIDTimestampMixin, Base):
@@ -326,6 +329,36 @@ class Submission(UUIDTimestampMixin, Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SubmissionDraft(UUIDTimestampMixin, Base):
+    __tablename__ = "submission_drafts"
+    __table_args__ = (UniqueConstraint("round_id", "user_id", name="uq_submission_drafts_round_user"),)
+
+    round_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    track: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class SeriesInvite(UUIDTimestampMixin, Base):
+    __tablename__ = "series_invites"
+    __table_args__ = (UniqueConstraint("token_hash", name="uq_series_invites_token_hash"),)
+
+    series_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("series.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="contributor")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    max_uses: Mapped[int | None] = mapped_column(Integer)
+    use_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class PolicyEvaluation(UUIDTimestampMixin, Base):

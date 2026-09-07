@@ -9,10 +9,11 @@ from typing import Annotated, Any
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.core.config import get_settings
 from app.db.models import (
     EvaluationDecision,
     EvidenceVisibility,
@@ -27,11 +28,12 @@ from app.db.models import (
     RoundStatus,
     SeriesAdmin,
     Submission,
+    SubmissionDraft,
     SubmissionStatus,
     Track,
     User,
 )
-from app.services import spotify
+from app.services import lastfm, spotify
 from app.services.lifecycle import reconcile_round_status
 from app.services.policies import evaluate_submission
 from app.services.publications import get_spotify_access_token
@@ -67,6 +69,11 @@ class SubmissionUpdate(BaseModel):
     track: TrackInput | None = None
     note: str | None = Field(default=None, max_length=4000)
     confirm_warnings: bool = False
+
+
+class SubmissionDraftUpdate(BaseModel):
+    track: TrackInput | None = None
+    note: str | None = Field(default=None, max_length=4000)
 
 
 class TrackEvaluationRequest(BaseModel):
@@ -126,6 +133,23 @@ def get_round(
             Publication.spotify_playlist_id.is_not(None),
         )
     )
+    submitted_count = int(
+        db.scalar(
+            select(func.count(func.distinct(Submission.contributor_id))).where(
+                Submission.round_id == round_.id,
+                Submission.status == SubmissionStatus.ACCEPTED,
+            )
+        )
+        or 0
+    )
+    contributor_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(RoundMember)
+            .where(RoundMember.round_id == round_.id, RoundMember.removed_at.is_(None))
+        )
+        or 0
+    )
     return {
         "id": str(round_.id),
         "seriesId": str(round_.series_id),
@@ -136,7 +160,66 @@ def get_round(
         "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": limit,
         "spotifyPlaylistUrl": f"https://open.spotify.com/playlist/{playlist_id}" if playlist_id else None,
+        "prompt": round_.prompt,
+        "submittedCount": submitted_count,
+        "contributorCount": contributor_count,
     }
+
+
+@router.get("/{round_id}/draft")
+def get_submission_draft(
+    round_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    _member_round(db, round_id, user.id)
+    draft = db.scalar(
+        select(SubmissionDraft).where(SubmissionDraft.round_id == round_id, SubmissionDraft.user_id == user.id)
+    )
+    return {"track": draft.track if draft else None, "note": draft.note if draft else None}
+
+
+@router.put("/{round_id}/draft", dependencies=[Depends(require_csrf)])
+def save_submission_draft(
+    round_id: uuid.UUID,
+    payload: SubmissionDraftUpdate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    round_, _ = _member_round(db, round_id, user.id)
+    _require_open_round(round_)
+    draft = db.scalar(
+        select(SubmissionDraft).where(SubmissionDraft.round_id == round_id, SubmissionDraft.user_id == user.id)
+    )
+    if draft is None:
+        draft = SubmissionDraft(round_id=round_id, user_id=user.id)
+        db.add(draft)
+    draft.track = payload.track.model_dump() if payload.track else None
+    draft.note = payload.note
+    db.commit()
+    return {"track": draft.track, "note": draft.note}
+
+
+@router.get("/{round_id}/listening-suggestions")
+def get_listening_suggestions(
+    round_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, str]]:
+    _member_round(db, round_id, user.id)
+    account = db.scalar(
+        select(ExternalAccount).where(
+            ExternalAccount.user_id == user.id,
+            ExternalAccount.provider == ExternalProvider.LASTFM,
+            ExternalAccount.is_active.is_(True),
+        )
+    )
+    if account is None:
+        return []
+    try:
+        return lastfm.monthly_top_tracks(get_settings(), account.provider_subject)
+    except (httpx.HTTPError, lastfm.LastfmError, ValueError):
+        return []
 
 
 @router.get("/{round_id}/submissions")
@@ -402,6 +485,12 @@ def create_submission(
         )
         for item in decisions
     )
+    db.execute(
+        delete(SubmissionDraft).where(
+            SubmissionDraft.round_id == round_.id,
+            SubmissionDraft.user_id == user.id,
+        )
+    )
     db.commit()
     defer_evidence_refresh(str(round_.id), str(track.id))
     return {
@@ -462,6 +551,13 @@ def update_submission(
         )
     if "note" in payload.model_fields_set:
         submission.note = payload.note
+    if payload.track is not None:
+        db.execute(
+            delete(SubmissionDraft).where(
+                SubmissionDraft.round_id == round_.id,
+                SubmissionDraft.user_id == user.id,
+            )
+        )
     db.commit()
     if payload.track is not None:
         defer_evidence_refresh(str(round_.id), str(submission.track_id))

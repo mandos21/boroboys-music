@@ -109,6 +109,41 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InviteCreate": {
+        "properties": {
+          "expires_in_days": {
+            "default": 7,
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Expires In Days",
+            "type": "integer"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "role": {
+            "default": "contributor",
+            "enum": [
+              "contributor",
+              "admin"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "title": "InviteCreate",
+        "type": "object"
+      },
       "PlaylistImportRequest": {
         "properties": {
           "closes_at": {
@@ -284,6 +319,18 @@
             ],
             "title": "Policy Snapshot"
           },
+          "prompt": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
           "publish_at": {
             "format": "date-time",
             "title": "Publish At",
@@ -366,6 +413,18 @@
             ],
             "title": "Opens At"
           },
+          "prompt": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
           "publish_at": {
             "anyOf": [
               {
@@ -409,10 +468,34 @@
       },
       "SeriesCreate": {
         "properties": {
+          "accent_color": {
+            "anyOf": [
+              {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accent Color"
+          },
           "auto_start_next_round": {
             "default": true,
             "title": "Auto Start Next Round",
             "type": "boolean"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
           },
           "default_policies": {
             "items": {
@@ -486,6 +569,18 @@
       "SeriesUpdate": {
         "description": "Mutable series defaults; existing materialized rounds are not rewritten.",
         "properties": {
+          "accent_color": {
+            "anyOf": [
+              {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accent Color"
+          },
           "auto_start_next_round": {
             "anyOf": [
               {
@@ -496,6 +591,18 @@
               }
             ],
             "title": "Auto Start Next Round"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
           },
           "default_policies": {
             "anyOf": [
@@ -615,6 +722,34 @@
           "track"
         ],
         "title": "SubmissionCreate",
+        "type": "object"
+      },
+      "SubmissionDraftUpdate": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "track": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SubmissionDraftUpdate",
         "type": "object"
       },
       "SubmissionUpdate": {
@@ -1607,6 +1742,61 @@
         ]
       }
     },
+    "/api/v1/admin/series/{series_id}/invites": {
+      "post": {
+        "operationId": "create_series_invite_api_v1_admin_series__series_id__invites_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Series Invite Api V1 Admin Series  Series Id  Invites Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Series Invite",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
     "/api/v1/admin/series/{series_id}/members": {
       "get": {
         "description": "Expose the union of configured contributor groups as a simple member list.",
@@ -2474,6 +2664,104 @@
         ]
       }
     },
+    "/api/v1/rounds/{round_id}/draft": {
+      "get": {
+        "operationId": "get_submission_draft_api_v1_rounds__round_id__draft_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Submission Draft Api V1 Rounds  Round Id  Draft Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Submission Draft",
+        "tags": [
+          "rounds"
+        ]
+      },
+      "put": {
+        "operationId": "save_submission_draft_api_v1_rounds__round_id__draft_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionDraftUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Submission Draft Api V1 Rounds  Round Id  Draft Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Submission Draft",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
     "/api/v1/rounds/{round_id}/evaluate-track": {
       "post": {
         "description": "Evaluate a candidate before a contributor confirms a submission.",
@@ -2525,6 +2813,56 @@
           }
         },
         "summary": "Evaluate Track",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
+    "/api/v1/rounds/{round_id}/listening-suggestions": {
+      "get": {
+        "operationId": "get_listening_suggestions_api_v1_rounds__round_id__listening_suggestions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "title": "Response Get Listening Suggestions Api V1 Rounds  Round Id  Listening Suggestions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Listening Suggestions",
         "tags": [
           "rounds"
         ]
@@ -2768,6 +3106,50 @@
           }
         },
         "summary": "List My Series",
+        "tags": [
+          "series"
+        ]
+      }
+    },
+    "/api/v1/series/invites/{token}/accept": {
+      "post": {
+        "operationId": "accept_series_invite_api_v1_series_invites__token__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Accept Series Invite Api V1 Series Invites  Token  Accept Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Series Invite",
         "tags": [
           "series"
         ]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import delete, func, or_, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.core.config import get_settings
+from app.core.security import hash_secret, new_secret
 from app.db.models import (
     AuditEvent,
     ContributorGroup,
@@ -26,9 +28,11 @@ from app.db.models import (
     RoundStatus,
     Series,
     SeriesAdmin,
+    SeriesInvite,
     User,
 )
 from app.services.lifecycle import reconcile_round_status, status_for_timeline
+from app.services.membership import ensure_default_series_membership
 from app.services.publications import (
     PublicationError,
     import_historical_playlist,
@@ -86,6 +90,8 @@ class SeriesCreate(BaseModel):
     default_policies: list[dict[str, Any]] = Field(default_factory=list)
     round_plan: RoundPlan | None = None
     auto_start_next_round: bool = True
+    cover_image_url: str | None = Field(default=None, max_length=1000)
+    accent_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
 
     @field_validator("timezone")
     @classmethod
@@ -107,6 +113,8 @@ class SeriesUpdate(BaseModel):
     round_plan: RoundPlan | None = None
     auto_start_next_round: bool | None = None
     is_archived: bool | None = None
+    cover_image_url: str | None = Field(default=None, max_length=1000)
+    accent_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
 
     @field_validator("timezone")
     @classmethod
@@ -136,6 +144,7 @@ class RoundCreate(BaseModel):
     contributor_group_ids: list[uuid.UUID] = Field(default_factory=list)
     contributor_user_ids: list[uuid.UUID] = Field(default_factory=list)
     policy_snapshot: list[dict[str, Any]] | None = None
+    prompt: str | None = Field(default=None, max_length=2000)
 
     @field_validator("timezone")
     @classmethod
@@ -169,6 +178,13 @@ class RoundUpdate(BaseModel):
     closes_at: datetime | None = None
     publish_at: datetime | None = None
     submission_limit: int | None = Field(default=None, ge=0)
+    prompt: str | None = Field(default=None, max_length=2000)
+
+
+class InviteCreate(BaseModel):
+    expires_in_days: int = Field(default=7, ge=1, le=90)
+    role: Literal["contributor", "admin"] = "contributor"
+    max_uses: int | None = Field(default=None, ge=1, le=500)
 
 
 class PublishRequest(BaseModel):
@@ -280,6 +296,8 @@ def update_series(
         "round_plan",
         "auto_start_next_round",
         "is_archived",
+        "cover_image_url",
+        "accent_color",
     ):
         if field not in payload.model_fields_set:
             continue
@@ -401,9 +419,37 @@ def create_series(
     db.add(series)
     db.flush()
     db.add(SeriesAdmin(series_id=series.id, user_id=user.id))
-    _ensure_series_member(db, series.id, user.id)
+    ensure_default_series_membership(db, series.id, user.id)
     db.commit()
     return {"id": str(series.id), "slug": series.slug}
+
+
+@router.post("/series/{series_id}/invites", status_code=status.HTTP_201_CREATED)
+def create_series_invite(
+    series_id: uuid.UUID,
+    payload: InviteCreate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    _require_series_admin(db, user, series_id)
+    token = new_secret()
+    invite = SeriesInvite(
+        series_id=series_id,
+        created_by_id=user.id,
+        token_hash=hash_secret(token),
+        role=payload.role,
+        expires_at=datetime.now(UTC) + timedelta(days=payload.expires_in_days),
+        max_uses=payload.max_uses,
+    )
+    db.add(invite)
+    db.commit()
+    return {
+        "id": str(invite.id),
+        "url": f"{str(get_settings().app_base_url).rstrip('/')}/invites/{token}",
+        "expiresAt": invite.expires_at.isoformat(),
+        "role": invite.role,
+        "maxUses": invite.max_uses,
+    }
 
 
 @router.post("/series/{series_id}/import-spotify-playlist", status_code=status.HTTP_201_CREATED)
@@ -454,7 +500,7 @@ def add_series_admin(
     ):
         return
     db.add(SeriesAdmin(series_id=series_id, user_id=user_id))
-    _ensure_series_member(db, series_id, user_id)
+    ensure_default_series_membership(db, series_id, user_id)
     db.commit()
 
 
@@ -530,6 +576,7 @@ def create_round(
         policy_snapshot=payload.policy_snapshot
         if payload.policy_snapshot is not None
         else series.default_policies,
+        prompt=payload.prompt,
     )
     db.add(round_)
     db.flush()
@@ -582,6 +629,8 @@ def update_round(
         round_.title = payload.title
     if payload.submission_limit is not None:
         round_.submission_limit = payload.submission_limit
+    if "prompt" in payload.model_fields_set:
+        round_.prompt = payload.prompt
     round_.opens_at, round_.closes_at, round_.publish_at = opens_at, closes_at, publish_at
     round_.status = status_for_timeline(opens_at, closes_at)
     db.commit()
@@ -845,27 +894,6 @@ def _require_platform_admin(user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="platform admin required")
 
 
-def _ensure_series_member(db: DbSession, series_id: uuid.UUID, user_id: uuid.UUID) -> None:
-    """Include a new series administrator by default without coupling access to membership."""
-    group = db.scalar(
-        select(ContributorGroup).where(
-            ContributorGroup.series_id == series_id,
-            ContributorGroup.name == "Series members",
-        )
-    )
-    if group is None:
-        group = ContributorGroup(series_id=series_id, name="Series members")
-        db.add(group)
-        db.flush()
-    if db.scalar(
-        select(ContributorGroupMember).where(
-            ContributorGroupMember.group_id == group.id,
-            ContributorGroupMember.user_id == user_id,
-        )
-    ) is None:
-        db.add(ContributorGroupMember(group_id=group.id, user_id=user_id))
-
-
 def _require_series_admin(db: DbSession, user: User, series_id: uuid.UUID) -> Series:
     series = db.get(Series, series_id)
     if series is None:
@@ -904,6 +932,8 @@ def _series_summary(series: Series) -> dict[str, object]:
         "roundPlan": series.round_plan,
         "autoStartNextRound": series.auto_start_next_round,
         "isArchived": series.is_archived,
+        "coverImageUrl": series.cover_image_url,
+        "accentColor": series.accent_color,
     }
 
 
@@ -916,6 +946,7 @@ def _round_summary(round_: Round) -> dict[str, object]:
         "closesAt": round_.closes_at.isoformat(),
         "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": round_.submission_limit,
+        "prompt": round_.prompt,
     }
 
 

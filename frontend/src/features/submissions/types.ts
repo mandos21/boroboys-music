@@ -8,6 +8,9 @@ export type Round = {
   closesAt: string;
   publishAt: string;
   submissionLimit: number;
+  prompt: string | null;
+  submittedCount: number;
+  contributorCount: number;
 };
 
 export type Track = {
@@ -55,6 +58,7 @@ export type SubmissionResult = {
 export type TrackInput = components["schemas"]["TrackInput"];
 export type TrackEvaluationRequest = components["schemas"]["TrackEvaluationRequest"];
 export type SubmissionCreate = components["schemas"]["SubmissionCreate"];
+export type SubmissionDraft = { track: TrackInput | null; note: string | null };
 
 export function asTrackInput(track: Track): TrackInput {
   return {
@@ -65,5 +69,17 @@ export function asTrackInput(track: Track): TrackInput {
     spotify_uri: track.spotifyUri,
     artwork_url: track.artworkUrl,
     provider_metadata: track.providerMetadata,
+  };
+}
+
+export function trackFromInput(track: TrackInput): Track {
+  return {
+    spotifyTrackId: track.spotify_track_id,
+    name: track.name,
+    artist: track.artist,
+    album: track.album ?? null,
+    spotifyUri: track.spotify_uri ?? null,
+    artworkUrl: track.artwork_url ?? null,
+    providerMetadata: track.provider_metadata ?? {},
   };
 }

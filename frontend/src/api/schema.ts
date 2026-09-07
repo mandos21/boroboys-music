@@ -235,6 +235,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/series/{series_id}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Series Invite */
+        post: operations["create_series_invite_api_v1_admin_series__series_id__invites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/series/{series_id}/members": {
         parameters: {
             query?: never;
@@ -585,6 +602,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rounds/{round_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Submission Draft */
+        get: operations["get_submission_draft_api_v1_rounds__round_id__draft_get"];
+        /** Save Submission Draft */
+        put: operations["save_submission_draft_api_v1_rounds__round_id__draft_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rounds/{round_id}/evaluate-track": {
         parameters: {
             query?: never;
@@ -599,6 +634,23 @@ export interface paths {
          * @description Evaluate a candidate before a contributor confirms a submission.
          */
         post: operations["evaluate_track_api_v1_rounds__round_id__evaluate_track_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rounds/{round_id}/listening-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Listening Suggestions */
+        get: operations["get_listening_suggestions_api_v1_rounds__round_id__listening_suggestions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -678,6 +730,23 @@ export interface paths {
         get: operations["list_my_series_api_v1_series_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/invites/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Series Invite */
+        post: operations["accept_series_invite_api_v1_series_invites__token__accept_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -766,6 +835,22 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InviteCreate */
+        InviteCreate: {
+            /**
+             * Expires In Days
+             * @default 7
+             */
+            expires_in_days: number;
+            /** Max Uses */
+            max_uses?: number | null;
+            /**
+             * Role
+             * @default contributor
+             * @enum {string}
+             */
+            role: "contributor" | "admin";
+        };
         /** PlaylistImportRequest */
         PlaylistImportRequest: {
             /**
@@ -845,6 +930,8 @@ export interface components {
             policy_snapshot?: {
                 [key: string]: unknown;
             }[] | null;
+            /** Prompt */
+            prompt?: string | null;
             /**
              * Publish At
              * Format: date-time
@@ -873,6 +960,8 @@ export interface components {
             closes_at?: string | null;
             /** Opens At */
             opens_at?: string | null;
+            /** Prompt */
+            prompt?: string | null;
             /** Publish At */
             publish_at?: string | null;
             /** Submission Limit */
@@ -882,11 +971,15 @@ export interface components {
         };
         /** SeriesCreate */
         SeriesCreate: {
+            /** Accent Color */
+            accent_color?: string | null;
             /**
              * Auto Start Next Round
              * @default true
              */
             auto_start_next_round: boolean;
+            /** Cover Image Url */
+            cover_image_url?: string | null;
             /** Default Policies */
             default_policies?: {
                 [key: string]: unknown;
@@ -910,8 +1003,12 @@ export interface components {
          * @description Mutable series defaults; existing materialized rounds are not rewritten.
          */
         SeriesUpdate: {
+            /** Accent Color */
+            accent_color?: string | null;
             /** Auto Start Next Round */
             auto_start_next_round?: boolean | null;
+            /** Cover Image Url */
+            cover_image_url?: string | null;
             /** Default Policies */
             default_policies?: {
                 [key: string]: unknown;
@@ -937,6 +1034,12 @@ export interface components {
             /** Note */
             note?: string | null;
             track: components["schemas"]["TrackInput"];
+        };
+        /** SubmissionDraftUpdate */
+        SubmissionDraftUpdate: {
+            /** Note */
+            note?: string | null;
+            track?: components["schemas"]["TrackInput"] | null;
         };
         /**
          * SubmissionUpdate
@@ -1567,6 +1670,43 @@ export interface operations {
             };
         };
     };
+    create_series_invite_api_v1_admin_series__series_id__invites_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_series_members_api_v1_admin_series__series_id__members_get: {
         parameters: {
             query?: never;
@@ -2157,6 +2297,76 @@ export interface operations {
             };
         };
     };
+    get_submission_draft_api_v1_rounds__round_id__draft_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_submission_draft_api_v1_rounds__round_id__draft_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionDraftUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     evaluate_track_api_v1_rounds__round_id__evaluate_track_post: {
         parameters: {
             query?: never;
@@ -2181,6 +2391,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_suggestions_api_v1_rounds__round_id__listening_suggestions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    }[];
                 };
             };
             /** @description Validation Error */
@@ -2351,6 +2594,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     }[];
+                };
+            };
+        };
+    };
+    accept_series_invite_api_v1_series_invites__token__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

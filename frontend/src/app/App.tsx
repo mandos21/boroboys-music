@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import type { CSSProperties } from "react";
 import { ChevronRight, ListMusic, Sparkles } from "lucide-react";
-import { Link, Navigate, Route, Routes, useSearchParams } from "react-router";
+import { Link, Navigate, Route, Routes, useParams, useSearchParams } from "react-router";
 
-import { api } from "../api/client";
+import { api, post } from "../api/client";
 import { AppShell } from "../components/layout/AppShell";
 import { StatePanel } from "../components/ui/StatePanel";
 import { ToastProvider } from "../components/ui/ToastProvider";
@@ -13,8 +14,16 @@ import { SubmissionPage } from "../features/submissions/SubmissionPage";
 import { formatDate } from "../lib/format";
 
 type Session = { user: { id: string; email: string | null; displayName: string | null; platformRole: string } };
-type RoundPreview = { id: string; title: string; status: string; opensAt: string; closesAt: string; publishAt: string; submittedCount: number; contributorCount: number };
-type SeriesPreview = { id: string; name: string; description: string | null; isAdmin: boolean; featuredRound: RoundPreview | null };
+type RoundPreview = { id: string; title: string; status: string; opensAt: string; closesAt: string; publishAt: string; submittedCount: number; contributorCount: number; prompt: string | null };
+type SeriesPreview = { id: string; name: string; description: string | null; isAdmin: boolean; coverImageUrl: string | null; accentColor: string | null; featuredRound: RoundPreview | null };
+
+function seriesAccent(series: SeriesPreview) {
+  if (series.accentColor) return series.accentColor;
+  // A stable companion color without processing remote artwork in the browser.
+  const seed = series.coverImageUrl ?? series.name;
+  const hash = [...seed].reduce((value, character) => (value * 31 + character.charCodeAt(0)) >>> 0, 7);
+  return ["#15803d", "#0f766e", "#4d7c0f", "#9a3412", "#7e22ce"][hash % 5];
+}
 
 function HomePage() {
   const session = useQuery({ queryKey: ["session"], queryFn: () => api<Session>("/auth/session"), retry: false });
@@ -53,18 +62,22 @@ function FeaturedOpenSeries({ series }: { series: SeriesPreview }) {
   const round = series.featuredRound;
   if (!round) return null;
   return (
-    <article className="featured-open-series">
+    <article className="featured-open-series" style={{ "--series-accent": seriesAccent(series), "--series-cover": series.coverImageUrl ? `url(${series.coverImageUrl})` : "none" } as CSSProperties}>
       <Link aria-label={`Open ${series.name}`} className="featured-open-series-link" to={`/series/${series.id}`} />
       <div className="featured-open-series-copy">
         <p className="eyebrow">Open now</p>
         <h2>{series.name}</h2>
         <p>{series.description ?? "A place to trade what you have been listening to."}</p>
+        <p className="next-action">Your next step: pick a track for this round.</p>
       </div>
+      <span className="round-pulse" aria-label="Round is open"><i /><i /><i /></span>
       <Link className="featured-open-series-round" to={`/rounds/${round.id}`}>
         <span>Current round</span>
         <strong>{round.title}</strong>
         <small>{round.submittedCount} of {round.contributorCount} people have submitted</small>
+        <progress aria-label={`${round.submittedCount} of ${round.contributorCount} contributors have submitted`} max={Math.max(round.contributorCount, 1)} value={round.submittedCount} />
         <small>Closes {formatDate(round.closesAt)}</small>
+        {round.prompt && <small className="featured-prompt">Prompt: {round.prompt}</small>}
       </Link>
     </article>
   );
@@ -75,12 +88,12 @@ function SeriesCard({ series }: { series: SeriesPreview }) {
   const isActive = round && round.status !== "published";
   const isOpen = round?.status === "open";
   return (
-    <article className="series-card">
+    <article className="series-card" style={{ "--series-accent": seriesAccent(series), "--series-cover": series.coverImageUrl ? `url(${series.coverImageUrl})` : "none" } as CSSProperties}>
       <Link aria-label={`Open ${series.name}`} className="series-card-link-to-series" to={`/series/${series.id}`} />
-      <div className="series-card-heading"><div><h3>{series.name}</h3></div>{round && <span className={`status ${round.status}`}>{round.status}</span>}</div>
+      <div className="series-card-heading"><div><h3>{series.name}</h3></div><span>{isOpen && <span className="round-pulse compact" aria-label="Round is open"><i /><i /><i /></span>}{round && <span className={`status ${round.status}`}>{round.status}</span>}</span></div>
       <p>{series.description ?? "A place to trade what you have been listening to."}</p>
       {round ? (
-        <Link className="series-card-round series-card-round-link" to={`/rounds/${round.id}`}><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isOpen ? <>{round.submittedCount} of {round.contributorCount} people have submitted · closes {formatDate(round.closesAt)}</> : isActive ? <>Opens {formatDate(round.opensAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small></Link>
+        <Link className="series-card-round series-card-round-link" to={`/rounds/${round.id}`}><span>{isActive ? "Current round" : "Latest release"}</span><strong>{round.title}</strong><small>{isOpen ? <>{round.submittedCount} of {round.contributorCount} people have submitted · closes {formatDate(round.closesAt)}</> : isActive ? <>Opens {formatDate(round.opensAt)}</> : <>Released {formatDate(round.publishAt)}</>}</small>{isOpen && <progress aria-label={`${round.submittedCount} of ${round.contributorCount} contributors have submitted`} max={Math.max(round.contributorCount, 1)} value={round.submittedCount} />}{round.prompt && <small className="featured-prompt">Prompt: {round.prompt}</small>}{!isActive && <small className="now-spinning"><span>Now spinning</span><strong>{round.title}</strong></small>}</Link>
       ) : <div className="series-card-round series-card-empty"><span>No rounds yet</span><small>Its first listening window will show up here.</small></div>}
     </article>
   );
@@ -92,6 +105,16 @@ function LandingPage() {
 
 function LoadingPage({ message }: { message: string }) { return <main className="shell page-shell"><StatePanel kind="loading" title={message}>Checking your session and available series.</StatePanel></main>; }
 function SignedOutPage() { return <main className="shell narrow-page-shell"><StatePanel title="You’ve been signed out">Thanks for spending time with your group. <Link to="/">Return to BoroCrew Music</Link></StatePanel></main>; }
+
+function InviteAcceptPage() {
+  const { token } = useParams();
+  const session = useQuery({ queryKey: ["session"], queryFn: () => api<Session>("/auth/session"), retry: false });
+  const accept = useQuery({ queryKey: ["accept-invite", token], queryFn: () => post<{ seriesId: string }>(`/series/invites/${token}/accept`, {}), enabled: Boolean(token && session.isSuccess), retry: false });
+  if (session.isLoading || accept.isLoading) return <main className="shell narrow-page-shell"><StatePanel kind="loading" title="Opening your invite">Adding you to the series.</StatePanel></main>;
+  if (session.isError) return <main className="shell narrow-page-shell"><StatePanel title="Sign in to join this series"><a className="button" href={`/api/v1/auth/login?return=${encodeURIComponent(`/invites/${token}`)}`}>Sign in</a></StatePanel></main>;
+  if (accept.isError || !accept.data) return <main className="shell narrow-page-shell"><StatePanel kind="error" title="This invite is unavailable">It may have expired, been used up, or been revoked.</StatePanel></main>;
+  return <Navigate to={`/series/${accept.data.seriesId}`} replace />;
+}
 
 function AuthErrorPage() {
   const [searchParams] = useSearchParams();
@@ -109,6 +132,7 @@ export function App() {
     <Route path="/rounds/:roundId" element={<ShellRoute><RoundPage /></ShellRoute>} />
     <Route path="/rounds/:roundId/submit" element={<ShellRoute><SubmissionPage /></ShellRoute>} />
     <Route path="/series/:seriesId" element={<ShellRoute><SeriesPage /></ShellRoute>} />
+    <Route path="/invites/:token" element={<ShellRoute><InviteAcceptPage /></ShellRoute>} />
     <Route path="/profile" element={<ShellRoute><ConnectionsPage /></ShellRoute>} />
     <Route path="/settings/connections" element={<Navigate to="/profile" replace />} />
     <Route path="/admin" element={<Navigate to="/" replace />} />

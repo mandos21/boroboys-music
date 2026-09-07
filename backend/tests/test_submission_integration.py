@@ -12,11 +12,14 @@ from sqlalchemy import func, select
 
 from app.api.routes.rounds import (
     SubmissionCreate,
+    SubmissionDraftUpdate,
     SubmissionUpdate,
     TrackEvaluationRequest,
     TrackInput,
     create_submission,
     evaluate_track,
+    get_submission_draft,
+    save_submission_draft,
     update_submission,
 )
 from app.db.models import (
@@ -213,6 +216,56 @@ def test_track_replacement_rechecks_policies_and_preserves_prior_evaluations(
             )
             == 2
         )
+
+
+def test_open_round_drafts_are_restored_for_their_owner() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        contributor = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"draft-contributor-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        series = Series(
+            name=f"Draft series {suffix}",
+            slug=f"draft-series-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((contributor, series))
+        db.flush()
+        round_ = Round(
+            series_id=series.id,
+            title="Draft round",
+            timezone="UTC",
+            submission_limit=3,
+            opens_at=now - timedelta(minutes=5),
+            closes_at=now + timedelta(minutes=5),
+            publish_at=now + timedelta(minutes=10),
+            status=RoundStatus.OPEN,
+            policy_snapshot=[],
+        )
+        db.add(round_)
+        db.flush()
+        db.add(RoundMember(round_id=round_.id, user_id=contributor.id))
+        db.commit()
+
+        track = TrackInput(
+            spotify_track_id=f"draft-track-{suffix}",
+            name="A saved thought",
+            artist="The Testers",
+            album="The album",
+        )
+        saved = save_submission_draft(
+            round_.id,
+            SubmissionDraftUpdate(track=track, note="Come back to this."),
+            db,
+            contributor,
+        )
+        assert saved["note"] == "Come back to this."
+        assert saved["track"] == track.model_dump()
+        assert get_submission_draft(round_.id, db, contributor) == saved
 
 
 def test_recent_series_repeat_only_considers_the_configured_published_window() -> None:

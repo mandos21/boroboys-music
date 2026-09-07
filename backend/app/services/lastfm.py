@@ -17,6 +17,38 @@ class LastfmError(Exception):
     pass
 
 
+def monthly_top_tracks(settings: Settings, username: str, limit: int = 8) -> list[dict[str, str]]:
+    """Return a listener's recent top tracks for voluntary submission suggestions."""
+    if not settings.lastfm_api_key:
+        raise LastfmError("Last.fm is not configured")
+    response = httpx.get(
+        API_URL,
+        params={
+            "method": "user.getTopTracks",
+            "api_key": settings.lastfm_api_key.get_secret_value(),
+            "user": username,
+            "period": "1month",
+            "limit": limit,
+            "format": "json",
+        },
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    container = payload.get("toptracks") if isinstance(payload, dict) else None
+    rows = container.get("track") if isinstance(container, dict) else None
+    if not isinstance(rows, list):
+        return []
+    suggestions: list[dict[str, str]] = []
+    for item in rows:
+        artist = item.get("artist") if isinstance(item, dict) else None
+        artist_name = artist.get("name") if isinstance(artist, dict) else None
+        name = item.get("name") if isinstance(item, dict) else None
+        if isinstance(name, str) and isinstance(artist_name, str):
+            suggestions.append({"name": name, "artist": artist_name})
+    return suggestions
+
+
 def authorization_url(settings: Settings, state: str) -> str:
     callback = f"{settings.lastfm_callback_url}?{urlencode({'state': state})}"
     return f"{AUTH_URL}?{urlencode({'api_key': settings.lastfm_api_key.get_secret_value() if settings.lastfm_api_key else '', 'cb': callback})}"
