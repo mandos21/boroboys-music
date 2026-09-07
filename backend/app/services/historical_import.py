@@ -1,8 +1,7 @@
-"""Validated, local-only import of archived Spotify playlist exports.
+"""Validated import of archived Spotify playlist exports.
 
-The importer intentionally does not talk to Spotify.  The source CSVs already
-contain the stable playlist and track identifiers needed to reconstruct a
-published snapshot exactly, including repeated tracks and its playlist order.
+The source CSVs remain authoritative for playlist content and order.  The CLI
+may additionally provide Spotify-derived artwork URLs for durable display.
 """
 
 from __future__ import annotations
@@ -177,6 +176,7 @@ def import_historical_playlist_bundle(
     publisher_account_id: uuid.UUID,
     oidc_issuer: str,
     plan: HistoricalImportPlan,
+    artwork_by_track_id: dict[str, str] | None = None,
 ) -> HistoricalImportResult:
     """Materialize a fully validated plan in the caller's transaction.
 
@@ -202,7 +202,15 @@ def import_historical_playlist_bundle(
     ) + 1
 
     for sequence, round_plan in enumerate(plan.rounds, start=next_sequence):
-        _import_round(db, series, publisher, users_by_email, round_plan, sequence)
+        _import_round(
+            db,
+            series,
+            publisher,
+            users_by_email,
+            round_plan,
+            sequence,
+            artwork_by_track_id or {},
+        )
     return HistoricalImportResult(
         round_count=plan.playlist_count,
         publication_item_count=plan.playlist_item_count,
@@ -455,6 +463,7 @@ def _import_round(
     users_by_email: dict[str, User],
     plan: HistoricalRoundPlan,
     sequence: int,
+    artwork_by_track_id: dict[str, str],
 ) -> None:
     round_ = Round(
         series_id=series.id,
@@ -491,7 +500,9 @@ def _import_round(
     memberships: dict[uuid.UUID, list[datetime]] = defaultdict(list)
     tracks: dict[str, Track] = {}
     for source in plan.playlist.submissions:
-        track = _find_or_create_track(db, tracks, source, series.timezone)
+        track = _find_or_create_track(
+            db, tracks, source, series.timezone, artwork_by_track_id.get(source.spotify_track_id)
+        )
         for email, submitted_at in zip(source.contributor_emails, source.submitted_at, strict=True):
             contributor = users_by_email[email]
             timestamp = submitted_at.replace(tzinfo=ZoneInfo(series.timezone))
@@ -554,6 +565,7 @@ def _find_or_create_track(
     tracks: dict[str, Track],
     source: HistoricalSubmissionSource,
     timezone: str,
+    artwork_url: str | None,
 ) -> Track:
     track = tracks.get(source.spotify_track_id)
     if track is None:
@@ -566,11 +578,14 @@ def _find_or_create_track(
             artist=source.artist,
             album=source.album,
             spotify_uri=f"spotify:track:{source.spotify_track_id}",
+            artwork_url=artwork_url,
             provider_metadata={"historicalImport": True},
             created_at=first_submitted_at,
             updated_at=first_submitted_at,
         )
         db.add(track)
         db.flush()
+    elif track.artwork_url is None and artwork_url is not None:
+        track.artwork_url = artwork_url
     tracks[source.spotify_track_id] = track
     return track

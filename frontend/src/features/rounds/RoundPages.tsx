@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Clock3, ListMusic, UsersRound } from "lucide-react";
+import { CalendarDays, Clock3, Disc3, ListMusic, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { api, patch, post } from "../../api/client";
@@ -18,6 +18,7 @@ type Round = {
   closesAt: string;
   publishAt: string;
   submissionLimit: number;
+  spotifyPlaylistUrl: string | null;
 };
 
 type Submission = {
@@ -150,6 +151,11 @@ function RoundOverview({ round, mySubmissionCount }: { round: Round; mySubmissio
           <span>{formatDate(round.publishAt)}</span>
         </div>
       </div>
+      {round.spotifyPlaylistUrl && (
+        <a className="history-link" href={round.spotifyPlaylistUrl} target="_blank" rel="noreferrer">
+          Open Spotify playlist
+        </a>
+      )}
       {round.status === "open" && hasCapacity ? (
         <Link className="button" to={`/rounds/${round.id}/submit`}>
           Choose a track
@@ -205,22 +211,24 @@ function RoundSubmissions({
               key={entry.id}
               className={entry.status === "withdrawn" ? "withdrawn" : ""}
             >
-              {entry.track.artworkUrl && <img className="submission-artwork" src={entry.track.artworkUrl} alt="" />}
+              {entry.track.artworkUrl ? <img className="submission-artwork" src={entry.track.artworkUrl} alt="" /> : <span className="submission-artwork submission-artwork-placeholder" aria-label="Album art unavailable"><Disc3 aria-hidden="true" size={22} /></span>}
               <div>
                 <strong>{entry.track.name}</strong>
                 <span>
                   {entry.track.artist}
                   {entry.track.album ? ` · ${entry.track.album}` : ""}
                 </span>
-                <small>Submitted by {entry.contributor.displayName ?? "Unnamed member"}{entry.isMine ? " (you)" : ""}</small>
               </div>
-              {entry.contributor.spotifyProfileImageUrl ? (
-                <img className="contributor-avatar" src={entry.contributor.spotifyProfileImageUrl} alt={`${entry.contributor.displayName ?? "Contributor"}'s Spotify profile`} />
-              ) : (
-                <span className="contributor-avatar contributor-avatar-fallback" aria-label={`${entry.contributor.displayName ?? "Unnamed member"}'s profile`}>
-                  {(entry.contributor.displayName ?? "?").slice(0, 1).toUpperCase()}
-                </span>
-              )}
+              <span className="submission-contributor">
+                <small>Submitted by {entry.contributor.displayName ?? "Unknown listener"}{entry.isMine ? " (you)" : ""}</small>
+                {entry.contributor.spotifyProfileImageUrl ? (
+                  <img className="contributor-avatar" src={entry.contributor.spotifyProfileImageUrl} alt={`${entry.contributor.displayName ?? "Contributor"}'s Spotify profile`} />
+                ) : (
+                  <span className="contributor-avatar contributor-avatar-fallback" aria-label={`${entry.contributor.displayName ?? "Unknown listener"}'s profile`}>
+                    {(entry.contributor.displayName ?? "?").slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </span>
               {entry.note && <p>{entry.note}</p>}
               {entry.isMine && entry.status === "accepted" && roundIsOpen && (
                 <details>

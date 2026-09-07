@@ -1,4 +1,8 @@
-"""Import a private historical playlist CSV bundle into an existing series."""
+"""Import a private historical playlist CSV bundle into an existing series.
+
+Spotify is queried only to cache durable album-art URLs alongside the imported
+tracks; the source CSV remains authoritative for playlist content and order.
+"""
 
 from __future__ import annotations
 
@@ -7,11 +11,14 @@ import sys
 import uuid
 from pathlib import Path
 
+import httpx
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db.models import Series
 from app.db.session import get_session_factory
+from app.services import spotify
 from app.services.historical_import import (
     HistoricalImportError,
     HistoricalImportPlan,
@@ -19,6 +26,7 @@ from app.services.historical_import import (
     load_historical_import_plan,
     validate_historical_import_target,
 )
+from app.services.publications import PublicationError, get_spotify_access_token
 
 
 def main() -> int:
@@ -71,11 +79,12 @@ def main() -> int:
             if args.dry_run:
                 _print_plan(plan)
                 return 0
+            artwork_by_track_id = _spotify_artwork_by_track_id(db, args.publisher_account_id, plan)
             result = import_historical_playlist_bundle(
-                db, args.series_slug, args.publisher_account_id, issuer, plan
+                db, args.series_slug, args.publisher_account_id, issuer, plan, artwork_by_track_id
             )
             db.commit()
-    except HistoricalImportError as error:
+    except (HistoricalImportError, PublicationError, spotify.SpotifyError, httpx.HTTPError) as error:
         print(f"Historical import refused: {error}", file=sys.stderr)
         return 2
 
@@ -98,6 +107,26 @@ def _print_plan(plan: HistoricalImportPlan) -> None:
         f"Round types: {kind_counts['monthly']} monthly, {kind_counts['year_end']} end-of-year. "
         "No data was written."
     )
+
+
+def _spotify_artwork_by_track_id(
+    db: Session, publisher_account_id: uuid.UUID, plan: HistoricalImportPlan
+) -> dict[str, str]:
+    """Fetch durable album art while the importer still has a Spotify credential."""
+    token = get_spotify_access_token(db, publisher_account_id)
+    artwork: dict[str, str] = {}
+    for round_plan in plan.rounds:
+        snapshot = spotify.playlist_snapshot(token, round_plan.playlist.spotify_playlist_id)
+        for track in snapshot["items"]:
+            if not isinstance(track, dict) or not isinstance(track.get("id"), str):
+                continue
+            album = track.get("album")
+            images = album.get("images") if isinstance(album, dict) else None
+            if isinstance(images, list) and images and isinstance(images[0], dict):
+                url = images[0].get("url")
+                if isinstance(url, str):
+                    artwork[track["id"]] = url
+    return artwork
 
 
 if __name__ == "__main__":

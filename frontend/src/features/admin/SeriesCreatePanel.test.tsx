@@ -22,6 +22,6 @@ describe("SeriesCreatePanel", () => {
     await user.type(screen.getByLabelText("Name"), "Monthly favorites");
     await user.click(screen.getByText("Advanced options"));
 
-    expect((screen.getByLabelText("URL name") as HTMLInputElement).value).toBe("monthly-favorites");
+    expect((screen.getByLabelText(/URL name/) as HTMLInputElement).value).toBe("monthly-favorites");
   });
 });

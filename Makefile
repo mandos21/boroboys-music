@@ -3,7 +3,7 @@
 POETRY_VERSION ?= 2.1.1
 POETRY ?= $(shell command -v poetry 2>/dev/null || printf '%s/.local/bin/poetry' "$(HOME)")
 
-.PHONY: help setup dev-setup bootstrap db-up db-down migrate task-schema api worker web api-contract test lint typecheck verify history-dry-run history-import docker-env docker-build docker-up docker-down docker-logs
+.PHONY: help setup dev-setup bootstrap db-up db-down migrate task-schema api worker web api-contract test lint typecheck verify history-dry-run history-import history-artwork docker-env docker-build docker-up docker-down docker-logs
 
 help: ## Show commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-16s %s\n", $$1, $$2}'
@@ -78,6 +78,10 @@ history-import: ## Import private history (also set CONFIRM_HISTORICAL_IMPORT=ye
 	@test -n "$(PUBLISHER_ACCOUNT_ID)" || (echo "PUBLISHER_ACCOUNT_ID is required" >&2; exit 2)
 	@test -n "$(IDENTITY_MAP)" || (echo "IDENTITY_MAP is required" >&2; exit 2)
 	cd backend && "$(POETRY)" run python -m app.cli.import_historical_playlists --series-slug "$(SERIES_SLUG)" --publisher-account-id "$(PUBLISHER_ACCOUNT_ID)" --playlist-dir ../playlist_rounds --identity-map "$(IDENTITY_MAP)"
+
+history-artwork: ## Cache album art for existing imported tracks (requires PUBLISHER_ACCOUNT_ID)
+	@test -n "$(PUBLISHER_ACCOUNT_ID)" || (echo "PUBLISHER_ACCOUNT_ID is required" >&2; exit 2)
+	cd backend && "$(POETRY)" run python -m app.cli.backfill_track_artwork --publisher-account-id "$(PUBLISHER_ACCOUNT_ID)"
 
 docker-env: ## Create a local Docker environment file if needed
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example; review local secrets before starting"; fi

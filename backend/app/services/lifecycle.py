@@ -36,6 +36,33 @@ def reconcile_rounds(db: Session, now: datetime | None = None) -> int:
     return changed
 
 
+def reconcile_round_status(round_: Round, now: datetime | None = None) -> bool:
+    """Bring one mutable round in line with its timeline without a worker."""
+    if round_.status not in {RoundStatus.SCHEDULED, RoundStatus.OPEN}:
+        return False
+    instant = now or datetime.now(UTC)
+    expected = (
+        RoundStatus.SCHEDULED
+        if instant < round_.opens_at
+        else RoundStatus.OPEN
+        if instant < round_.closes_at
+        else RoundStatus.CLOSED
+    )
+    if round_.status is expected:
+        return False
+    round_.status = expected
+    return True
+
+
+def status_for_timeline(
+    opens_at: datetime, closes_at: datetime, now: datetime | None = None
+) -> RoundStatus:
+    instant = now or datetime.now(UTC)
+    if instant < opens_at:
+        return RoundStatus.SCHEDULED
+    return RoundStatus.OPEN if instant < closes_at else RoundStatus.CLOSED
+
+
 def create_successor(
     db: Session, published_round: Round, now: datetime | None = None
 ) -> Round | None:

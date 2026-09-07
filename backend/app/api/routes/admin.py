@@ -28,6 +28,7 @@ from app.db.models import (
     SeriesAdmin,
     User,
 )
+from app.services.lifecycle import reconcile_round_status, status_for_timeline
 from app.services.publications import (
     PublicationError,
     import_historical_playlist,
@@ -160,6 +161,14 @@ class RoundCreate(BaseModel):
 
 class RoundMemberUpdate(BaseModel):
     submission_limit_override: int | None = Field(default=None, ge=0)
+
+
+class RoundUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    opens_at: datetime | None = None
+    closes_at: datetime | None = None
+    publish_at: datetime | None = None
+    submission_limit: int | None = Field(default=None, ge=0)
 
 
 class PublishRequest(BaseModel):
@@ -515,7 +524,7 @@ def create_round(
         closes_at=payload.closes_at,
         publish_at=payload.publish_at,
         submission_limit=payload.submission_limit,
-        status=RoundStatus.SCHEDULED,
+        status=status_for_timeline(payload.opens_at, payload.closes_at),
         policy_snapshot=payload.policy_snapshot
         if payload.policy_snapshot is not None
         else series.default_policies,
@@ -542,6 +551,36 @@ def create_round(
     return {"id": str(round_.id)}
 
 
+@router.patch("/rounds/{round_id}")
+def update_round(
+    round_id: uuid.UUID,
+    payload: RoundUpdate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    round_ = db.get(Round, round_id)
+    if round_ is None:
+        raise _not_found("round")
+    _require_series_admin(db, user, round_.series_id)
+    if round_.status not in {RoundStatus.DRAFT, RoundStatus.SCHEDULED, RoundStatus.OPEN}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="round schedule is frozen")
+    opens_at = payload.opens_at or round_.opens_at
+    closes_at = payload.closes_at or round_.closes_at
+    publish_at = payload.publish_at or round_.publish_at
+    if any(value.tzinfo is None for value in (opens_at, closes_at, publish_at)):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="round timestamps must include an offset")
+    if opens_at >= closes_at or closes_at > publish_at:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="round timeline must satisfy opens < closes <= publish")
+    if payload.title is not None:
+        round_.title = payload.title
+    if payload.submission_limit is not None:
+        round_.submission_limit = payload.submission_limit
+    round_.opens_at, round_.closes_at, round_.publish_at = opens_at, closes_at, publish_at
+    round_.status = status_for_timeline(opens_at, closes_at)
+    db.commit()
+    return _round_summary(round_)
+
+
 @router.get("/rounds/{round_id}")
 def get_round_for_administration(
     round_id: uuid.UUID,
@@ -552,6 +591,8 @@ def get_round_for_administration(
     if round_ is None:
         raise _not_found("round")
     _require_series_admin(db, user, round_.series_id)
+    if reconcile_round_status(round_):
+        db.commit()
     members = list(
         db.execute(
             select(RoundMember, User)

@@ -21,6 +21,7 @@ from app.db.models import (
     ListeningEvidence,
     PlatformRole,
     PolicyEvaluation,
+    Publication,
     Round,
     RoundMember,
     RoundStatus,
@@ -31,6 +32,7 @@ from app.db.models import (
     User,
 )
 from app.services import spotify
+from app.services.lifecycle import reconcile_round_status
 from app.services.policies import evaluate_submission
 from app.services.publications import get_spotify_access_token
 from app.tasks import defer_evidence_refresh
@@ -76,12 +78,15 @@ def list_my_rounds(
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, object]]:
-    rows = db.execute(
+    result = db.execute(
         select(Round, RoundMember)
         .join(RoundMember, RoundMember.round_id == Round.id)
         .where(RoundMember.user_id == user.id, RoundMember.removed_at.is_(None))
         .order_by(Round.opens_at.desc())
     )
+    rows = list(result)
+    if any(reconcile_round_status(round_) for round_, _ in rows):
+        db.commit()
     return [
         {
             "id": str(round_.id),
@@ -108,11 +113,19 @@ def get_round(
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
     round_, membership = _viewer_round(db, round_id, user)
+    if reconcile_round_status(round_):
+        db.commit()
     limit = (
         membership.submission_limit_override
         if membership.submission_limit_override is not None
         else round_.submission_limit
     ) if membership is not None else round_.submission_limit
+    playlist_id = db.scalar(
+        select(Publication.spotify_playlist_id).where(
+            Publication.round_id == round_.id,
+            Publication.spotify_playlist_id.is_not(None),
+        )
+    )
     return {
         "id": str(round_.id),
         "seriesId": str(round_.series_id),
@@ -122,6 +135,7 @@ def get_round(
         "closesAt": round_.closes_at.isoformat(),
         "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": limit,
+        "spotifyPlaylistUrl": f"https://open.spotify.com/playlist/{playlist_id}" if playlist_id else None,
     }
 
 
@@ -573,6 +587,12 @@ def _active_submission_count(db: DbSession, round_id: uuid.UUID, user_id: uuid.U
 def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
     track = db.scalar(select(Track).where(Track.spotify_track_id == input_track.spotify_track_id))
     if track is not None:
+        if track.artwork_url is None and input_track.artwork_url is not None:
+            track.artwork_url = input_track.artwork_url
+        if track.album is None and input_track.album is not None:
+            track.album = input_track.album
+        if track.spotify_uri is None and input_track.spotify_uri is not None:
+            track.spotify_uri = input_track.spotify_uri
         return track
     # Tracks are shared across overlapping rounds.  PostgreSQL resolves the
     # first-insert race without turning a normal simultaneous evaluation into

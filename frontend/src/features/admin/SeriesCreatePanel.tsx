@@ -91,6 +91,7 @@ export function SeriesCreatePanel() {
                   setSlug(event.target.value);
                 }}
               />
+              <span className="field-hint">Used in the series URL.</span>
             </label>
             <label>
               Timezone

@@ -69,7 +69,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Round */
+        patch: operations["update_round_api_v1_admin_rounds__round_id__patch"];
         trace?: never;
     };
     "/api/v1/admin/rounds/{round_id}/members/{user_id}": {
@@ -866,6 +867,19 @@ export interface components {
             /** Submission Limit Override */
             submission_limit_override?: number | null;
         };
+        /** RoundUpdate */
+        RoundUpdate: {
+            /** Closes At */
+            closes_at?: string | null;
+            /** Opens At */
+            opens_at?: string | null;
+            /** Publish At */
+            publish_at?: string | null;
+            /** Submission Limit */
+            submission_limit?: number | null;
+            /** Title */
+            title?: string | null;
+        };
         /** SeriesCreate */
         SeriesCreate: {
             /**
@@ -1095,6 +1109,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_round_api_v1_admin_rounds__round_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoundUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

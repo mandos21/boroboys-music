@@ -87,6 +87,22 @@ def search_tracks(access_token: str, query: str) -> list[dict[str, Any]]:
     return [item for item in tracks if isinstance(item, dict)]
 
 
+def tracks_by_id(access_token: str, track_ids: list[str]) -> list[dict[str, Any]]:
+    """Retrieve current Spotify metadata for up to 50 stable track IDs."""
+    if not track_ids:
+        return []
+    response = httpx.get(
+        f"{SPOTIFY_API}/tracks",
+        headers=_headers(access_token),
+        params={"ids": ",".join(track_ids)},
+        timeout=15.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    items = payload.get("tracks", []) if isinstance(payload, dict) else []
+    return [item for item in items if isinstance(item, dict)]
+
+
 def playlist_snapshot(access_token: str, playlist_id: str) -> dict[str, Any]:
     """Read playlist metadata and ordered track snapshots for historical import."""
     playlist_response = httpx.get(

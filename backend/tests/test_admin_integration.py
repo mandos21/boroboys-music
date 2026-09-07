@@ -6,11 +6,13 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from app.api.routes.admin import (
+    RoundUpdate,
     SeriesUpdate,
     get_round_for_administration,
     get_series_for_administration,
     list_series_for_administration,
     search_users_for_series,
+    update_round,
     update_series,
 )
 from app.db.models import (
@@ -172,6 +174,55 @@ def test_round_administration_exposes_member_limit_overrides_and_removals() -> N
                 "removedAt": now.isoformat(),
             },
         ]
+
+
+def test_series_admin_can_update_a_scheduled_round_and_its_status_is_recalculated() -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    with get_session_factory()() as db:
+        admin = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"edit-round-admin-{suffix}",
+            platform_role=PlatformRole.MEMBER,
+        )
+        series = Series(
+            name=f"Editable round series {suffix}",
+            slug=f"editable-round-{suffix}",
+            timezone="UTC",
+            default_policies=[],
+        )
+        db.add_all((admin, series))
+        db.flush()
+        round_ = Round(
+            series_id=series.id,
+            title="Before",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now + timedelta(days=1),
+            closes_at=now + timedelta(days=2),
+            publish_at=now + timedelta(days=3),
+            status=RoundStatus.SCHEDULED,
+            policy_snapshot=[],
+        )
+        db.add_all((SeriesAdmin(series_id=series.id, user_id=admin.id), round_))
+        db.commit()
+
+        result = update_round(
+            round_.id,
+            RoundUpdate(
+                title="Now open",
+                opens_at=now - timedelta(hours=1),
+                closes_at=now + timedelta(hours=1),
+                publish_at=now + timedelta(days=1),
+                submission_limit=3,
+            ),
+            db,
+            admin,
+        )
+
+        assert result["title"] == "Now open"
+        assert result["submissionLimit"] == 3
+        assert result["status"] == "open"
 
 
 def test_series_admin_can_replace_a_future_successor_plan_without_rewriting_rounds() -> None:

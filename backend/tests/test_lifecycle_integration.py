@@ -10,7 +10,17 @@ from sqlalchemy import select
 
 from app.db.models import PlatformRole, Round, RoundMember, RoundStatus, Series, User
 from app.db.session import get_session_factory
-from app.services.lifecycle import create_calendar_successor, create_rolling_successor
+from app.services.lifecycle import (
+    create_calendar_successor,
+    create_rolling_successor,
+    status_for_timeline,
+)
+
+
+def test_status_for_timeline_opens_a_round_that_is_currently_in_its_window() -> None:
+    now = datetime.now(UTC)
+
+    assert status_for_timeline(now - timedelta(minutes=1), now + timedelta(minutes=1), now) is RoundStatus.OPEN
 
 
 def test_published_rolling_round_creates_one_open_successor_with_member_snapshot() -> None:

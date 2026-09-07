@@ -1,13 +1,19 @@
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
-import { api, del, put } from "../../api/client";
+import { api, del, patch, put } from "../../api/client";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/ToastProvider";
 import { PublicationPanel } from "./PublicationPanel";
 import { errorMessage } from "./adminUtils";
 import type { AdminRound, User } from "./types";
+
+function dateTimeInput(value: string) {
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
 
 export function AdminRoundPage() {
   const { roundId } = useParams();
@@ -23,6 +29,11 @@ export function AdminRoundPage() {
   const [newLimit, setNewLimit] = useState("");
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [memberToRemove, setMemberToRemove] = useState<User | null>(null);
+  const [title, setTitle] = useState("");
+  const [opensAt, setOpensAt] = useState("");
+  const [closesAt, setClosesAt] = useState("");
+  const [publishAt, setPublishAt] = useState("");
+  const [submissionLimit, setSubmissionLimit] = useState("");
   const deferredSearch = useDeferredValue(search.trim());
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["admin-round", roundId] });
@@ -55,6 +66,14 @@ export function AdminRoundPage() {
     },
     onError: () => showToast({ title: "Couldn’t remove contributor", description: "Try again in a moment.", tone: "error" }),
   });
+  const saveRound = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => patch(`/admin/rounds/${roundId}`, payload),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Round settings saved", description: "The schedule and submission limit are updated." });
+    },
+    onError: (error) => showToast({ title: "Couldn’t save round settings", description: errorMessage(error) ?? "Try again in a moment.", tone: "error" }),
+  });
   if (detail.isLoading)
     return (
       <main className="shell">
@@ -74,6 +93,18 @@ export function AdminRoundPage() {
   const membershipEditable = ["draft", "scheduled", "open"].includes(
     round.status,
   );
+  const selectedTitle = title || round.title;
+  const selectedOpensAt = opensAt || dateTimeInput(round.opensAt);
+  const selectedClosesAt = closesAt || dateTimeInput(round.closesAt);
+  const selectedPublishAt = publishAt || dateTimeInput(round.publishAt);
+  const selectedLimit = submissionLimit || String(round.submissionLimit);
+  function submitSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedTitle.trim()) return showToast({ title: "Add a round title", tone: "error" });
+    if (new Date(selectedOpensAt) >= new Date(selectedClosesAt)) return showToast({ title: "Closing must follow opening", tone: "error" });
+    if (new Date(selectedClosesAt) > new Date(selectedPublishAt)) return showToast({ title: "Publish after the round closes", tone: "error" });
+    saveRound.mutate({ title: selectedTitle, opens_at: new Date(selectedOpensAt).toISOString(), closes_at: new Date(selectedClosesAt).toISOString(), publish_at: new Date(selectedPublishAt).toISOString(), submission_limit: Number(selectedLimit) });
+  }
   return (
     <main className="shell admin-shell">
       <Link className="back" to={`/admin/series/${round.seriesId}`}>
@@ -93,6 +124,19 @@ export function AdminRoundPage() {
           history remains attributable to the original group.
         </p>
       )}
+      <details className="panel round-settings">
+        <summary>Round settings</summary>
+        {membershipEditable ? (
+          <form className="admin-round-form" noValidate onSubmit={submitSettings}>
+            <label>Title<input value={selectedTitle} required onChange={(event) => setTitle(event.target.value)} /></label>
+            <label>Opens<input type="datetime-local" value={selectedOpensAt} required onChange={(event) => setOpensAt(event.target.value)} /></label>
+            <label>Closes<input type="datetime-local" min={selectedOpensAt} value={selectedClosesAt} required onChange={(event) => setClosesAt(event.target.value)} /></label>
+            <label>Publishes<input type="datetime-local" min={selectedClosesAt} value={selectedPublishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label>
+            <label>Submissions per contributor<input type="number" min="0" value={selectedLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>
+            <button className="button" disabled={saveRound.isPending}>{saveRound.isPending ? "Saving…" : "Save round settings"}</button>
+          </form>
+        ) : <p className="muted">The schedule and default limit are frozen once a round has closed.</p>}
+      </details>
       <div className="admin-columns">
         <section className="panel">
           <h2>Add or restore a contributor</h2>

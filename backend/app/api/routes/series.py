@@ -19,6 +19,7 @@ from app.db.models import (
     SeriesAdmin,
     User,
 )
+from app.services.lifecycle import reconcile_round_status
 
 router = APIRouter(prefix="/series", tags=["series"])
 
@@ -129,6 +130,8 @@ def _visible_rounds(db: DbSession, series_id: uuid.UUID, user: User, is_admin: b
             .distinct()
         )
     rounds = list(db.scalars(statement.order_by(Round.opens_at.desc())))
+    if any(reconcile_round_status(round_) for round_ in rounds):
+        db.commit()
     return sorted(
         rounds,
         key=lambda round_: (round_.status.value == "published", -round_.opens_at.timestamp()),

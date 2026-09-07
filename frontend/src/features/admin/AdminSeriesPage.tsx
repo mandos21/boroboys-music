@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
@@ -20,11 +20,32 @@ function dateTimeInput(value: string) {
 }
 
 function suggestedOpening(rounds: SeriesDetail["rounds"] | undefined) {
-  if (!rounds?.length) return "";
+  const now = new Date();
+  now.setSeconds(0, 0);
+  if (!rounds?.length) return dateTimeInput(now.toISOString());
   const mostRecent = [...rounds].sort(
     (first, second) => Date.parse(second.publishAt) - Date.parse(first.publishAt),
   )[0];
-  return mostRecent ? dateTimeInput(mostRecent.publishAt) : "";
+  const publishedAt = mostRecent ? new Date(mostRecent.publishAt) : now;
+  return dateTimeInput(new Date(Math.max(now.getTime(), publishedAt.getTime())).toISOString());
+}
+
+function monthlyClose(opening: string) {
+  if (!opening) return "";
+  const date = new Date(opening);
+  return dateTimeInput(new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59).toISOString());
+}
+
+function nextDay(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  date.setDate(date.getDate() + 1);
+  return dateTimeInput(date.toISOString());
+}
+
+function monthlyTitle(opening: string, timezone: string | undefined) {
+  if (!opening) return "";
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: timezone }).format(new Date(opening));
 }
 
 export function AdminSeriesPage() {
@@ -37,13 +58,20 @@ export function AdminSeriesPage() {
   const [opensAt, setOpensAt] = useState("");
   const [closesAt, setClosesAt] = useState("");
   const [publishAt, setPublishAt] = useState("");
-  const [submissionLimit, setSubmissionLimit] = useState("1");
+  const [submissionLimit, setSubmissionLimit] = useState("3");
+  const [titleEdited, setTitleEdited] = useState(false);
+  const [closeEdited, setCloseEdited] = useState(false);
+  const [publishEdited, setPublishEdited] = useState(false);
   const [policies, setPolicies] = useState<Record<string, unknown>[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<User | null>(null);
   const deferredMemberSearch = useDeferredValue(memberSearch.trim());
   const defaultOpensAt = suggestedOpening(detail.data?.rounds);
   const selectedOpensAt = opensAt || defaultOpensAt;
+  const monthly = detail.data?.roundPlan?.kind === "calendar" && detail.data.roundPlan?.full_month === true;
+  const selectedClosesAt = closesAt || (monthly ? monthlyClose(selectedOpensAt) : "");
+  const selectedPublishAt = publishAt || (monthly ? nextDay(selectedClosesAt) : "");
+  const selectedTitle = roundTitle || (monthly && !titleEdited ? monthlyTitle(selectedOpensAt, detail.data?.timezone) : "");
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-series", seriesId] });
     queryClient.invalidateQueries({ queryKey: ["series", seriesId] });
@@ -53,13 +81,13 @@ export function AdminSeriesPage() {
 
   const createRound = useMutation({
     mutationFn: () => post("/admin/rounds", {
-      series_id: seriesId, title: roundTitle, timezone: detail.data?.timezone,
-      opens_at: new Date(selectedOpensAt).toISOString(), closes_at: new Date(closesAt).toISOString(), publish_at: new Date(publishAt).toISOString(),
+      series_id: seriesId, title: selectedTitle, timezone: detail.data?.timezone,
+      opens_at: new Date(selectedOpensAt).toISOString(), closes_at: new Date(selectedClosesAt).toISOString(), publish_at: new Date(selectedPublishAt).toISOString(),
       submission_limit: Number(submissionLimit), contributor_user_ids: (members.data ?? []).map((member) => member.id),
       policy_snapshot: policies.length > 0 ? policies : undefined,
     }),
-    onSuccess: () => { setRoundTitle(""); setOpensAt(""); setClosesAt(""); setPublishAt(""); setPolicies([]); invalidate(); showToast({ title: "Round scheduled", description: "Every current series member will be included." }); },
-    onError: () => showToast({ title: "Couldn’t schedule round", description: "Check the schedule and try again.", tone: "error" }),
+    onSuccess: () => { setRoundTitle(""); setTitleEdited(false); setOpensAt(""); setClosesAt(""); setCloseEdited(false); setPublishAt(""); setPublishEdited(false); setPolicies([]); invalidate(); showToast({ title: "Round scheduled", description: "Every current series member will be included." }); },
+    onError: (error) => showToast({ title: "Couldn’t schedule round", description: errorMessage(error) ?? "Check the schedule and try again.", tone: "error" }),
   });
   const matchingUsers = useQuery({ queryKey: ["series-users", seriesId, deferredMemberSearch], queryFn: () => api<User[]>(`/admin/series/${seriesId}/users?query=${encodeURIComponent(deferredMemberSearch)}`), enabled: Boolean(seriesId) && deferredMemberSearch.length >= 2 });
   const addMember = useMutation({
@@ -77,6 +105,14 @@ export function AdminSeriesPage() {
   if (detail.isError || !detail.data) return <main className="shell narrow-page-shell"><StatePanel kind="error" title="Series unavailable"><Link to="/">Return to your series</Link></StatePanel></main>;
   const series = detail.data;
   const currentMembers = members.data ?? [];
+  function submitRound(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedTitle.trim()) return showToast({ title: "Add a round title", tone: "error" });
+    if (!selectedOpensAt || !selectedClosesAt || !selectedPublishAt) return showToast({ title: "Complete the schedule", description: "Add a valid opening, closing, and publish date.", tone: "error" });
+    if (new Date(selectedOpensAt) >= new Date(selectedClosesAt)) return showToast({ title: "Closing must follow opening", tone: "error" });
+    if (new Date(selectedClosesAt) > new Date(selectedPublishAt)) return showToast({ title: "Publish after the round closes", tone: "error" });
+    createRound.mutate();
+  }
   return (
     <main className="shell admin-shell">
       <Link className="back" to={`/series/${series.id}`}>← {series.name}</Link>
@@ -93,11 +129,11 @@ export function AdminSeriesPage() {
           </section>
           <div className="admin-items member-list">{members.isLoading && <p>Loading members…</p>}{!members.isLoading && currentMembers.length === 0 && <p>Add people above before scheduling the first round.</p>}{currentMembers.map((member) => <article key={member.id}><div><strong>{member.displayName ?? "Unnamed user"}</strong><span>{member.email ?? "No email"}</span></div><button type="button" className="text-button danger" onClick={() => setMemberToRemove(member)}>Remove</button></article>)}</div>
         </section>
-        <section className="panel" id="rounds"><h2>Schedule a round</h2><form className="admin-round-form" onSubmit={(event) => { event.preventDefault(); createRound.mutate(); }}>
-          <label>Title<input value={roundTitle} required maxLength={200} onChange={(event) => setRoundTitle(event.target.value)} /></label>
-          <label>Opens<input type="datetime-local" value={selectedOpensAt} required onChange={(event) => setOpensAt(event.target.value)} /><span className="field-hint">Defaults to the most recent round’s release. Change it if you want overlap.</span></label>
-          <label>Closes<input type="datetime-local" value={closesAt} required onChange={(event) => setClosesAt(event.target.value)} /></label>
-          <label>Publishes<input type="datetime-local" value={publishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label>
+        <section className="panel" id="rounds"><h2>Schedule a round</h2><form className="admin-round-form" noValidate onSubmit={submitRound}>
+          <label>Title<input value={selectedTitle} required maxLength={200} onChange={(event) => { setTitleEdited(true); setRoundTitle(event.target.value); }} /></label>
+          <label>Opens<input type="datetime-local" value={selectedOpensAt} required onChange={(event) => { setOpensAt(event.target.value); if (monthly && !closeEdited) setClosesAt(""); if (monthly && !publishEdited) setPublishAt(""); if (monthly && !titleEdited) setRoundTitle(""); }} /><span className="field-hint">Defaults to now, unless the latest round publishes later.</span></label>
+          <label>Closes<input type="datetime-local" min={selectedOpensAt || undefined} value={selectedClosesAt} required onChange={(event) => { setCloseEdited(true); setClosesAt(event.target.value); if (monthly && !publishEdited) setPublishAt(""); }} /></label>
+          <label>Publishes<input type="datetime-local" min={selectedClosesAt || undefined} value={selectedPublishAt} required onChange={(event) => { setPublishEdited(true); setPublishAt(event.target.value); }} /></label>
           <label>Submissions per contributor<input type="number" min="0" value={submissionLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>
           <p className="field-hint">{currentMembers.length ? `${currentMembers.length} current series member${currentMembers.length === 1 ? "" : "s"} will be included.` : "Add members before scheduling this round."}</p>
           <PolicyEditor value={policies} onChange={setPolicies} />
