@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+
 import type { Track } from "./types";
 
 type TrackSearchPanelProps = {
@@ -44,7 +46,7 @@ export function TrackSearchPanel({
       />
       {query.trim().length > 0 && query.trim().length < 2 && <p className="field-hint">Enter at least two characters.</p>}
       {isSearching && <p className="field-hint" role="status">Searching Spotify…</p>}
-      {hasError && <p className="error-message" role="alert">Spotify search is unavailable. Confirm your Spotify account is linked and try again.</p>}
+      {hasError && <p className="error-message" role="alert">Spotify search is unavailable. <Link to="/settings/connections">Check your Spotify connection</Link> and try again.</p>}
       <div className="track-results">
         {tracks?.map((track) => <SearchResult key={track.spotifyTrackId} track={track} onSelect={onSelect} />)}
         {tracks?.length === 0 && deferredQuery.length >= 2 && !isSearching && <p className="field-hint">No matching tracks found.</p>}

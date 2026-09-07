@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RoundPage } from "./RoundPages";
+import { ToastProvider } from "../../components/ui/ToastProvider";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -12,13 +13,15 @@ function renderRound() {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/rounds/round-1"]}>
-        <Routes>
-          <Route path="/rounds/:roundId" element={<RoundPage />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <ToastProvider>
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/rounds/round-1"]}>
+          <Routes>
+            <Route path="/rounds/:roundId" element={<RoundPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </ToastProvider>,
   );
 }
 

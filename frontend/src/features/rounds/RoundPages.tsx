@@ -1,7 +1,12 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, Clock3, ListMusic, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { api, patch, post } from "../../api/client";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { StatePanel } from "../../components/ui/StatePanel";
+import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 
 type Round = {
@@ -21,7 +26,7 @@ type Submission = {
   note: string | null;
   isMine: boolean;
   contributor: { id: string; displayName: string | null };
-  track: { name: string; artist: string; album: string | null };
+  track: { name: string; artist: string; album: string | null; artworkUrl?: string | null };
 };
 
 type SeriesHistory = {
@@ -37,6 +42,8 @@ type SeriesHistory = {
 export function RoundPage() {
   const { roundId } = useParams();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [submissionToWithdraw, setSubmissionToWithdraw] = useState<Submission | null>(null);
   const round = useQuery({
     queryKey: ["round", roundId],
     queryFn: () => api<Round>(`/rounds/${roundId}`),
@@ -49,12 +56,19 @@ export function RoundPage() {
     enabled: Boolean(roundId) && round.isSuccess,
     retry: false,
   });
-  const invalidate = () =>
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["round-submissions", roundId] });
+    queryClient.invalidateQueries({ queryKey: ["round", roundId] });
+  };
   const withdraw = useMutation({
     mutationFn: (submissionId: string) =>
       post<void>(`/rounds/submissions/${submissionId}/withdraw`, undefined),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setSubmissionToWithdraw(null);
+      showToast({ title: "Submission withdrawn", description: "You can choose another track while this round is still open." });
+    },
+    onError: () => showToast({ title: "Couldn’t withdraw submission", description: "Try again in a moment.", tone: "error" }),
   });
   const updateNote = useMutation({
     mutationFn: ({
@@ -64,30 +78,39 @@ export function RoundPage() {
       submissionId: string;
       note: string | null;
     }) => patch<void>(`/rounds/submissions/${submissionId}`, { note }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Note saved", description: "Your submission note is updated." });
+    },
+    onError: () => showToast({ title: "Couldn’t save note", description: "Try again in a moment.", tone: "error" }),
   });
 
-  if (round.isLoading)
-    return (
-      <main className="shell">
-        <p>Loading round…</p>
-      </main>
-    );
+  if (round.isLoading) return <main className="shell narrow-page-shell"><StatePanel kind="loading" title="Loading this round">Gathering its schedule and submissions.</StatePanel></main>;
   if (round.isError || !round.data) return <UnavailableRound />;
 
   const item = round.data;
+  const mySubmissionCount = submissions.data?.filter((entry) => entry.isMine && entry.status === "accepted").length;
   return (
-    <main className="shell">
+    <main className="shell round-page-shell">
       <Link className="back" to="/">
         ← Your rounds
       </Link>
-      <RoundOverview round={item} />
+      <RoundOverview round={item} mySubmissionCount={mySubmissionCount} />
       <RoundSubmissions
         roundId={item.id}
         submissions={submissions}
         roundIsOpen={item.status === "open"}
-        onWithdraw={withdraw.mutate}
+        onWithdraw={setSubmissionToWithdraw}
         onSaveNote={(id, note) => updateNote.mutate({ submissionId: id, note })}
+      />
+      <ConfirmDialog
+        open={Boolean(submissionToWithdraw)}
+        title="Withdraw this submission?"
+        description={<>“{submissionToWithdraw?.track.name}” will no longer be included in the finished playlist. You can submit another track while the round is open.</>}
+        confirmLabel="Withdraw submission"
+        isPending={withdraw.isPending}
+        onOpenChange={(open) => { if (!open && !withdraw.isPending) setSubmissionToWithdraw(null); }}
+        onConfirm={() => { if (submissionToWithdraw) withdraw.mutate(submissionToWithdraw.id); }}
       />
     </main>
   );
@@ -96,39 +119,42 @@ export function RoundPage() {
 function UnavailableRound() {
   return (
     <main className="shell">
-      <section className="panel">
-        <h1>Round unavailable</h1>
-        <p>You may no longer be a contributor in this round.</p>
-        <Link to="/">Return to your rounds</Link>
-      </section>
+      <StatePanel kind="error" title="Round unavailable">You may no longer be a contributor in this round. <Link to="/">Return to your rounds</Link></StatePanel>
     </main>
   );
 }
 
-function RoundOverview({ round }: { round: Round }) {
+function RoundOverview({ round, mySubmissionCount }: { round: Round; mySubmissionCount: number | undefined }) {
+  const hasCapacity = mySubmissionCount === undefined || mySubmissionCount < round.submissionLimit;
   return (
     <section className="panel detail">
       <span className={`status ${round.status}`}>{round.status}</span>
       <h1>{round.title}</h1>
-      <p>Submit up to {round.submissionLimit} tracks during this round.</p>
+      <p>Share up to {round.submissionLimit} track{round.submissionLimit === 1 ? "" : "s"} with this group before the release date.</p>
+      <div className="round-summary" aria-label="Round summary">
+        <div><ListMusic aria-hidden="true" size={18} /><span><strong>{mySubmissionCount === undefined ? "…" : `${mySubmissionCount} of ${round.submissionLimit}`}</strong><small>Your submissions</small></span></div>
+        <div><UsersRound aria-hidden="true" size={18} /><span><strong>{round.status === "open" ? "Open now" : round.status}</strong><small>Round status</small></span></div>
+      </div>
       <div className="timeline">
         <div>
-          <strong>Opens</strong>
+          <strong><CalendarDays aria-hidden="true" size={14} /> Opens</strong>
           <span>{formatDate(round.opensAt)}</span>
         </div>
         <div>
-          <strong>Closes</strong>
+          <strong><Clock3 aria-hidden="true" size={14} /> Closes</strong>
           <span>{formatDate(round.closesAt)}</span>
         </div>
         <div>
-          <strong>Published</strong>
+          <strong><CalendarDays aria-hidden="true" size={14} /> Releases</strong>
           <span>{formatDate(round.publishAt)}</span>
         </div>
       </div>
-      {round.status === "open" ? (
+      {round.status === "open" && hasCapacity ? (
         <Link className="button" to={`/rounds/${round.id}/submit`}>
           Choose a track
         </Link>
+      ) : round.status === "open" ? (
+        <p className="round-capacity-note">You’ve used all {round.submissionLimit} submission{round.submissionLimit === 1 ? "" : "s"}. You can still replace or withdraw one below.</p>
       ) : (
         <p className="muted">Submissions are currently closed.</p>
       )}
@@ -151,27 +177,26 @@ function RoundSubmissions({
   roundId: string;
   submissions: ReturnType<typeof useQuery<Submission[]>>;
   roundIsOpen: boolean;
-  onWithdraw: (id: string) => void;
+  onWithdraw: (submission: Submission) => void;
   onSaveNote: (id: string, note: string | null) => void;
 }) {
   if (submissions.isLoading)
     return (
-      <section className="panel">
-        <p>Loading submissions…</p>
-      </section>
+      <StatePanel kind="loading" title="Loading submissions">Checking what the group has shared so far.</StatePanel>
     );
   if (submissions.isError)
     return (
-      <section className="panel">
-        <p role="alert">Submissions could not be loaded.</p>
-      </section>
+      <StatePanel kind="error" title="We couldn’t load submissions">Refresh the page to try again.</StatePanel>
     );
   const entries = submissions.data ?? [];
   return (
-    <section className="panel submission-history">
-      <h2>Submissions</h2>
+    <section className="panel submission-history" aria-labelledby="submissions-heading">
+      <div className="section-heading">
+        <div><p className="eyebrow">Shared so far</p><h2 id="submissions-heading">Submissions</h2></div>
+        <span className="submission-count">{entries.filter((entry) => entry.status === "accepted").length} track{entries.filter((entry) => entry.status === "accepted").length === 1 ? "" : "s"}</span>
+      </div>
       {entries.length === 0 ? (
-        <p>No tracks have been submitted yet.</p>
+        <StatePanel title="The playlist is waiting for its first track">Be the one to set the tone for this round.</StatePanel>
       ) : (
         <ul>
           {entries.map((entry) => (
@@ -179,6 +204,7 @@ function RoundSubmissions({
               key={entry.id}
               className={entry.status === "withdrawn" ? "withdrawn" : ""}
             >
+              {entry.track.artworkUrl && <img className="submission-artwork" src={entry.track.artworkUrl} alt="" />}
               <div>
                 <strong>{entry.track.name}</strong>
                 <span>
@@ -222,7 +248,7 @@ function RoundSubmissions({
                       <button
                         type="button"
                         className="danger"
-                        onClick={() => onWithdraw(entry.id)}
+                        onClick={() => onWithdraw(entry)}
                       >
                         Withdraw
                       </button>
@@ -246,20 +272,11 @@ export function SeriesPage() {
     enabled: Boolean(seriesId),
     retry: false,
   });
-  if (series.isLoading)
-    return (
-      <main className="shell">
-        <p>Loading series history…</p>
-      </main>
-    );
+  if (series.isLoading) return <main className="shell narrow-page-shell"><StatePanel kind="loading" title="Loading series history">Collecting the rounds you can revisit.</StatePanel></main>;
   if (series.isError || !series.data)
     return (
-      <main className="shell">
-        <section className="panel">
-          <h1>Series unavailable</h1>
-          <p>You do not have access to this series.</p>
-          <Link to="/">Return to your rounds</Link>
-        </section>
+      <main className="shell narrow-page-shell">
+        <StatePanel kind="error" title="Series unavailable">You do not have access to this series. <Link to="/">Return to your rounds</Link></StatePanel>
       </main>
     );
   const item = series.data;
@@ -268,11 +285,12 @@ export function SeriesPage() {
       <Link className="back" to="/">
         ← Your rounds
       </Link>
-      <section className="panel detail">
-        <p className="eyebrow">Series history</p>
+      <section className="panel detail series-history-panel">
+        <p className="eyebrow">Series history · {item.timezone}</p>
         <h1>{item.name}</h1>
         {item.description && <p>{item.description}</p>}
-        <p className="muted">Times shown in {item.timezone}.</p>
+        <p className="muted">A record of the rounds and releases your group has made together. Times shown in {item.timezone}.</p>
+        {item.rounds.length === 0 && <StatePanel title="No released rounds yet">When this series completes a round, it will appear here.</StatePanel>}
         <div className="series-round-list">
           {item.rounds.map((round) => (
             <article key={round.id}>

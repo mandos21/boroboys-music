@@ -3,6 +3,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { api, patch, post } from "../../api/client";
+import { StatePanel } from "../../components/ui/StatePanel";
+import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { SubmissionReviewPanel } from "./SubmissionReviewPanel";
 import { TrackSearchPanel } from "./TrackSearchPanel";
@@ -20,6 +22,7 @@ import {
 export function SubmissionPage() {
   const { roundId } = useParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const replaceId = searchParams.get("replace");
   const [query, setQuery] = useState("");
@@ -62,8 +65,12 @@ export function SubmissionPage() {
       return post<SubmissionResult>(`/rounds/${roundId}/submissions`, request);
     },
     onSuccess: (result) => {
-      if (result.accepted) navigate(`/rounds/${roundId}`);
+      if (result.accepted) {
+        showToast({ title: replaceId ? "Track replaced" : "Track submitted", description: "Your choice is now part of this round." });
+        navigate(`/rounds/${roundId}`);
+      }
     },
+    onError: () => showToast({ title: "Couldn’t save submission", description: "Your track was not submitted. Please try again.", tone: "error" }),
   });
 
   function chooseTrack(track: Track) {
@@ -74,9 +81,9 @@ export function SubmissionPage() {
     evaluation.mutate(track);
   }
 
-  if (round.isLoading) return <main className="shell"><p>Loading submission form…</p></main>;
-  if (round.isError || !round.data) return <main className="shell"><section className="panel"><h1>Round unavailable</h1><Link to="/">Return to your rounds</Link></section></main>;
-  if (round.data.status !== "open") return <main className="shell"><section className="panel"><h1>This round is not accepting submissions</h1><p>It closes {formatDate(round.data.closesAt)}.</p><Link to={`/rounds/${roundId}`}>View round</Link></section></main>;
+  if (round.isLoading) return <main className="shell narrow-page-shell"><StatePanel kind="loading" title="Preparing your submission">Loading the round’s rules and timing.</StatePanel></main>;
+  if (round.isError || !round.data) return <main className="shell narrow-page-shell"><StatePanel kind="error" title="Round unavailable"><Link to="/">Return to your rounds</Link></StatePanel></main>;
+  if (round.data.status !== "open") return <main className="shell narrow-page-shell"><StatePanel title="This round is not accepting submissions">It closes {formatDate(round.data.closesAt)}. <Link to={`/rounds/${roundId}`}>View round</Link></StatePanel></main>;
 
   const policyResults = evaluation.data?.policyResults ?? submission.data?.policyResults ?? [];
   const canSubmit = Boolean(selected && evaluation.data?.canSubmit && !submission.isPending);

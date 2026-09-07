@@ -68,11 +68,11 @@ export function SubmissionReviewPanel({
           <h3>Group listening evidence</h3>
           {evidence.evidence.length === 0 ? (
             <p className="field-hint">No shared Last.fm evidence is cached yet. It will refresh in the background.</p>
-          ) : evidence.evidence.map((item) => (
+          ) : <div className="evidence-list">{evidence.evidence.map((item) => (
             <p key={item.accountId}>
               <strong>{item.displayName ?? "A contributor"}</strong>: at least {item.playcount ?? 0} listens <small>observed {formatDate(item.fetchedAt)}</small>
             </p>
-          ))}
+          ))}</div>}
         </div>
       )}
       {requiresWarningConfirmation && (
