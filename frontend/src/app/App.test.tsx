@@ -77,7 +77,7 @@ describe("application recovery screens", () => {
 
     renderApp("/");
 
-    expect(await screen.findByRole("heading", { name: "Series" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Monthly picks" })).toBeTruthy();
     expect(await screen.findByRole("link", { name: "Open Monthly picks" })).toHaveProperty(
       "href",
       expect.stringContaining("/series/series-1"),

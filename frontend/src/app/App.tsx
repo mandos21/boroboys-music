@@ -24,6 +24,8 @@ function HomePage() {
 
   const currentUser = session.data.user;
   const items = series.data ?? [];
+  const openSeries = items.find((item) => item.featuredRound?.status === "open");
+  const otherSeries = openSeries ? items.filter((item) => item.id !== openSeries.id) : items;
   return (
     <main className="shell page-shell dashboard-shell">
       <header className="page-heading dashboard-heading">
@@ -35,14 +37,36 @@ function HomePage() {
         <div className="dashboard-meta" aria-label="Series overview"><ListMusic aria-hidden="true" size={20} /><span>{items.length} series</span></div>
       </header>
       {currentUser.platformRole === "admin" && <SeriesCreatePanel />}
+      {openSeries && <FeaturedOpenSeries series={openSeries} />}
       <section aria-labelledby="series-heading" className="content-section">
-        <div className="section-heading"><div><h2 id="series-heading">Series</h2></div></div>
+        <div className="section-heading"><div><h2 id="series-heading">{openSeries ? "Other series" : "Series"}</h2></div></div>
         {series.isLoading && <StatePanel kind="loading" title="Finding your series">This usually takes just a moment.</StatePanel>}
         {series.isError && <StatePanel kind="error" title="We couldn’t load your series">Refresh the page to try again.</StatePanel>}
         {series.data?.length === 0 && <StatePanel title="No series yet">Once you are added to a series, its active round and listening history will appear here.</StatePanel>}
-        <div className="series-card-grid">{items.map((item) => <SeriesCard key={item.id} series={item} />)}</div>
+        <div className="series-card-grid">{otherSeries.map((item) => <SeriesCard key={item.id} series={item} />)}</div>
       </section>
     </main>
+  );
+}
+
+function FeaturedOpenSeries({ series }: { series: SeriesPreview }) {
+  const round = series.featuredRound;
+  if (!round) return null;
+  return (
+    <article className="featured-open-series">
+      <Link aria-label={`Open ${series.name}`} className="featured-open-series-link" to={`/series/${series.id}`} />
+      <div className="featured-open-series-copy">
+        <p className="eyebrow">Open now</p>
+        <h2>{series.name}</h2>
+        <p>{series.description ?? "A place to trade what you have been listening to."}</p>
+      </div>
+      <Link className="featured-open-series-round" to={`/rounds/${round.id}`}>
+        <span>Current round</span>
+        <strong>{round.title}</strong>
+        <small>{round.submittedCount} of {round.contributorCount} people have submitted</small>
+        <small>Closes {formatDate(round.closesAt)}</small>
+      </Link>
+    </article>
   );
 }
 
