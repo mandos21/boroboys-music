@@ -39,8 +39,7 @@ export function AdminRoundPage() {
     queryFn: () => api<Connection[]>("/connections"),
     retry: false,
   });
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["admin-round", roundId] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-round", roundId] });
   const users = useQuery({
     queryKey: ["round-users", detail.data?.seriesId, deferredSearch],
     queryFn: () =>
@@ -56,27 +55,50 @@ export function AdminRoundPage() {
       }),
     onSuccess: () => {
       invalidate();
-      showToast({ title: "Contributor updated", description: "Their round access and submission limit are saved." });
+      showToast({
+        title: "Contributor updated",
+        description: "Their round access and submission limit are saved.",
+      });
     },
-    onError: () => showToast({ title: "Couldn’t update contributor", description: "Try again in a moment.", tone: "error" }),
+    onError: () =>
+      showToast({
+        title: "Couldn’t update contributor",
+        description: "Try again in a moment.",
+        tone: "error",
+      }),
   });
   const removeMember = useMutation({
-    mutationFn: (userId: string) =>
-      del(`/admin/rounds/${roundId}/members/${userId}`),
+    mutationFn: (userId: string) => del(`/admin/rounds/${roundId}/members/${userId}`),
     onSuccess: () => {
       invalidate();
       setMemberToRemove(null);
-      showToast({ title: "Contributor removed", description: "Their existing submissions remain attributable in this round." });
+      showToast({
+        title: "Contributor removed",
+        description: "Their existing submissions remain attributable in this round.",
+      });
     },
-    onError: () => showToast({ title: "Couldn’t remove contributor", description: "Try again in a moment.", tone: "error" }),
+    onError: () =>
+      showToast({
+        title: "Couldn’t remove contributor",
+        description: "Try again in a moment.",
+        tone: "error",
+      }),
   });
   const saveRound = useMutation({
     mutationFn: (payload: Record<string, unknown>) => patch(`/admin/rounds/${roundId}`, payload),
     onSuccess: () => {
       invalidate();
-      showToast({ title: "Round settings saved", description: "The schedule and submission limit are updated." });
+      showToast({
+        title: "Round settings saved",
+        description: "The schedule and submission limit are updated.",
+      });
     },
-    onError: (error) => showToast({ title: "Couldn’t save round settings", description: errorMessage(error) ?? "Try again in a moment.", tone: "error" }),
+    onError: (error) =>
+      showToast({
+        title: "Couldn’t save round settings",
+        description: errorMessage(error) ?? "Try again in a moment.",
+        tone: "error",
+      }),
   });
   if (detail.isLoading)
     return (
@@ -94,16 +116,14 @@ export function AdminRoundPage() {
       </main>
     );
   const round = detail.data;
-  const membershipEditable = ["draft", "scheduled", "open"].includes(
-    round.status,
-  );
+  const membershipEditable = ["draft", "scheduled", "open"].includes(round.status);
   const openingEditable = ["draft", "scheduled"].includes(round.status);
   const selectedTitle = title || round.title;
   const selectedOpensAt = opensAt || toZonedInput(round.opensAt, round.timezone);
   const selectedClosesAt = closesAt || toZonedInput(round.closesAt, round.timezone);
   const selectedPublishAt = publishAt || toZonedInput(round.publishAt, round.timezone);
   const selectedLimit = submissionLimit || String(round.submissionLimit);
-  const selectedPrompt = promptEdited ? prompt : round.prompt ?? "";
+  const selectedPrompt = promptEdited ? prompt : (round.prompt ?? "");
   const selectedPublisher = publisher ?? round.publisherAccountId ?? "";
   const spotifyAccounts = (connections.data ?? []).filter(
     (account) => account.provider === "spotify" && account.isActive,
@@ -114,9 +134,17 @@ export function AdminRoundPage() {
     const openingIso = zonedInputToIso(selectedOpensAt, round.timezone);
     const closingIso = zonedInputToIso(selectedClosesAt, round.timezone);
     const publishingIso = zonedInputToIso(selectedPublishAt, round.timezone);
-    if (!openingIso || !closingIso || !publishingIso) return showToast({ title: "Use valid round times", description: "One of these times does not exist in the round timezone, usually because of daylight saving time.", tone: "error" });
-    if (new Date(openingIso) >= new Date(closingIso)) return showToast({ title: "Closing must follow opening", tone: "error" });
-    if (new Date(closingIso) > new Date(publishingIso)) return showToast({ title: "Publish after the round closes", tone: "error" });
+    if (!openingIso || !closingIso || !publishingIso)
+      return showToast({
+        title: "Use valid round times",
+        description:
+          "One of these times does not exist in the round timezone, usually because of daylight saving time.",
+        tone: "error",
+      });
+    if (new Date(openingIso) >= new Date(closingIso))
+      return showToast({ title: "Closing must follow opening", tone: "error" });
+    if (new Date(closingIso) > new Date(publishingIso))
+      return showToast({ title: "Publish after the round closes", tone: "error" });
     saveRound.mutate({
       title: selectedTitle,
       ...(openingEditable ? { opens_at: openingIso } : {}),
@@ -136,36 +164,115 @@ export function AdminRoundPage() {
         <p className="eyebrow">Round contributors</p>
         <h1>{round.title}</h1>
         <p>
-          Default limit: {round.submissionLimit}. A blank override inherits that
-          limit; zero prevents submissions.
+          Default limit: {round.submissionLimit}. A blank override inherits that limit; zero
+          prevents submissions.
         </p>
       </header>
       {!membershipEditable && (
         <p className="muted" role="status">
-          Contributor membership is frozen after a round closes so the published
-          history remains attributable to the original group.
+          Contributor membership is frozen after a round closes so the published history remains
+          attributable to the original group.
         </p>
       )}
       <details className="panel round-settings">
         <summary>Round settings</summary>
         {membershipEditable ? (
           <form className="admin-round-form" noValidate onSubmit={submitSettings}>
-            <label>Title<input value={selectedTitle} required onChange={(event) => setTitle(event.target.value)} /></label>
-            <label>Opens<input type="datetime-local" value={selectedOpensAt} required disabled={!openingEditable} onChange={(event) => setOpensAt(event.target.value)} /><span className="field-hint">Times use {round.timezone}.{!openingEditable ? " An open round keeps its original opening time." : ""}</span></label>
-            <label>Closes<input type="datetime-local" min={selectedOpensAt} value={selectedClosesAt} required onChange={(event) => setClosesAt(event.target.value)} /></label>
-            <label>Publishes<input type="datetime-local" min={selectedClosesAt} value={selectedPublishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label>
-            <label>Submissions per contributor<input type="number" min="0" value={selectedLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>
-            <label>Prompt <span className="field-hint">Optional</span><textarea value={selectedPrompt} maxLength={2000} onChange={(event) => { setPromptEdited(true); setPrompt(event.target.value); }} placeholder="A theme, question, or loose idea for this round." /></label>
-            <label>Publishing account <span className="field-hint">Optional</span>
-              <select value={selectedPublisher} onChange={(event) => setPublisher(event.target.value)}>
-                <option value="">Release this round by hand</option>
-                {spotifyAccounts.map((account) => <option key={account.id} value={account.id}>{account.displayName ?? "Spotify account"}</option>)}
-              </select>
-              <span className="field-hint">{selectedPublisher ? `This round releases itself at its publish time, through this Spotify account.` : "Without an account, the round stays closed until somebody publishes it."}{spotifyAccounts.length === 0 ? " Link a Spotify account on your profile to enable this." : ""}</span>
+            <label>
+              Title
+              <input
+                value={selectedTitle}
+                required
+                onChange={(event) => setTitle(event.target.value)}
+              />
             </label>
-            <button className="button" disabled={saveRound.isPending}>{saveRound.isPending ? "Saving…" : "Save round settings"}</button>
+            <label>
+              Opens
+              <input
+                type="datetime-local"
+                value={selectedOpensAt}
+                required
+                disabled={!openingEditable}
+                onChange={(event) => setOpensAt(event.target.value)}
+              />
+              <span className="field-hint">
+                Times use {round.timezone}.
+                {!openingEditable ? " An open round keeps its original opening time." : ""}
+              </span>
+            </label>
+            <label>
+              Closes
+              <input
+                type="datetime-local"
+                min={selectedOpensAt}
+                value={selectedClosesAt}
+                required
+                onChange={(event) => setClosesAt(event.target.value)}
+              />
+            </label>
+            <label>
+              Publishes
+              <input
+                type="datetime-local"
+                min={selectedClosesAt}
+                value={selectedPublishAt}
+                required
+                onChange={(event) => setPublishAt(event.target.value)}
+              />
+            </label>
+            <label>
+              Submissions per contributor
+              <input
+                type="number"
+                min="0"
+                value={selectedLimit}
+                required
+                onChange={(event) => setSubmissionLimit(event.target.value)}
+              />
+            </label>
+            <label>
+              Prompt <span className="field-hint">Optional</span>
+              <textarea
+                value={selectedPrompt}
+                maxLength={2000}
+                onChange={(event) => {
+                  setPromptEdited(true);
+                  setPrompt(event.target.value);
+                }}
+                placeholder="A theme, question, or loose idea for this round."
+              />
+            </label>
+            <label>
+              Publishing account <span className="field-hint">Optional</span>
+              <select
+                value={selectedPublisher}
+                onChange={(event) => setPublisher(event.target.value)}
+              >
+                <option value="">Release this round by hand</option>
+                {spotifyAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.displayName ?? "Spotify account"}
+                  </option>
+                ))}
+              </select>
+              <span className="field-hint">
+                {selectedPublisher
+                  ? `This round releases itself at its publish time, through this Spotify account.`
+                  : "Without an account, the round stays closed until somebody publishes it."}
+                {spotifyAccounts.length === 0
+                  ? " Link a Spotify account on your profile to enable this."
+                  : ""}
+              </span>
+            </label>
+            <button className="button" disabled={saveRound.isPending}>
+              {saveRound.isPending ? "Saving…" : "Save round settings"}
+            </button>
           </form>
-        ) : <p className="muted">The schedule and default limit are frozen once a round has closed.</p>}
+        ) : (
+          <p className="muted">
+            The schedule and default limit are frozen once a round has closed.
+          </p>
+        )}
       </details>
       <div className="admin-columns">
         <section className="panel">
@@ -195,9 +302,7 @@ export function AdminRoundPage() {
               type="button"
               key={candidate.id}
               disabled={saveMember.isPending || !membershipEditable}
-              onClick={() =>
-                saveMember.mutate({ userId: candidate.id, value: newLimit })
-              }
+              onClick={() => saveMember.mutate({ userId: candidate.id, value: newLimit })}
             >
               <span>
                 {candidate.displayName ?? "Unnamed user"}
@@ -217,15 +322,11 @@ export function AdminRoundPage() {
               .filter((member) => !member.removedAt)
               .map((member) => {
                 const value =
-                  overrides[member.id] ??
-                  member.submissionLimitOverride?.toString() ??
-                  "";
+                  overrides[member.id] ?? member.submissionLimitOverride?.toString() ?? "";
                 return (
                   <article key={member.id}>
                     <div>
-                      <strong>
-                        {member.displayName ?? member.email ?? "Unnamed user"}
-                      </strong>
+                      <strong>{member.displayName ?? member.email ?? "Unnamed user"}</strong>
                       <small>{member.email}</small>
                     </div>
                     <label>
@@ -249,9 +350,7 @@ export function AdminRoundPage() {
                         className="text-button"
                         type="button"
                         disabled={saveMember.isPending || !membershipEditable}
-                        onClick={() =>
-                          saveMember.mutate({ userId: member.id, value })
-                        }
+                        onClick={() => saveMember.mutate({ userId: member.id, value })}
                       >
                         Save
                       </button>
@@ -267,8 +366,9 @@ export function AdminRoundPage() {
                   </article>
                 );
               })}
-            {round.members.filter((member) => !member.removedAt).length ===
-              0 && <p>No contributors yet.</p>}
+            {round.members.filter((member) => !member.removedAt).length === 0 && (
+              <p>No contributors yet.</p>
+            )}
           </div>
         </section>
       </div>
@@ -281,10 +381,10 @@ export function AdminRoundPage() {
               .map((member) => (
                 <article key={member.id}>
                   <div>
-                    <strong>
-                      {member.displayName ?? member.email ?? "Unnamed user"}
-                    </strong>
-                    <small>Removed {member.removedAt ? formatDate(member.removedAt) : "earlier"}</small>
+                    <strong>{member.displayName ?? member.email ?? "Unnamed user"}</strong>
+                    <small>
+                      Removed {member.removedAt ? formatDate(member.removedAt) : "earlier"}
+                    </small>
                   </div>
                 </article>
               ))}
@@ -298,8 +398,12 @@ export function AdminRoundPage() {
         description="They will lose access to this round. Any existing submissions stay in the historical record under their name."
         confirmLabel="Remove contributor"
         isPending={removeMember.isPending}
-        onOpenChange={(open) => { if (!open && !removeMember.isPending) setMemberToRemove(null); }}
-        onConfirm={() => { if (memberToRemove) removeMember.mutate(memberToRemove.id); }}
+        onOpenChange={(open) => {
+          if (!open && !removeMember.isPending) setMemberToRemove(null);
+        }}
+        onConfirm={() => {
+          if (memberToRemove) removeMember.mutate(memberToRemove.id);
+        }}
       />
     </main>
   );

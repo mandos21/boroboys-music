@@ -47,23 +47,17 @@ describe("RoundPage", () => {
             ),
           );
         }
-        return Promise.resolve(
-          new Response(JSON.stringify([]), { status: 200 }),
-        );
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
       }),
     );
 
     renderRound();
 
-    expect(
-      await screen.findByRole("heading", { name: "September picks" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "September picks" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Choose a track" })).toHaveProperty(
       "href",
       expect.stringContaining("/rounds/round-1/submit"),
     );
-    expect(
-      await screen.findByRole("heading", { name: "Submissions" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Submissions" })).toBeTruthy();
   });
 });

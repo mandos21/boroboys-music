@@ -39,23 +39,28 @@ export function HistoricalImportPanel({
       if (Object.values(timestamps).some((value) => value === null)) {
         throw new Error(`Those times are not valid in ${timezone}.`);
       }
-      return post<{ roundId: string }>(
-        `/admin/series/${seriesId}/import-spotify-playlist`,
-        {
-          publisher_account_id: publisherId,
-          spotify_playlist_id: playlistId,
-          title: title.trim() || null,
-          ...timestamps,
-        },
-      );
+      return post<{ roundId: string }>(`/admin/series/${seriesId}/import-spotify-playlist`, {
+        publisher_account_id: publisherId,
+        spotify_playlist_id: playlistId,
+        title: title.trim() || null,
+        ...timestamps,
+      });
     },
     onSuccess: () => {
       setPlaylistId("");
       setTitle("");
       onImported();
-      showToast({ title: "Historical playlist imported", description: "It is now recorded as an immutable published round." });
+      showToast({
+        title: "Historical playlist imported",
+        description: "It is now recorded as an immutable published round.",
+      });
     },
-    onError: () => showToast({ title: "Couldn’t import playlist", description: "Check the playlist and account, then try again.", tone: "error" }),
+    onError: () =>
+      showToast({
+        title: "Couldn’t import playlist",
+        description: "Check the playlist and account, then try again.",
+        tone: "error",
+      }),
   });
   const accounts = (connections.data ?? []).filter(
     (account) => account.provider === "spotify" && account.isActive,
@@ -64,14 +69,13 @@ export function HistoricalImportPanel({
     <details className="panel historical-import">
       <summary>Import a historical Spotify playlist</summary>
       <p>
-        Imports preserve the remote track order and create an immutable
-        published round. Imported playlists are never retired remotely. Times
-        below are read in {timezone}, the series timezone.
+        Imports preserve the remote track order and create an immutable published round. Imported
+        playlists are never retired remotely. Times below are read in {timezone}, the series
+        timezone.
       </p>
       {accounts.length === 0 ? (
         <p>
-          <Link to="/settings/connections">Link a Spotify account</Link> before
-          importing.
+          <Link to="/settings/connections">Link a Spotify account</Link> before importing.
         </p>
       ) : (
         <form

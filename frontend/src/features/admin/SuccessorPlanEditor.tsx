@@ -6,32 +6,20 @@ import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 import type { Series } from "./types";
 
-export function SuccessorPlanEditor({
-  series,
-  onSaved,
-}: {
-  series: Series;
-  onSaved: () => void;
-}) {
+export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSaved: () => void }) {
   const { showToast } = useToast();
   const initialKind =
-    series.roundPlan?.kind === "rolling" ||
-    series.roundPlan?.kind === "calendar"
+    series.roundPlan?.kind === "rolling" || series.roundPlan?.kind === "calendar"
       ? series.roundPlan.kind
       : "none";
   const legacyDurationHours = Number(series.roundPlan?.duration_hours ?? 0);
-  const legacyDurationDays = legacyDurationHours > 0
-    ? Math.max(1, Math.round(legacyDurationHours / 24))
-    : "";
-  const [kind, setKind] = useState<"none" | "rolling" | "calendar">(
-    initialKind,
-  );
+  const legacyDurationDays =
+    legacyDurationHours > 0 ? Math.max(1, Math.round(legacyDurationHours / 24)) : "";
+  const [kind, setKind] = useState<"none" | "rolling" | "calendar">(initialKind);
   const [rollingDays, setRollingDays] = useState(
     String(series.roundPlan?.duration_days ?? legacyDurationDays),
   );
-  const [limit, setLimit] = useState(
-    String(series.roundPlan?.submission_limit ?? ""),
-  );
+  const [limit, setLimit] = useState(String(series.roundPlan?.submission_limit ?? ""));
   const [autoStart, setAutoStart] = useState(series.autoStartNextRound);
   const save = useMutation({
     mutationFn: () =>
@@ -56,17 +44,22 @@ export function SuccessorPlanEditor({
       }),
     onSuccess: () => {
       onSaved();
-      showToast({ title: "Automation saved", description: "Future successors will follow this plan after a successful publication." });
+      showToast({
+        title: "Automation saved",
+        description: "Future successors will follow this plan after a successful publication.",
+      });
     },
-    onError: () => showToast({ title: "Couldn’t save automation", description: "Check the plan and try again.", tone: "error" }),
+    onError: () =>
+      showToast({
+        title: "Couldn’t save automation",
+        description: "Check the plan and try again.",
+        tone: "error",
+      }),
   });
   return (
     <section className="panel">
       <h2>Automatic next round</h2>
-      <p>
-        Changing this affects only successors created after a successful
-        publication.
-      </p>
+      <p>Changing this affects only successors created after a successful publication.</p>
       <form
         className="admin-round-form"
         onSubmit={(event) => {
@@ -78,9 +71,7 @@ export function SuccessorPlanEditor({
           Timeline
           <select
             value={kind}
-            onChange={(event) =>
-              setKind(event.target.value as "none" | "rolling" | "calendar")
-            }
+            onChange={(event) => setKind(event.target.value as "none" | "rolling" | "calendar")}
           >
             <option value="none">None — schedule rounds manually</option>
             <option value="rolling">Rolling — a continuous duration after publication</option>
@@ -100,8 +91,19 @@ export function SuccessorPlanEditor({
             />
           </label>
         )}
-        {kind === "rolling" && <p className="field-hint">Use this for an ongoing cadence rather than a calendar date. The next round opens when the previous playlist is published, stays open for this many days, then releases. A delayed release shifts the next round with it.</p>}
-        {kind === "calendar" && <p className="field-hint">Each successor opens on the first, accepts submissions through the end of that month, and publishes the following day.</p>}
+        {kind === "rolling" && (
+          <p className="field-hint">
+            Use this for an ongoing cadence rather than a calendar date. The next round opens when
+            the previous playlist is published, stays open for this many days, then releases. A
+            delayed release shifts the next round with it.
+          </p>
+        )}
+        {kind === "calendar" && (
+          <p className="field-hint">
+            Each successor opens on the first, accepts submissions through the end of that month,
+            and publishes the following day.
+          </p>
+        )}
         <label>
           Tracks each contributor can submit in future rounds (optional)
           <input
@@ -111,7 +113,9 @@ export function SuccessorPlanEditor({
             value={limit}
             onChange={(event) => setLimit(event.target.value)}
           />
-          <span className="field-hint">Leave blank to reuse the submission limit from the round that was just published.</span>
+          <span className="field-hint">
+            Leave blank to reuse the submission limit from the round that was just published.
+          </span>
         </label>
         <label className="check-label">
           <input

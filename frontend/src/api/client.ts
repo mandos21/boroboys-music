@@ -10,11 +10,10 @@ export class ApiError extends Error {
 let csrfCookieName: string | undefined;
 
 function csrfToken(): string | undefined {
-  const cookies = document.cookie
-    .split("; ")
-    .map((cookie) => cookie.split("=", 2));
-  const cookie = cookies.find(([name]) => name === csrfCookieName)
-    ?? cookies.find(([name]) => name.endsWith("_csrf"));
+  const cookies = document.cookie.split("; ").map((cookie) => cookie.split("=", 2));
+  const cookie =
+    cookies.find(([name]) => name === csrfCookieName) ??
+    cookies.find(([name]) => name.endsWith("_csrf"));
   return cookie?.[1];
 }
 
@@ -32,19 +31,20 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => undefined);
-    const detail = typeof body === "object" && body !== null && "detail" in body
-      ? String(body.detail)
-      : `Request failed (${response.status})`;
+    const detail =
+      typeof body === "object" && body !== null && "detail" in body
+        ? String(body.detail)
+        : `Request failed (${response.status})`;
     throw new ApiError(response.status, detail);
   }
   if (response.status === 204) return undefined as T;
-  const body = await response.json() as T;
+  const body = (await response.json()) as T;
   if (
-    path === "/auth/session"
-    && typeof body === "object"
-    && body !== null
-    && "csrfCookieName" in body
-    && typeof body.csrfCookieName === "string"
+    path === "/auth/session" &&
+    typeof body === "object" &&
+    body !== null &&
+    "csrfCookieName" in body &&
+    typeof body.csrfCookieName === "string"
   ) {
     csrfCookieName = body.csrfCookieName;
   }

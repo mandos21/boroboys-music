@@ -9,8 +9,12 @@ function Publisher() {
   const { showToast } = useToast();
   return (
     <>
-      <button type="button" onClick={() => showToast({ title: "First" })}>first</button>
-      <button type="button" onClick={() => showToast({ title: "Second" })}>second</button>
+      <button type="button" onClick={() => showToast({ title: "First" })}>
+        first
+      </button>
+      <button type="button" onClick={() => showToast({ title: "Second" })}>
+        second
+      </button>
     </>
   );
 }

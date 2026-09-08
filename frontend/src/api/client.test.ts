@@ -17,9 +17,9 @@ describe("API client", () => {
       configurable: true,
       value: { cookie: "a-configured-session_csrf=csrf%20value" },
     });
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ status: "ok" }), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ status: "ok" }), { status: 200 }));
     Object.defineProperty(globalThis, "fetch", { configurable: true, value: fetchMock });
 
     await expect(api<{ status: string }>("/health")).resolves.toEqual({ status: "ok" });
@@ -35,9 +35,11 @@ describe("API client", () => {
     Object.defineProperty(globalThis, "document", { configurable: true, value: { cookie: "" } });
     Object.defineProperty(globalThis, "fetch", {
       configurable: true,
-      value: vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ detail: "round membership required" }), { status: 403 }),
-      ),
+      value: vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ detail: "round membership required" }), { status: 403 }),
+        ),
     });
 
     await expect(api("/rounds/not-yours")).rejects.toEqual(

@@ -30,10 +30,10 @@ export function PublicationPanel({
   });
   const publication = useQuery({
     queryKey: ["publication", round.id],
-    queryFn: () =>
-      api<Publication | null>(`/admin/rounds/${round.id}/publication`),
+    queryFn: () => api<Publication | null>(`/admin/rounds/${round.id}/publication`),
     retry: false,
-    refetchInterval: (query) => (IN_FLIGHT_STATES.includes(query.state.data?.state ?? "") ? 5_000 : false),
+    refetchInterval: (query) =>
+      IN_FLIGHT_STATES.includes(query.state.data?.state ?? "") ? 5_000 : false,
   });
   // The round's own status changes with the publication's. Without this the
   // page would still believe the round was publishing after the poll settled.
@@ -64,7 +64,10 @@ export function PublicationPanel({
       }),
     onSuccess: () => {
       invalidate();
-      showToast({ title: "Publication queued", description: "BoroCrew Music is creating the Spotify playlist in the background." });
+      showToast({
+        title: "Publication queued",
+        description: "BoroCrew Music is creating the Spotify playlist in the background.",
+      });
     },
   });
   const unpublish = useMutation({
@@ -72,50 +75,64 @@ export function PublicationPanel({
     onSuccess: () => {
       invalidate();
       setUnpublishRequested(false);
-      showToast({ title: "Playlist retirement queued", description: "The latest playlist will be removed before the round returns to its prior state." });
+      showToast({
+        title: "Playlist retirement queued",
+        description:
+          "The latest playlist will be removed before the round returns to its prior state.",
+      });
     },
   });
   const retry = useMutation({
-    mutationFn: (publicationId: string) =>
-      post(`/admin/publications/${publicationId}/retry`, {}),
+    mutationFn: (publicationId: string) => post(`/admin/publications/${publicationId}/retry`, {}),
     onSuccess: () => {
       invalidate();
-      showToast({ title: "Publication retry queued", description: "The worker will attempt the operation again shortly." });
+      showToast({
+        title: "Publication retry queued",
+        description: "The worker will attempt the operation again shortly.",
+      });
     },
   });
   const spotifyAccounts = (connections.data ?? []).filter(
     (account) => account.provider === "spotify" && account.isActive,
   );
   const current = publication.data;
-  const stateDescription = current && {
-    pending: "The worker will begin this publication shortly.",
-    publishing: "Creating and populating the Spotify playlist. This page refreshes automatically while it runs.",
-    published: "The playlist is published and available to the group.",
-    failed: "The last attempt did not finish. Review the message below, then retry when ready.",
-    unpublishing: "Removing the Spotify playlist from the publisher’s library and returning the round to its prior state. This page refreshes automatically while it runs.",
-    unpublished: "This release was unpublished. You can publish the immutable round snapshot again.",
-  }[current.state];
+  const stateDescription =
+    current &&
+    {
+      pending: "The worker will begin this publication shortly.",
+      publishing:
+        "Creating and populating the Spotify playlist. This page refreshes automatically while it runs.",
+      published: "The playlist is published and available to the group.",
+      failed: "The last attempt did not finish. Review the message below, then retry when ready.",
+      unpublishing:
+        "Removing the Spotify playlist from the publisher’s library and returning the round to its prior state. This page refreshes automatically while it runs.",
+      unpublished:
+        "This release was unpublished. You can publish the immutable round snapshot again.",
+    }[current.state];
   const error =
-    errorMessage(publish.error) ??
-    errorMessage(unpublish.error) ??
-    errorMessage(retry.error);
+    errorMessage(publish.error) ?? errorMessage(unpublish.error) ?? errorMessage(retry.error);
   return (
     <section className="panel publication-panel">
       <h2>Publication</h2>
-      {publication.isLoading && <StatePanel kind="loading" title="Loading publication status">Checking the playlist and its activity history.</StatePanel>}
+      {publication.isLoading && (
+        <StatePanel kind="loading" title="Loading publication status">
+          Checking the playlist and its activity history.
+        </StatePanel>
+      )}
       {publication.isError && (
-        <StatePanel kind="error" title="We couldn’t load publication status">Refresh the page to see the latest Spotify activity.</StatePanel>
+        <StatePanel kind="error" title="We couldn’t load publication status">
+          Refresh the page to see the latest Spotify activity.
+        </StatePanel>
       )}
       {(!current || current.state === "unpublished") && round.status === "closed" && (
         <>
           <p>
-            Choose one of your linked Spotify accounts to publish this closed
-            round{current ? " again" : ""}.
+            Choose one of your linked Spotify accounts to publish this closed round
+            {current ? " again" : ""}.
           </p>
           {spotifyAccounts.length === 0 ? (
             <p>
-              <Link to="/settings/connections">Link a Spotify account</Link>{" "}
-              before publishing.
+              <Link to="/settings/connections">Link a Spotify account</Link> before publishing.
             </p>
           ) : (
             <>
@@ -166,7 +183,16 @@ export function PublicationPanel({
               ? "Historical import"
               : `${current.attemptCount} publish attempt${current.attemptCount === 1 ? "" : "s"}`}
           </p>
-          {stateDescription && <p className="publication-state-copy" aria-live={["publishing", "unpublishing"].includes(current.state) ? "polite" : undefined}>{stateDescription}</p>}
+          {stateDescription && (
+            <p
+              className="publication-state-copy"
+              aria-live={
+                ["publishing", "unpublishing"].includes(current.state) ? "polite" : undefined
+              }
+            >
+              {stateDescription}
+            </p>
+          )}
           {current.spotifyPlaylistId && (
             <p>
               <a
@@ -204,15 +230,12 @@ export function PublicationPanel({
               disabled={unpublish.isPending}
               onClick={() => setUnpublishRequested(true)}
             >
-              {unpublish.isPending
-                ? "Queueing reversal…"
-                : "Unpublish latest round"}
+              {unpublish.isPending ? "Queueing reversal…" : "Unpublish latest round"}
             </button>
           )}
           {round.status === "published" && current.isImported && (
             <p className="muted">
-              Historical imports are retained and cannot be unpublished
-              remotely.
+              Historical imports are retained and cannot be unpublished remotely.
             </p>
           )}
           {current.events.length > 0 && (
@@ -241,7 +264,9 @@ export function PublicationPanel({
         description="BoroCrew Music will remove the associated Spotify playlist from the publisher’s library and return the round to its prior state. This is only available for the most recently published round."
         confirmLabel="Unpublish playlist"
         isPending={unpublish.isPending}
-        onOpenChange={(open) => { if (!open && !unpublish.isPending) setUnpublishRequested(false); }}
+        onOpenChange={(open) => {
+          if (!open && !unpublish.isPending) setUnpublishRequested(false);
+        }}
         onConfirm={() => unpublish.mutate()}
       />
     </section>

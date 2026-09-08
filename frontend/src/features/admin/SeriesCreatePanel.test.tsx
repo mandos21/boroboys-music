@@ -14,7 +14,9 @@ describe("SeriesCreatePanel", () => {
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter>
-          <ToastProvider><SeriesCreatePanel /></ToastProvider>
+          <ToastProvider>
+            <SeriesCreatePanel />
+          </ToastProvider>
         </MemoryRouter>
       </QueryClientProvider>,
     );

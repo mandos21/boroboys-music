@@ -45,7 +45,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
+function ToastViewport({
+  toasts,
+  onDismiss,
+}: {
+  toasts: Toast[];
+  onDismiss: (id: number) => void;
+}) {
   // Each toast owns its own timer. Sharing one effect over the whole list
   // restarted every countdown as soon as another notification arrived.
   const timers = useRef(new Map<number, number>());
@@ -53,7 +59,10 @@ function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id:
     const pending = timers.current;
     for (const toast of toasts) {
       if (pending.has(toast.id)) continue;
-      pending.set(toast.id, window.setTimeout(() => onDismiss(toast.id), 5_000));
+      pending.set(
+        toast.id,
+        window.setTimeout(() => onDismiss(toast.id), 5_000),
+      );
     }
     for (const [id, timer] of pending) {
       if (toasts.some((toast) => toast.id === id)) continue;
@@ -76,13 +85,22 @@ function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id:
       {toasts.map((toast) => {
         const Icon = icons[toast.tone];
         return (
-          <section className={`toast toast-${toast.tone}`} key={toast.id} role={toast.tone === "error" ? "alert" : "status"}>
+          <section
+            className={`toast toast-${toast.tone}`}
+            key={toast.id}
+            role={toast.tone === "error" ? "alert" : "status"}
+          >
             <Icon aria-hidden="true" size={20} />
             <div>
               <strong>{toast.title}</strong>
               {toast.description && <p>{toast.description}</p>}
             </div>
-            <button aria-label="Dismiss notification" className="icon-button toast-dismiss" onClick={() => onDismiss(toast.id)} type="button">
+            <button
+              aria-label="Dismiss notification"
+              className="icon-button toast-dismiss"
+              onClick={() => onDismiss(toast.id)}
+              type="button"
+            >
               <X aria-hidden="true" size={16} />
             </button>
           </section>

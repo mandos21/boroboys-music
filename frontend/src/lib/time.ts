@@ -23,13 +23,18 @@ function wallPartsAt(date: Date, timeZone: string): WallParts {
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-  }).formatToParts(date).reduce<Record<string, string>>((result, part) => {
-    result[part.type] = part.value;
-    return result;
-  }, {});
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((result, part) => {
+      result[part.type] = part.value;
+      return result;
+    }, {});
   return {
-    year: Number(values.year), month: Number(values.month), day: Number(values.day),
-    hour: Number(values.hour), minute: Number(values.minute),
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
   };
 }
 
@@ -39,7 +44,9 @@ function wallValue(parts: WallParts): string {
 
 function offsetAt(date: Date, timeZone: string): number {
   const parts = wallPartsAt(date, timeZone);
-  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute) - date.getTime();
+  return (
+    Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute) - date.getTime()
+  );
 }
 
 export function toZonedInput(value: string | Date, timeZone: string): string {
@@ -66,16 +73,24 @@ export function endOfWallMonth(value: string): string {
 export function nextWallDay(value: string): string {
   const parts = parseWall(value);
   if (!parts) return "";
-  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + 1, parts.hour, parts.minute));
+  const date = new Date(
+    Date.UTC(parts.year, parts.month - 1, parts.day + 1, parts.hour, parts.minute),
+  );
   return wallValue({
-    year: date.getUTCFullYear(), month: date.getUTCMonth() + 1,
-    day: date.getUTCDate(), hour: date.getUTCHours(), minute: date.getUTCMinutes(),
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
   });
 }
 
 export function monthTitle(value: string): string {
   const parts = parseWall(value);
   if (!parts) return "";
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
-    .format(new Date(Date.UTC(parts.year, parts.month - 1, parts.day)));
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(parts.year, parts.month - 1, parts.day)));
 }

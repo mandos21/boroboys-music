@@ -54,7 +54,10 @@ export function SeriesCreatePanel() {
       <div>
         <p className="eyebrow">Start something new</p>
         <h2 id="create-series-heading">Create a series</h2>
-        <p>Make a monthly check-in, a themed prompt, or an ongoing place to swap what has caught your ear.</p>
+        <p>
+          Make a monthly check-in, a themed prompt, or an ongoing place to swap what has caught your
+          ear.
+        </p>
       </div>
       <form onSubmit={submit}>
         <label>
@@ -95,15 +98,25 @@ export function SeriesCreatePanel() {
             </label>
             <label>
               Timezone
-              <input value={timezone} required onChange={(event) => setTimezone(event.target.value)} />
-              <span className="field-hint">Detected from this browser. Change it if the series follows another place.</span>
+              <input
+                value={timezone}
+                required
+                onChange={(event) => setTimezone(event.target.value)}
+              />
+              <span className="field-hint">
+                Detected from this browser. Change it if the series follows another place.
+              </span>
             </label>
           </div>
         </details>
         <button className="button" disabled={create.isPending}>
           {create.isPending ? "Creating…" : "Create series"}
         </button>
-        {errorMessage(create.error) && <p className="error-message" role="alert">{errorMessage(create.error)}</p>}
+        {errorMessage(create.error) && (
+          <p className="error-message" role="alert">
+            {errorMessage(create.error)}
+          </p>
+        )}
       </form>
     </section>
   );

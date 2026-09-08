@@ -27,9 +27,11 @@ describe("application recovery screens", () => {
   it("explains an unavailable OIDC provider without exposing an API error", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ detail: "not signed in" }), { status: 401 }),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ detail: "not signed in" }), { status: 401 }),
+        ),
     );
 
     renderApp("/auth/error?reason=oidc-unavailable");
@@ -48,30 +50,49 @@ describe("application recovery screens", () => {
       vi.fn((input: string | URL | Request) => {
         const url = String(input);
         if (url.endsWith("/auth/session")) {
-          return Promise.resolve(new Response(JSON.stringify({
-            user: { id: "listener-1", email: "listener@example.test", displayName: "Lena", platformRole: "member" },
-          }), { status: 200 }));
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                user: {
+                  id: "listener-1",
+                  email: "listener@example.test",
+                  displayName: "Lena",
+                  platformRole: "member",
+                },
+              }),
+              { status: 200 },
+            ),
+          );
         }
         if (url.endsWith("/series")) {
-          return Promise.resolve(new Response(JSON.stringify([{
-            id: "series-1",
-            name: "Monthly picks",
-            description: "A monthly listening ritual.",
-            timezone: "UTC",
-            isAdmin: false,
-            featuredRound: {
-              id: "round-1",
-              title: "September picks",
-              status: "open",
-              opensAt: "2026-09-01T00:00:00Z",
-              closesAt: "2026-09-30T23:59:59Z",
-              publishAt: "2026-10-01T12:00:00Z",
-              submittedCount: 2,
-              contributorCount: 5,
-            },
-          }]), { status: 200 }));
+          return Promise.resolve(
+            new Response(
+              JSON.stringify([
+                {
+                  id: "series-1",
+                  name: "Monthly picks",
+                  description: "A monthly listening ritual.",
+                  timezone: "UTC",
+                  isAdmin: false,
+                  featuredRound: {
+                    id: "round-1",
+                    title: "September picks",
+                    status: "open",
+                    opensAt: "2026-09-01T00:00:00Z",
+                    closesAt: "2026-09-30T23:59:59Z",
+                    publishAt: "2026-10-01T12:00:00Z",
+                    submittedCount: 2,
+                    contributorCount: 5,
+                  },
+                },
+              ]),
+              { status: 200 },
+            ),
+          );
         }
-        return Promise.resolve(new Response(JSON.stringify({ detail: "not found" }), { status: 404 }));
+        return Promise.resolve(
+          new Response(JSON.stringify({ detail: "not found" }), { status: 404 }),
+        );
       }),
     );
 
