@@ -12,6 +12,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -304,13 +305,53 @@ class Track(UUIDTimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     artist: Mapped[str] = mapped_column(String(500), nullable=False)
     album: Mapped[str | None] = mapped_column(String(500))
+    spotify_album_id: Mapped[str | None] = mapped_column(String(64))
     spotify_uri: Mapped[str | None] = mapped_column(String(128))
     artwork_url: Mapped[str | None] = mapped_column(String(1000))
     provider_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
 
 
+class TrackArtist(Base):
+    """A canonical Spotify artist credit for a shared track.
+
+    The display string on :class:`Track` remains useful for compact track cards,
+    but profile analytics must not infer individual artists by splitting prose.
+    """
+
+    __tablename__ = "track_artists"
+    __table_args__ = (Index("ix_track_artists_spotify_artist_id", "spotify_artist_id"),)
+
+    track_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True
+    )
+    spotify_artist_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class TrackGenre(Base):
+    """Durable, additive genre enrichment for a shared track."""
+
+    __tablename__ = "track_genres"
+    __table_args__ = (Index("ix_track_genres_genre_key", "genre_key"),)
+
+    track_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True
+    )
+    genre_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+
+
 class Submission(UUIDTimestampMixin, Base):
     __tablename__ = "submissions"
+    __table_args__ = (
+        Index(
+            "ix_submissions_profile_history",
+            "contributor_id",
+            "status",
+            "submitted_at",
+        ),
+    )
 
     round_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False, index=True

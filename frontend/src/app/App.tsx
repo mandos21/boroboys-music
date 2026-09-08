@@ -36,6 +36,11 @@ const ContributorProfilePage = lazy(() =>
     default: module.ContributorProfilePage,
   })),
 );
+const ConnectionsPage = lazy(() =>
+  import("../features/connections/ConnectionsPage").then((module) => ({
+    default: module.ConnectionsPage,
+  })),
+);
 const AdminSeriesPage = lazy(() =>
   import("../features/admin/AdminSeriesPage").then((module) => ({
     default: module.AdminSeriesPage,
@@ -474,7 +479,16 @@ export function App() {
               </ShellRoute>
             }
           />
-          <Route path="/settings/connections" element={<Navigate to="/profile" replace />} />
+          <Route
+            path="/settings/connections"
+            element={
+              <ShellRoute>
+                <LazyRoute>
+                  <ConnectionsPage />
+                </LazyRoute>
+              </ShellRoute>
+            }
+          />
           <Route path="/admin" element={<Navigate to="/" replace />} />
           <Route
             path="/admin/series/:seriesId"

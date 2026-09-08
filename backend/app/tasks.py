@@ -26,6 +26,7 @@ from app.services.publications import (
     execute_retirement,
     start_due_publications,
 )
+from app.services.track_metadata import refresh_track_genres
 from app.services.worker_health import record_heartbeat
 
 settings = get_settings()
@@ -94,6 +95,12 @@ async def refresh_evidence(round_id: str, track_id: str) -> None:
         refresh_round_evidence(db, round_id, track_id)
 
 
+@app.task(queue="metadata")
+async def enrich_track_genres(track_id: str) -> None:
+    with get_session_factory()() as db:
+        refresh_track_genres(db, uuid.UUID(track_id))
+
+
 def defer_publication(publication_id: str) -> None:
     _defer_coalesced(
         publish_round, f"publication:{publication_id}", {"publication_id": publication_id}
@@ -112,6 +119,10 @@ def defer_evidence_refresh(round_id: str, track_id: str) -> None:
         f"evidence:{round_id}:{track_id}",
         {"round_id": round_id, "track_id": track_id},
     )
+
+
+def defer_track_genre_enrichment(track_id: str) -> None:
+    _defer_coalesced(enrich_track_genres, f"track-genres:{track_id}", {"track_id": track_id})
 
 
 def _defer_coalesced(task: Any, queueing_lock: str, task_kwargs: dict[str, str]) -> None:

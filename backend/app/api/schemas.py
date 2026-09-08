@@ -133,6 +133,7 @@ class ProfileStatsResponse(ApiResponse):
     unique_artist_count: int
     unique_album_count: int
     unique_genre_count: int
+    genre_tagged_track_count: int
     diversity_score: int
     top_artists: list[ProfileStatItemResponse]
     genre_spread: list[ProfileStatItemResponse]
@@ -147,6 +148,7 @@ class ProfileResponse(ApiResponse):
     stats: ProfileStatsResponse
     submissions: list[ProfileSubmissionResponse]
     history_count: int
+    next_cursor: str | None
 
 
 class SubmissionDraftResponse(ApiResponse):

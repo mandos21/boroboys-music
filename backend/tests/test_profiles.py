@@ -6,10 +6,23 @@ from collections.abc import Callable
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.routes.profiles import get_my_profile, get_profile
-from app.db.models import Round, Series, Submission, SubmissionStatus, Track, User
+from app.db.models import (
+    PlatformRole,
+    Round,
+    RoundMember,
+    Series,
+    SeriesAdmin,
+    Submission,
+    SubmissionStatus,
+    Track,
+    TrackArtist,
+    TrackGenre,
+    User,
+)
 
 
 def test_profile_summarizes_shared_history_without_leaking_private_rounds(
@@ -35,6 +48,25 @@ def test_profile_summarizes_shared_history_without_leaking_private_rounds(
         artist="Private artist",
         album="Private album",
         provider_metadata={"genres": ["ambient"]},
+    )
+    db.add_all(
+        (
+            TrackArtist(
+                track_id=shared_track.id,
+                spotify_artist_id="shared-artist",
+                name="Shared artist",
+                position=0,
+            ),
+            TrackGenre(track_id=shared_track.id, genre_key="indie rock", name="indie rock"),
+            TrackGenre(track_id=shared_track.id, genre_key="dream pop", name="dream pop"),
+            TrackArtist(
+                track_id=private_track.id,
+                spotify_artist_id="private-artist",
+                name="Private artist",
+                position=0,
+            ),
+            TrackGenre(track_id=private_track.id, genre_key="ambient", name="ambient"),
+        )
     )
     db.add_all(
         (
@@ -71,6 +103,84 @@ def test_profile_summarizes_shared_history_without_leaking_private_rounds(
         "Shared song",
         "Private song",
     }
+
+
+def test_profile_paginates_history_and_keeps_removed_members_out(
+    db: Session,
+    make_round: Callable[..., Round],
+    make_series: Callable[..., Series],
+    make_track: Callable[..., Track],
+    make_user: Callable[..., User],
+) -> None:
+    viewer = make_user(name="Viewer")
+    contributor = make_user(name="Contributor")
+    series = make_series()
+    round_ = make_round(series, members=[viewer, contributor])
+    for index in range(3):
+        track = make_track(name=f"Track {index}", artist=f"Artist {index}")
+        db.add(
+            TrackArtist(
+                track_id=track.id,
+                spotify_artist_id=f"artist-{index}",
+                name=f"Artist {index}",
+                position=0,
+            )
+        )
+        db.add(Submission(round_id=round_.id, contributor_id=contributor.id, track_id=track.id))
+    db.commit()
+
+    first_page = get_profile(contributor.id, db, viewer, limit=2)
+    assert first_page["historyCount"] == 3
+    assert len(first_page["submissions"]) == 2
+    assert first_page["nextCursor"]
+    second_page = get_profile(
+        contributor.id, db, viewer, cursor=str(first_page["nextCursor"]), limit=2
+    )
+    assert len(second_page["submissions"]) == 1
+    assert second_page["nextCursor"] is None
+
+    membership = db.scalar(
+        select(RoundMember).where(
+            RoundMember.round_id == round_.id, RoundMember.user_id == viewer.id
+        )
+    )
+    assert membership is not None
+    membership.removed_at = round_.created_at
+    db.commit()
+    with pytest.raises(HTTPException, match="profile not found"):
+        get_profile(contributor.id, db, viewer)
+
+
+def test_profile_is_visible_to_series_and_platform_administrators(
+    db: Session,
+    make_round: Callable[..., Round],
+    make_series: Callable[..., Series],
+    make_track: Callable[..., Track],
+    make_user: Callable[..., User],
+) -> None:
+    contributor = make_user(name="Contributor")
+    series_admin = make_user(name="Series admin")
+    platform_admin = make_user(name="Platform admin")
+    platform_admin.platform_role = PlatformRole.ADMIN
+    series = make_series()
+    round_ = make_round(series, members=[contributor])
+    track = make_track()
+    db.add_all(
+        (
+            TrackArtist(
+                track_id=track.id,
+                spotify_artist_id="artist",
+                name="Artist",
+                position=0,
+            ),
+            Submission(round_id=round_.id, contributor_id=contributor.id, track_id=track.id),
+            SeriesAdmin(series_id=series.id, user_id=series_admin.id),
+        )
+    )
+    db.commit()
+
+    assert get_profile(contributor.id, db, series_admin)["historyCount"] == 1
+    assert get_profile(contributor.id, db, platform_admin)["historyCount"] == 1
 
 
 def test_profile_does_not_reveal_unshared_contributor(

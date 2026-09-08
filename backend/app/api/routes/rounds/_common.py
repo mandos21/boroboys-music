@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import DbSession
@@ -23,6 +23,7 @@ from app.db.models import (
     Submission,
     SubmissionStatus,
     Track,
+    TrackArtist,
     User,
 )
 from app.services import spotify
@@ -33,14 +34,22 @@ from app.services.publications import get_spotify_access_token
 router = APIRouter(prefix="/rounds", tags=["rounds"])
 
 
+class TrackArtistInput(BaseModel):
+    spotify_artist_id: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=500)
+    position: int = Field(ge=0)
+
+
 class TrackInput(BaseModel):
     spotify_track_id: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=500)
     artist: str = Field(min_length=1, max_length=500)
     album: str | None = Field(default=None, max_length=500)
+    spotify_album_id: str | None = Field(default=None, max_length=64)
     spotify_uri: str | None = Field(default=None, max_length=128)
     artwork_url: str | None = Field(default=None, max_length=1000)
     provider_metadata: dict[str, Any] = Field(default_factory=dict)
+    artists: list[TrackArtistInput] = Field(default_factory=list)
 
 
 def _may_see_evidence(
@@ -188,15 +197,27 @@ def _canonical_track_input(db: DbSession, user: User, input_track: TrackInput) -
     name = track.get("name")
     uri = track.get("uri")
     artists = track.get("artists")
-    artist = (
-        ", ".join(
+    artist_names = (
+        [
             item["name"]
             for item in artists
             if isinstance(item, dict) and isinstance(item.get("name"), str)
-        )
+        ]
         if isinstance(artists, list)
-        else ""
+        else []
     )
+    artist_inputs = (
+        [
+            TrackArtistInput(spotify_artist_id=item["id"], name=item["name"], position=position)
+            for position, item in enumerate(artists)
+            if isinstance(item, dict)
+            and isinstance(item.get("id"), str)
+            and isinstance(item.get("name"), str)
+        ]
+        if isinstance(artists, list)
+        else []
+    )
+    artist = ", ".join(artist_names)
     if not isinstance(name, str) or not isinstance(uri, str) or not artist:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -210,46 +231,25 @@ def _canonical_track_input(db: DbSession, user: User, input_track: TrackInput) -
             if isinstance(image, dict) and isinstance(image.get("url"), str):
                 artwork_url = image["url"]
                 break
-    artist_ids = (
-        [
-            item["id"]
-            for item in artists
-            if isinstance(item, dict) and isinstance(item.get("id"), str)
-        ]
-        if isinstance(artists, list)
-        else []
-    )
-    genres = _spotify_artist_genres(access_token, artist_ids)
     metadata: dict[str, Any] = {
         "explicit": track.get("explicit") is True,
         "isPlayable": track.get("is_playable") is not False,
     }
-    if genres:
-        metadata["genres"] = genres
     return TrackInput(
         spotify_track_id=input_track.spotify_track_id,
         name=name,
         artist=artist,
         album=album if isinstance(album, str) else None,
+        spotify_album_id=(
+            album_data.get("id")
+            if isinstance(album_data, dict) and isinstance(album_data.get("id"), str)
+            else None
+        ),
         spotify_uri=uri,
         artwork_url=artwork_url,
         provider_metadata=metadata,
+        artists=artist_inputs,
     )
-
-
-def _spotify_artist_genres(access_token: str, artist_ids: list[str]) -> list[str]:
-    """Best-effort enrichment: a genre outage must never reject a valid track."""
-    try:
-        artists = spotify.artists_by_id(access_token, artist_ids)
-    except (httpx.HTTPError, spotify.SpotifyError, ValueError):
-        return []
-    genres = {
-        genre.strip()
-        for artist in artists
-        for genre in (artist.get("genres") or [])
-        if isinstance(genre, str) and genre.strip()
-    }
-    return sorted(genres, key=str.casefold)
 
 
 def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
@@ -258,16 +258,21 @@ def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
         track.name = input_track.name
         track.artist = input_track.artist
         track.album = input_track.album
+        track.spotify_album_id = input_track.spotify_album_id
         track.spotify_uri = input_track.spotify_uri
         track.artwork_url = input_track.artwork_url
-        track.provider_metadata = input_track.provider_metadata
+        # Provider fields such as playability should refresh, while optional
+        # enrichment remains additive: a transient lookup failure must never
+        # make a previously known genre disappear.
+        track.provider_metadata = {**track.provider_metadata, **input_track.provider_metadata}
+        _sync_track_artists(db, track, input_track.artists)
         return track
     # Tracks are shared across overlapping rounds.  PostgreSQL resolves the
     # first-insert race without turning a normal simultaneous evaluation into
     # an IntegrityError/500.
     result = db.execute(
         insert(Track)
-        .values(**input_track.model_dump())
+        .values(**input_track.model_dump(exclude={"artists"}))
         .on_conflict_do_nothing(index_elements=[Track.spotify_track_id])
         .returning(Track.id)
     )
@@ -280,7 +285,50 @@ def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
         )
     if track is None:  # defensive: only possible with an unexpected transaction failure
         raise RuntimeError("track insert did not return a track")
+    _sync_track_artists(db, track, input_track.artists)
     return track
+
+
+def _sync_track_artists(db: DbSession, track: Track, artists: list[TrackArtistInput]) -> None:
+    """Replace legacy display-name credits with Spotify's canonical credits."""
+    if not artists:
+        if not db.scalar(select(TrackArtist.track_id).where(TrackArtist.track_id == track.id)):
+            db.add(
+                TrackArtist(
+                    track_id=track.id,
+                    spotify_artist_id=f"legacy:{track.id}",
+                    name=track.artist,
+                    position=0,
+                )
+            )
+            db.flush()
+        return
+    artist_ids = {artist.spotify_artist_id for artist in artists}
+    db.execute(
+        delete(TrackArtist).where(
+            TrackArtist.track_id == track.id,
+            TrackArtist.spotify_artist_id.not_in(artist_ids),
+        )
+    )
+    existing = {
+        artist.spotify_artist_id: artist
+        for artist in db.scalars(select(TrackArtist).where(TrackArtist.track_id == track.id))
+    }
+    for artist in artists:
+        persisted = existing.get(artist.spotify_artist_id)
+        if persisted is None:
+            db.add(
+                TrackArtist(
+                    track_id=track.id,
+                    spotify_artist_id=artist.spotify_artist_id,
+                    name=artist.name,
+                    position=artist.position,
+                )
+            )
+        else:
+            persisted.name = artist.name
+            persisted.position = artist.position
+    db.flush()
 
 
 def _policy_payload(result: Any) -> dict[str, object]:

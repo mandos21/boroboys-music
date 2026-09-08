@@ -132,7 +132,7 @@ def test_canonical_track_lookup_uses_spotify_not_browser_metadata(
     assert canonical.provider_metadata == {"explicit": True, "isPlayable": True}
 
 
-def test_canonical_track_collects_artist_genres_without_trusting_the_browser(
+def test_canonical_track_captures_artist_ids_without_trusting_the_browser(
     db: Session,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -171,19 +171,43 @@ def test_canonical_track_collects_artist_genres_without_trusting_the_browser(
             }
         ],
     )
-    monkeypatch.setattr(
-        spotify,
-        "artists_by_id",
-        lambda _token, artist_ids: [{"id": artist_ids[0], "genres": ["dream pop", "indie"]}],
-    )
-
     canonical = submission_routes._canonical_track_input(
         db,
         user,
         TrackInput(spotify_track_id=f"genre-track-{suffix}", name="Browser", artist="Browser"),
     )
 
-    assert canonical.provider_metadata["genres"] == ["dream pop", "indie"]
+    assert [artist.model_dump() for artist in canonical.artists] == [
+        {"spotify_artist_id": "artist-1", "name": "Trusted artist", "position": 0}
+    ]
+    assert "genres" not in canonical.provider_metadata
+
+
+def test_track_refresh_does_not_erase_cached_genres(
+    db: Session,
+) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    first = TrackInput(
+        spotify_track_id=f"cached-genre-{suffix}",
+        name="A track",
+        artist="Artist",
+        provider_metadata={"explicit": False, "genres": ["already cached"]},
+    )
+    track = submission_routes._find_or_create_track(db, first)
+    db.commit()
+
+    refreshed = submission_routes._find_or_create_track(
+        db,
+        TrackInput(
+            spotify_track_id=first.spotify_track_id,
+            name="A track",
+            artist="Artist",
+            provider_metadata={"explicit": True},
+        ),
+    )
+
+    assert refreshed.id == track.id
+    assert refreshed.provider_metadata == {"explicit": True, "genres": ["already cached"]}
 
 
 def test_warning_requires_confirmation_and_persists_an_audit_record(

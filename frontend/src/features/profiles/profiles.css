@@ -24,7 +24,7 @@
 .profile-chart-heading .eyebrow { margin-bottom: .35rem; }
 .profile-chart-heading h2 { font-size: 1.08rem; }
 .profile-chart-heading > span { color: #64748b; font-size: .72rem; font-weight: 700; text-align: right; }
-.activity-bars { display: flex; height: 10.25rem; align-items: end; gap: .35rem; padding-top: 1.25rem; margin-top: .4rem; border-bottom: 1px solid #d7eadc; }
+.activity-bars { display: flex; height: 10.25rem; align-items: end; gap: .35rem; padding: 1.25rem 0 0; margin: .4rem 0 0; border-bottom: 1px solid #d7eadc; list-style: none; }
 .activity-bar { display: grid; min-width: 0; flex: 1; grid-template-rows: 1rem 1fr 1.2rem; align-items: end; gap: .25rem; text-align: center; }
 .activity-count { color: #166534; font-size: .65rem; font-weight: 800; }
 .activity-bar i { display: block; width: 100%; height: var(--height); align-self: end; border-radius: .28rem .28rem 0 0; background: linear-gradient(#4ade80, #15803d); box-shadow: 0 -4px 12px rgb(22 163 74 / 14%); }
@@ -55,6 +55,8 @@
 .profile-submission-round a { max-width: 100%; overflow: hidden; color: #166534; font-size: .78rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .profile-submission-round a + a { color: #526179; font-weight: 700; }
 .profile-submission-round small { color: #94a3b8; font-size: .7rem; }
+.profile-load-more { display: flex; margin: 1.1rem auto 0; }
+.profile-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .profile-connections { margin-top: 2.5rem; }
 .profile-connections .connection-grid { margin-top: 1rem; }
 

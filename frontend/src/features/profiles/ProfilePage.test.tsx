@@ -19,12 +19,14 @@ const profile = {
     uniqueArtistCount: 2,
     uniqueAlbumCount: 2,
     uniqueGenreCount: 2,
+    genreTaggedTrackCount: 3,
     diversityScore: 67,
     topArtists: [{ name: "The Testers", count: 2 }],
     genreSpread: [{ name: "dream pop", count: 2 }],
     activity: [{ month: "2026-09", label: "Sep 2026", count: 3 }],
   },
   historyCount: 3,
+  nextCursor: null,
   submissions: [
     {
       id: "submission-1",
@@ -47,13 +49,17 @@ const profile = {
   ],
 };
 
-function renderProfile() {
+function renderProfile(profileStatus = 200) {
   vi.stubGlobal(
     "fetch",
     vi.fn((input: string | URL | Request) => {
       const url = String(input);
-      const body = url.endsWith("/profiles/me") ? profile : [];
-      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+      const body = url.includes("/profiles/me") ? profile : [];
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status: url.includes("/profiles/") ? profileStatus : 200,
+        }),
+      );
     }),
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -83,5 +89,14 @@ describe("ProfilePage", () => {
       "href",
       expect.stringContaining("/rounds/round-1"),
     );
+  });
+
+  it("keeps connected services available if profile analytics fail", async () => {
+    renderProfile(500);
+
+    expect(
+      await screen.findByRole("heading", { name: "Listening profile unavailable" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Connected services" })).toBeTruthy();
   });
 });

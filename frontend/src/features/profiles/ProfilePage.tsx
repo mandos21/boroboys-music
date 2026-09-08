@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { Album, Disc3, Music2, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
@@ -9,7 +9,7 @@ import type { components } from "../../api/schema";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { avatarStyle } from "../../lib/avatar";
 import { formatDate } from "../../lib/format";
-import { ConnectionsPanel } from "../connections/ConnectionsPage";
+import { ConnectionsPanel } from "../connections/ConnectionsPanel";
 import "./profiles.css";
 
 type Profile = components["schemas"]["ProfileResponse"];
@@ -32,32 +32,77 @@ function ProfileView({
   queryKey: readonly unknown[];
   includeConnections?: boolean;
 }) {
-  const profile = useQuery({
+  const profile = useInfiniteQuery({
     queryKey,
-    queryFn: () => api<Profile>(endpoint),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      api<Profile>(
+        `${endpoint}?${new URLSearchParams({
+          limit: "30",
+          ...(pageParam ? { cursor: pageParam } : {}),
+        })}`,
+      ),
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     retry: false,
   });
-  if (profile.isLoading)
-    return (
-      <main className="shell narrow-page-shell">
+  const item = profile.data?.pages[0];
+  const submissions = profile.data?.pages.flatMap((page) => page.submissions) ?? [];
+
+  return (
+    <main className="shell profile-shell">
+      {profile.isLoading && (
         <StatePanel kind="loading" title="Finding this listening history">
           Gathering the tracks, artists, and rounds behind it.
         </StatePanel>
-      </main>
-    );
-  if (profile.isError || !profile.data)
-    return (
-      <main className="shell narrow-page-shell">
-        <StatePanel kind="error" title="Profile unavailable">
-          This listener may not have shared history with you yet.{" "}
-          <Link to="/">Return to your series</Link>
-        </StatePanel>
-      </main>
-    );
-  const item = profile.data;
+      )}
+      {profile.isError || !item ? (
+        <>
+          {!profile.isLoading && (
+            <StatePanel
+              kind="error"
+              title={includeConnections ? "Listening profile unavailable" : "Profile unavailable"}
+            >
+              {includeConnections ? (
+                "Your connection settings are still available below."
+              ) : (
+                <>
+                  This listener may not have shared history with you yet.{" "}
+                  <Link to="/">Return to your series</Link>
+                </>
+              )}
+            </StatePanel>
+          )}
+        </>
+      ) : (
+        <ProfileContent
+          item={item}
+          submissions={submissions}
+          onLoadMore={() => profile.fetchNextPage()}
+          hasMore={profile.hasNextPage}
+          isLoadingMore={profile.isFetchingNextPage}
+        />
+      )}
+      {includeConnections && <ProfileConnections />}
+    </main>
+  );
+}
+
+function ProfileContent({
+  item,
+  submissions,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
+}: {
+  item: Profile;
+  submissions: Profile["submissions"];
+  onLoadMore: () => void;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+}) {
   const possessiveName = item.isMe ? "Your" : `${item.displayName}’s`;
   return (
-    <main className="shell profile-shell">
+    <>
       {!item.isMe && (
         <Link className="back" to="/">
           ← Your series
@@ -86,7 +131,10 @@ function ProfileView({
             </p>
           </div>
         </div>
-        <div className="profile-variety" aria-label="Artist variety score">
+        <div
+          className="profile-variety"
+          aria-label={`Artist variety score: ${item.stats.diversityScore}%`}
+        >
           <div
             className="variety-orbit"
             style={{ "--variety": `${item.stats.diversityScore}%` } as CSSProperties}
@@ -94,7 +142,7 @@ function ProfileView({
             <strong>{item.stats.diversityScore}</strong>
             <span>variety</span>
           </div>
-          <p>How often a shared pick introduces a different artist.</p>
+          <p>How often a shared artist credit is someone new.</p>
         </div>
       </section>
       <section className="profile-stat-grid" aria-label="Listening profile statistics">
@@ -112,7 +160,11 @@ function ProfileView({
           <section className="profile-insights-grid" aria-label="Listening profile insights">
             <ActivityChart activity={item.stats.activity} />
             <TopArtists artists={item.stats.topArtists} />
-            <GenreSpread genres={item.stats.genreSpread} />
+            <GenreSpread
+              genres={item.stats.genreSpread}
+              taggedTrackCount={item.stats.genreTaggedTrackCount}
+              trackCount={item.stats.uniqueTrackCount}
+            />
           </section>
           <section className="panel profile-history" aria-labelledby="profile-history-title">
             <div className="section-heading">
@@ -121,11 +173,13 @@ function ProfileView({
                 <h2 id="profile-history-title">Shared tracks</h2>
               </div>
               <span className="profile-history-count">
-                {item.historyCount} pick{item.historyCount === 1 ? "" : "s"}
+                {submissions.length === item.historyCount
+                  ? `${item.historyCount} pick${item.historyCount === 1 ? "" : "s"}`
+                  : `Showing ${submissions.length} of ${item.historyCount}`}
               </span>
             </div>
             <div className="profile-submission-list">
-              {item.submissions.map((submission) => (
+              {submissions.map((submission) => (
                 <article key={submission.id} className="profile-submission">
                   {submission.track.artworkUrl ? (
                     <img src={submission.track.artworkUrl} alt="" />
@@ -150,6 +204,16 @@ function ProfileView({
                 </article>
               ))}
             </div>
+            {hasMore && (
+              <button
+                className="button secondary profile-load-more"
+                type="button"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? "Loading picks…" : "Show more picks"}
+              </button>
+            )}
           </section>
         </>
       ) : (
@@ -157,18 +221,21 @@ function ProfileView({
           Once a track lands in a round, its artist, album, and genre trail will take shape here.
         </StatePanel>
       )}
-      {includeConnections && (
-        <section className="profile-connections" aria-labelledby="connections-title">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Your setup</p>
-              <h2 id="connections-title">Connected services</h2>
-            </div>
-          </div>
-          <ConnectionsPanel />
-        </section>
-      )}
-    </main>
+    </>
+  );
+}
+
+function ProfileConnections() {
+  return (
+    <section className="profile-connections" aria-labelledby="connections-title">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Your setup</p>
+          <h2 id="connections-title">Connected services</h2>
+        </div>
+      </div>
+      <ConnectionsPanel />
+    </section>
   );
 }
 
@@ -199,27 +266,27 @@ function ActivityChart({ activity }: { activity: Profile["stats"]["activity"] })
           <p className="eyebrow">Pacing</p>
           <h2>When the picks landed</h2>
         </div>
-        <span>Recent months with music</span>
+        <span>Latest year of activity</span>
       </div>
-      <div className="activity-bars" aria-label="Submissions by month">
+      <ol className="activity-bars" aria-label="Submissions by month">
         {activity.map((item) => (
-          <div
-            className="activity-bar"
-            key={item.month}
-            title={`${item.label}: ${item.count} picks`}
-          >
-            <span className="activity-count">{item.count || ""}</span>
+          <li className="activity-bar" key={item.month}>
+            <span className="activity-count" aria-hidden="true">
+              {item.count || ""}
+            </span>
             <i
+              aria-hidden="true"
               style={
                 {
                   "--height": `${Math.max((item.count / maximum) * 100, item.count ? 10 : 3)}%`,
                 } as CSSProperties
               }
             />
-            <small>{`${item.label.slice(0, 3)} ’${item.month.slice(2, 4)}`}</small>
-          </div>
+            <small aria-hidden="true">{`${item.label.slice(0, 3)} ’${item.month.slice(2, 4)}`}</small>
+            <span className="profile-sr-only">{`${item.label}: ${item.count} picks`}</span>
+          </li>
         ))}
-      </div>
+      </ol>
     </section>
   );
 }
@@ -238,10 +305,11 @@ function TopArtists({ artists }: { artists: Profile["stats"]["topArtists"] }) {
         {artists.map((artist) => (
           <li key={artist.name}>
             <span>{artist.name}</span>
-            <div aria-label={`${artist.count} picks`}>
+            <div aria-hidden="true">
               <i style={{ "--width": `${(artist.count / maximum) * 100}%` } as CSSProperties} />
             </div>
             <strong>{artist.count}</strong>
+            <span className="profile-sr-only">{`${artist.count} picks`}</span>
           </li>
         ))}
       </ol>
@@ -249,7 +317,15 @@ function TopArtists({ artists }: { artists: Profile["stats"]["topArtists"] }) {
   );
 }
 
-function GenreSpread({ genres }: { genres: Profile["stats"]["genreSpread"] }) {
+function GenreSpread({
+  genres,
+  taggedTrackCount,
+  trackCount,
+}: {
+  genres: Profile["stats"]["genreSpread"];
+  taggedTrackCount: number;
+  trackCount: number;
+}) {
   return (
     <section className="panel profile-chart profile-genres">
       <div className="profile-chart-heading">
@@ -257,6 +333,7 @@ function GenreSpread({ genres }: { genres: Profile["stats"]["genreSpread"] }) {
           <p className="eyebrow">Genre fingerprint</p>
           <h2>Where it leans</h2>
         </div>
+        <span>{`${taggedTrackCount} of ${trackCount} tracks tagged`}</span>
       </div>
       {genres.length ? (
         <div className="genre-cloud">
@@ -267,9 +344,7 @@ function GenreSpread({ genres }: { genres: Profile["stats"]["genreSpread"] }) {
           ))}
         </div>
       ) : (
-        <p className="profile-chart-empty">
-          Genre tags will appear as Spotify-tagged picks make their way into the record.
-        </p>
+        <p className="profile-chart-empty">No genre tags have been cached for these picks yet.</p>
       )}
     </section>
   );

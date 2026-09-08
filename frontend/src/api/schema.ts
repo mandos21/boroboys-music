@@ -1247,6 +1247,8 @@ export interface components {
             id: string;
             /** Isme */
             isMe: boolean;
+            /** Nextcursor */
+            nextCursor: string | null;
             /** Spotifyprofileimageurl */
             spotifyProfileImageUrl: string | null;
             stats: components["schemas"]["ProfileStatsResponse"];
@@ -1268,6 +1270,8 @@ export interface components {
             diversityScore: number;
             /** Genrespread */
             genreSpread: components["schemas"]["ProfileStatItemResponse"][];
+            /** Genretaggedtrackcount */
+            genreTaggedTrackCount: number;
             /** Submissioncount */
             submissionCount: number;
             /** Topartists */
@@ -1735,6 +1739,15 @@ export interface components {
             note?: string | null;
             track?: components["schemas"]["TrackInput"] | null;
         };
+        /** TrackArtistInput */
+        TrackArtistInput: {
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /** Spotify Artist Id */
+            spotify_artist_id: string;
+        };
         /** TrackEvaluationRequest */
         TrackEvaluationRequest: {
             /** Replacing Submission Id */
@@ -1760,6 +1773,8 @@ export interface components {
             album?: string | null;
             /** Artist */
             artist: string;
+            /** Artists */
+            artists?: components["schemas"]["TrackArtistInput"][];
             /** Artwork Url */
             artwork_url?: string | null;
             /** Name */
@@ -1768,6 +1783,8 @@ export interface components {
             provider_metadata?: {
                 [key: string]: unknown;
             };
+            /** Spotify Album Id */
+            spotify_album_id?: string | null;
             /** Spotify Track Id */
             spotify_track_id: string;
             /** Spotify Uri */
@@ -2852,7 +2869,10 @@ export interface operations {
     };
     get_my_profile_api_v1_profiles_me_get: {
         parameters: {
-            query?: never;
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2868,11 +2888,23 @@ export interface operations {
                     "application/json": components["schemas"]["ProfileResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     get_profile_api_v1_profiles__user_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
             header?: never;
             path: {
                 user_id: string;

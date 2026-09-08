@@ -36,7 +36,7 @@ from app.db.models import (
     User,
 )
 from app.services.policies import evaluate_submission
-from app.tasks import defer_evidence_refresh
+from app.tasks import defer_evidence_refresh, defer_track_genre_enrichment
 
 
 class SubmissionCreate(BaseModel):
@@ -96,6 +96,7 @@ def evaluate_track(
     decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
     db.commit()
     defer_evidence_refresh(str(round_.id), str(track.id))
+    defer_track_genre_enrichment(str(track.id))
     rejected = any(item.decision is EvaluationDecision.REJECT for item in decisions)
     warnings = any(item.decision is EvaluationDecision.WARN for item in decisions)
     return {
@@ -175,6 +176,7 @@ def create_submission(
     )
     db.commit()
     defer_evidence_refresh(str(round_.id), str(track.id))
+    defer_track_genre_enrichment(str(track.id))
     return {
         "accepted": True,
         "id": str(submission.id),
@@ -252,6 +254,7 @@ def update_submission(
     db.commit()
     if payload.track is not None:
         defer_evidence_refresh(str(round_.id), str(submission.track_id))
+        defer_track_genre_enrichment(str(submission.track_id))
     return {
         "accepted": True,
         "id": str(submission.id),
