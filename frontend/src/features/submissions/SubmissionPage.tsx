@@ -216,6 +216,17 @@ export function SubmissionPage() {
   const mineCount = submissions.data?.filter(
     (entry) => entry.isMine && entry.status === "accepted",
   ).length;
+  if (!replaceId && mineCount !== undefined && mineCount >= round.data.submissionLimit)
+    return (
+      <main className="shell narrow-page-shell">
+        <StatePanel title="You’re all set for this round">
+          You have used all {round.data.submissionLimit} of your submission
+          {round.data.submissionLimit === 1 ? "" : "s"}. You can still change your mind before the
+          round closes by managing your submissions.{" "}
+          <Link to={`/rounds/${roundId}`}>View round</Link>
+        </StatePanel>
+      </main>
+    );
   const remaining =
     evaluation.data?.limitRemaining ??
     (mineCount === undefined ? undefined : Math.max(0, round.data.submissionLimit - mineCount));

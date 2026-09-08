@@ -198,38 +198,42 @@ function RoundOverview({
           <span>{formatDate(round.publishAt)}</span>
         </div>
       </div>
-      {round.spotifyPlaylistUrl && (
-        <a
-          className="history-link"
-          href={round.spotifyPlaylistUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open Spotify playlist
-        </a>
-      )}
-      {round.status === "open" && hasCapacity ? (
-        <Link className="button" to={`/rounds/${round.id}/submit`}>
-          Choose a track
-        </Link>
-      ) : round.status === "open" ? (
-        <p className="round-capacity-note">
-          You&apos;re all set! You can still change your mind before the end of the round by
-          modifying your submissions below.
-        </p>
-      ) : (
-        <p className="muted">Submissions are currently closed.</p>
-      )}
-      {round.seriesId && (
-        <Link className="history-link" to={`/series/${round.seriesId}`}>
-          View series history
-        </Link>
-      )}
-      {round.canManage && (
-        <Link className="history-link" to={`/admin/rounds/${round.id}`}>
-          Manage this round
-        </Link>
-      )}
+      <div className="round-overview-actions">
+        {round.status === "open" && hasCapacity ? (
+          <Link className="button" to={`/rounds/${round.id}/submit`}>
+            Choose a track
+          </Link>
+        ) : round.status === "open" ? (
+          <p className="round-capacity-note">
+            You&apos;re all set! You can still change your mind before the end of the round by
+            modifying your submissions below.
+          </p>
+        ) : (
+          <p className="muted">Submissions are currently closed.</p>
+        )}
+        <div className="round-secondary-actions">
+          {round.spotifyPlaylistUrl && (
+            <a
+              className="history-link"
+              href={round.spotifyPlaylistUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open Spotify playlist
+            </a>
+          )}
+          {round.seriesId && (
+            <Link className="history-link" to={`/series/${round.seriesId}`}>
+              View series history
+            </Link>
+          )}
+          {round.canManage && (
+            <Link className="history-link" to={`/admin/rounds/${round.id}`}>
+              Manage this round
+            </Link>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

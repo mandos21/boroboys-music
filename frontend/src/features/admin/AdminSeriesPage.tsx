@@ -136,7 +136,7 @@ export function AdminSeriesPage() {
         ← {series.name}
       </Link>
       <header className="submission-heading">
-        <p className="eyebrow">Series management · {series.timezone}</p>
+        <p className="eyebrow">Series management</p>
         <h1>{series.name}</h1>
         <p>
           {series.description ??
