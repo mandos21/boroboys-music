@@ -235,7 +235,7 @@ function RoundOverview({
 }
 
 function ReleaseRecap({ round, submissions }: { round: Round; submissions: Submission[] }) {
-  const artwork = balancedArtwork(submissions);
+  const artwork = round.artworkUrls;
   return (
     <section className="panel release-recap">
       <div>
@@ -256,26 +256,6 @@ function ReleaseRecap({ round, submissions }: { round: Round; submissions: Submi
       />
     </section>
   );
-}
-
-function balancedArtwork(submissions: Submission[], limit = 8): string[] {
-  const byContributor = new Map<string, string[]>();
-  for (const submission of submissions) {
-    if (!submission.track.artworkUrl) continue;
-    const picks = byContributor.get(submission.contributor.id) ?? [];
-    picks.push(submission.track.artworkUrl);
-    byContributor.set(submission.contributor.id, picks);
-  }
-  const result: string[] = [];
-  while (byContributor.size && result.length < limit) {
-    for (const [contributorId, picks] of byContributor) {
-      const next = picks.shift();
-      if (next) result.push(next);
-      if (!picks.length) byContributor.delete(contributorId);
-      if (result.length === limit) break;
-    }
-  }
-  return result;
 }
 
 function ArtworkMosaic({ artworkUrls, label }: { artworkUrls: string[]; label: string }) {

@@ -1269,6 +1269,8 @@ export interface components {
         };
         /** RoundDetailResponse */
         RoundDetailResponse: {
+            /** Artworkurls */
+            artworkUrls: string[];
             /** Backgroundartworkurl */
             backgroundArtworkUrl: string | null;
             /** Canmanage */

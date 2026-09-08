@@ -13,6 +13,7 @@ from sqlalchemy import func, or_, select
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.api.payloads import (
     contributor_display_name,
+    round_artwork_urls_by_round,
     round_timeline,
     spotify_profile_image_subquery,
     stable_pick,
@@ -140,7 +141,7 @@ def get_series_history(
     if not is_admin and not rounds and not _has_series_membership(db, series_id, user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="series access required")
     stats = _series_stats(db, rounds)
-    artwork_by_round = _round_artwork_urls_by_round(db, [round_.id for round_ in rounds])
+    artwork_by_round = round_artwork_urls_by_round(db, [round_.id for round_ in rounds])
     fallback_artwork_url = (
         _fallback_artwork_url(rounds, artwork_by_round)
         if not series.cover_image_url and not series.accent_color
@@ -330,42 +331,6 @@ def _round_payload_from_counts(
         "submittedCount": submitted_counts.get(round_.id, 0),
         "contributorCount": contributor_counts.get(round_.id, 0),
     }
-
-
-def _round_artwork_urls_by_round(
-    db: DbSession, round_ids: Sequence[uuid.UUID], limit: int = 8
-) -> dict[uuid.UUID, list[str]]:
-    """Pick per-round artwork round-robin in one query for history pages."""
-    if not round_ids:
-        return {}
-    rows = list(
-        db.execute(
-            select(Submission.round_id, Submission.contributor_id, Track.artwork_url)
-            .join(Track, Track.id == Submission.track_id)
-            .where(
-                Submission.round_id.in_(round_ids),
-                Submission.status == SubmissionStatus.ACCEPTED,
-                Track.artwork_url.is_not(None),
-            )
-            .order_by(Submission.round_id, Submission.created_at, Submission.id)
-        )
-    )
-    by_round: dict[uuid.UUID, dict[uuid.UUID, list[str]]] = {}
-    for round_id, contributor_id, artwork_url in rows:
-        if isinstance(artwork_url, str):
-            by_round.setdefault(round_id, {}).setdefault(contributor_id, []).append(artwork_url)
-    selected_by_round: dict[uuid.UUID, list[str]] = {}
-    for round_id, by_contributor in by_round.items():
-        selected: list[str] = []
-        while by_contributor and len(selected) < limit:
-            for contributor_id in list(by_contributor):
-                selected.append(by_contributor[contributor_id].pop(0))
-                if not by_contributor[contributor_id]:
-                    del by_contributor[contributor_id]
-                if len(selected) == limit:
-                    break
-        selected_by_round[round_id] = selected
-    return selected_by_round
 
 
 def _fallback_artwork_url(

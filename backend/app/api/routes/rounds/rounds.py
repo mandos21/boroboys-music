@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.api.payloads import (
+    round_artwork_urls_by_round,
     round_timeline,
     stable_pick,
 )
@@ -112,6 +113,9 @@ def get_round(
         )
     )
     background_artwork_url = stable_pick(artwork_urls, round_.id)
+    # The same balanced selection the series history uses, so a release recap
+    # does not need a second implementation of it in the browser.
+    balanced_artwork = round_artwork_urls_by_round(db, [round_.id]).get(round_.id, [])
     submitted_count = int(
         db.scalar(
             select(func.count(func.distinct(Submission.contributor_id))).where(
@@ -141,6 +145,7 @@ def get_round(
         "contributorCount": contributor_count,
         "canManage": can_manage,
         "backgroundArtworkUrl": background_artwork_url,
+        "artworkUrls": balanced_artwork,
     }
 
 

@@ -1363,6 +1363,13 @@
       },
       "RoundDetailResponse": {
         "properties": {
+          "artworkUrls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Artworkurls",
+            "type": "array"
+          },
           "backgroundArtworkUrl": {
             "anyOf": [
               {
@@ -1458,7 +1465,8 @@
           "submissionLimit",
           "spotifyPlaylistUrl",
           "canManage",
-          "backgroundArtworkUrl"
+          "backgroundArtworkUrl",
+          "artworkUrls"
         ],
         "title": "RoundDetailResponse",
         "type": "object"

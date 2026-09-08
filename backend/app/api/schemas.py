@@ -74,6 +74,7 @@ class RoundDetailResponse(RoundPreviewResponse):
     spotify_playlist_url: str | None
     can_manage: bool
     background_artwork_url: str | None
+    artwork_urls: list[str]
 
 
 class TrackResponse(ApiResponse):
