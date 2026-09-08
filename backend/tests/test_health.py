@@ -26,6 +26,12 @@ def test_metrics_endpoint_exposes_music_rounds_metrics() -> None:
 
 
 def test_worker_health_reflects_fresh_and_stale_heartbeats() -> None:
+    """Uses a real session: the endpoint reads on its own connection.
+
+    The heartbeat has to be genuinely committed for the request handler to see
+    it, so this test cannot use the isolated `db` fixture. The row is a
+    singleton the worker overwrites anyway, so it leaves nothing accumulating.
+    """
     with get_session_factory()() as db:
         record_heartbeat(db, datetime.now(UTC))
         db.commit()
