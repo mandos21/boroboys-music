@@ -124,22 +124,7 @@ def create_rolling_successor(
     )
     db.add(successor)
     db.flush()
-    members = list(
-        db.scalars(
-            select(RoundMember).where(
-                RoundMember.round_id == published_round.id,
-                RoundMember.removed_at.is_(None),
-            )
-        )
-    )
-    db.add_all(
-        RoundMember(
-            round_id=successor.id,
-            user_id=member.user_id,
-            submission_limit_override=member.submission_limit_override,
-        )
-        for member in members
-    )
+    _copy_active_members(db, published_round, successor)
     return successor
 
 

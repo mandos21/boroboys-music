@@ -340,37 +340,6 @@ def _has_series_membership(db: DbSession, series_id: uuid.UUID, user_id: uuid.UU
     )
 
 
-def _round_payload(db: DbSession, round_: Round) -> dict[str, object]:
-    submitted_count = int(
-        db.scalar(
-            select(func.count(func.distinct(Submission.contributor_id))).where(
-                Submission.round_id == round_.id,
-                Submission.status == SubmissionStatus.ACCEPTED,
-            )
-        )
-        or 0
-    )
-    contributor_count = int(
-        db.scalar(
-            select(func.count())
-            .select_from(RoundMember)
-            .where(RoundMember.round_id == round_.id, RoundMember.removed_at.is_(None))
-        )
-        or 0
-    )
-    return {
-        "id": str(round_.id),
-        "title": round_.title,
-        "status": round_.status.value,
-        "opensAt": round_.opens_at.isoformat(),
-        "closesAt": round_.closes_at.isoformat(),
-        "publishAt": round_.publish_at.isoformat(),
-        "submittedCount": submitted_count,
-        "contributorCount": contributor_count,
-        "prompt": round_.prompt,
-    }
-
-
 def _round_payload_from_counts(
     round_: Round,
     submitted_counts: dict[uuid.UUID, int],

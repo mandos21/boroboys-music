@@ -13,6 +13,7 @@ import {
   type Evidence,
   type Evaluation,
   type Round,
+  type Submission,
   type SubmissionCreate,
   type SubmissionResult,
   type SubmissionDraft,
@@ -56,6 +57,10 @@ export function SubmissionPage() {
     enabled: Boolean(roundId && evaluation.data?.trackId),
   });
   const draft = useQuery({ queryKey: ["submission-draft", roundId], queryFn: () => api<SubmissionDraft>(`/rounds/${roundId}/draft`), enabled: Boolean(roundId && !replaceId), retry: false });
+  // The round detail counts contributors, not this person's own entries, so
+  // the remaining allowance comes from the submissions the page already shares
+  // with the round view rather than from the round's total limit.
+  const submissions = useQuery({ queryKey: ["round-submissions", roundId], queryFn: () => api<Submission[]>(`/rounds/${roundId}/submissions`), enabled: Boolean(roundId), retry: false });
   const suggestions = useQuery({ queryKey: ["listening-suggestions", roundId], queryFn: () => api<Array<{ name: string; artist: string; artworkUrl: string | null }>>(`/rounds/${roundId}/listening-suggestions`), enabled: Boolean(roundId && !replaceId), retry: false });
   const submission = useMutation({
     mutationFn: () => {
@@ -136,12 +141,15 @@ export function SubmissionPage() {
   if (round.isError || !round.data) return <main className="shell narrow-page-shell"><StatePanel kind="error" title="Round unavailable"><Link to="/">Return to your rounds</Link></StatePanel></main>;
   if (round.data.status !== "open") return <main className="shell narrow-page-shell"><StatePanel title="This round is not accepting submissions">It closes {formatDate(round.data.closesAt)}. <Link to={`/rounds/${roundId}`}>View round</Link></StatePanel></main>;
 
+  const mineCount = submissions.data?.filter((entry) => entry.isMine && entry.status === "accepted").length;
+  const remaining = evaluation.data?.limitRemaining
+    ?? (mineCount === undefined ? undefined : Math.max(0, round.data.submissionLimit - mineCount));
   const policyResults = evaluation.data?.policyResults ?? submission.data?.policyResults ?? [];
   const canSubmit = Boolean(selected && evaluation.data?.canSubmit && !submission.isPending);
   return (
     <main className="shell submission-shell">
       <Link className="back" to={`/rounds/${roundId}`}>← {round.data.title}</Link>
-      <header className="submission-heading"><p className="eyebrow">Your submission</p><h1>{replaceId ? "Replace your track." : "Choose a track."}</h1><p>{replaceId ? "The new track must pass the same round checks before it replaces your existing submission." : `You have room for ${evaluation.data?.limitRemaining ?? round.data.submissionLimit} submissions in this round.`}</p>{round.data.prompt && <p className="round-prompt">Prompt: {round.data.prompt}</p>}</header>
+      <header className="submission-heading"><p className="eyebrow">Your submission</p><h1>{replaceId ? "Replace your track." : "Choose a track."}</h1><p>{replaceId ? "The new track must pass the same round checks before it replaces your existing submission." : remaining === undefined ? "Checking how much room you have left in this round." : `You have room for ${remaining} more track${remaining === 1 ? "" : "s"} in this round.`}</p>{round.data.prompt && <p className="round-prompt">Prompt: {round.data.prompt}</p>}</header>
       <div className="submission-layout">
         <TrackSearchPanel query={query} deferredQuery={deferredQuery} isSearching={tracks.isFetching} hasError={tracks.isError} tracks={tracks.data} onQueryChange={setQuery} onSelect={chooseTrack} suggestions={suggestions.data} onSuggestion={(suggestion) => setQuery(`${suggestion.artist} ${suggestion.name}`)} />
         <SubmissionReviewPanel

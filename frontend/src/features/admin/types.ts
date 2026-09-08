@@ -1,70 +1,16 @@
+import type { components } from "../../api/schema";
+
+/** The administration API is generated like the rest of the contract, so these
+ * are aliases rather than a second, hand-maintained copy of the same shapes. */
 export type Session = { user: { platformRole: string } };
 
-export type Series = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  timezone: string;
-  defaultPolicies: Record<string, unknown>[];
-  roundPlan: Record<string, unknown> | null;
-  autoStartNextRound: boolean;
-  isArchived: boolean;
-  coverImageUrl: string | null;
-  accentColor: string | null;
-};
-
-export type User = {
-  id: string;
-  displayName: string | null;
-  email: string | null;
-};
-
-export type Group = {
-  id: string;
-  name: string;
-  description: string | null;
-  memberCount: number;
-  members: User[];
-};
-
-export type Round = {
-  id: string;
-  title: string;
-  status: string;
-  opensAt: string;
-  closesAt: string;
-  publishAt: string;
-  submissionLimit: number;
-  prompt: string | null;
-};
-
-export type SeriesDetail = Series & { groups: Group[]; rounds: Round[] };
-export type RoundMember = User & {
-  submissionLimitOverride: number | null;
-  removedAt: string | null;
-};
-export type AdminRound = Round & {
-  seriesId: string;
-  timezone: string;
-  policySnapshot: Record<string, unknown>[];
-  members: RoundMember[];
-};
-export type Connection = {
-  id: string;
-  provider: string;
-  displayName: string | null;
-  isActive: boolean;
-};
-export type Publication = {
-  id: string;
-  state: string;
-  isImported: boolean;
-  retirementRequested: boolean;
-  spotifyPlaylistId: string | null;
-  attemptCount: number;
-  lastError: string | null;
-  publishedAt: string | null;
-  unpublishedAt: string | null;
-  events: Array<{ id: string; action: string; createdAt: string }>;
-};
+export type Series = components["schemas"]["AdminSeriesResponse"];
+export type User = components["schemas"]["AdminUserResponse"];
+export type Group = components["schemas"]["AdminGroupResponse"];
+export type Round = components["schemas"]["AdminRoundResponse"];
+export type SeriesDetail = components["schemas"]["AdminSeriesDetailResponse"];
+export type RoundMember = components["schemas"]["AdminRoundMemberResponse"];
+export type AdminRound = components["schemas"]["AdminRoundDetailResponse"];
+export type Connection = components["schemas"]["ConnectionResponse"];
+export type Publication = components["schemas"]["AdminPublicationResponse"];
+export type PublicationCommand = components["schemas"]["AdminPublicationCommandResponse"];

@@ -308,8 +308,17 @@ export function SeriesPage() {
       </main>
     );
   const item = series.data;
-  const featuredRound = item.rounds.find((round) => round.status === "published") ?? item.rounds[0];
-  const otherRounds = item.rounds.filter((round) => round.id !== featuredRound?.id);
+  // The API already sorts an open round ahead of the archive, so the first
+  // round is the one worth leading with. The archive below is releases only,
+  // which keeps an unfinished round from being listed with a release date it
+  // has not reached yet.
+  const featuredRound = item.rounds[0];
+  const publishedRounds = item.rounds.filter(
+    (round) => round.status === "published" && round.id !== featuredRound?.id,
+  );
+  const upcomingRounds = item.rounds.filter(
+    (round) => round.status !== "published" && round.id !== featuredRound?.id,
+  );
   return (
     <main className="shell">
       <Link className="back" to="/">
@@ -325,10 +334,10 @@ export function SeriesPage() {
       </section>
       {item.rounds.length === 0 && <StatePanel title="No rounds yet">When this series starts a round, it will appear here.</StatePanel>}
       {featuredRound && <FeaturedRound round={featuredRound} />}
-      {(otherRounds.length > 0 || item.rounds.some((round) => round.status !== "published")) && <section className="panel series-release-list"><div className="section-heading"><div><p className="eyebrow">The archive</p><h2>Rounds</h2></div></div>
-        {item.rounds.some((round) => round.status !== "published") && <div className="series-timeline" aria-label="Upcoming round timeline">{item.rounds.filter((round) => round.status !== "published").slice(0, 4).map((round) => <Link key={round.id} to={`/rounds/${round.id}`}><span className={`status ${round.status}`}>{round.status}</span><strong>{round.title}</strong><small>{round.status === "open" ? `Closes ${formatDate(round.closesAt)}` : `Opens ${formatDate(round.opensAt)}`}</small></Link>)}</div>}
+      {(publishedRounds.length > 0 || upcomingRounds.length > 0) && <section className="panel series-release-list"><div className="section-heading"><div><p className="eyebrow">The archive</p><h2>Rounds</h2></div></div>
+        {upcomingRounds.length > 0 && <div className="series-timeline" aria-label="Upcoming round timeline">{upcomingRounds.slice(0, 4).map((round) => <Link key={round.id} to={`/rounds/${round.id}`}><span className={`status ${round.status}`}>{round.status}</span><strong>{round.title}</strong><small>{round.status === "open" ? `Closes ${formatDate(round.closesAt)}` : `Opens ${formatDate(round.opensAt)}`}</small></Link>)}</div>}
         <div className="series-round-list">
-          {otherRounds.map((round) => (
+          {publishedRounds.map((round) => (
             <Link className="series-round-item" key={round.id} to={`/rounds/${round.id}`}>
               {round.artworkUrls.length > 0 && <ArtworkMosaic artworkUrls={round.artworkUrls} label={`Album art from ${round.title}`} />}
               <span className={`status ${round.status}`}>{round.status}</span>

@@ -44,7 +44,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="Music Rounds API",
+        title=f"{settings.app_name} API",
         version="0.1.0",
         docs_url="/api/docs" if settings.app_env != "production" else None,
         openapi_url="/api/openapi.json",

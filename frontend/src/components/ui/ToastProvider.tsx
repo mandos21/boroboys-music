@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -45,10 +46,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
+  // Each toast owns its own timer. Sharing one effect over the whole list
+  // restarted every countdown as soon as another notification arrived.
+  const timers = useRef(new Map<number, number>());
   useEffect(() => {
-    const timers = toasts.map((toast) => window.setTimeout(() => onDismiss(toast.id), 5_000));
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
+    const pending = timers.current;
+    for (const toast of toasts) {
+      if (pending.has(toast.id)) continue;
+      pending.set(toast.id, window.setTimeout(() => onDismiss(toast.id), 5_000));
+    }
+    for (const [id, timer] of pending) {
+      if (toasts.some((toast) => toast.id === id)) continue;
+      window.clearTimeout(timer);
+      pending.delete(id);
+    }
   }, [onDismiss, toasts]);
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      pending.forEach((timer) => window.clearTimeout(timer));
+      pending.clear();
+    };
+  }, []);
 
   if (toasts.length === 0) return null;
   const icons = { success: CheckCircle2, error: CircleAlert, info: Info };

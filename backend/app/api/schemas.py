@@ -194,3 +194,105 @@ class SeriesListResponse(ApiResponse):
     fallback_artwork_url: str | None
     is_admin: bool
     featured_round: RoundPreviewResponse | None
+
+
+class AdminUserResponse(ApiResponse):
+    id: str
+    display_name: str | None
+    email: str | None
+
+
+class AdminSeriesResponse(ApiResponse):
+    id: str
+    name: str
+    slug: str
+    description: str | None
+    timezone: str
+    default_policies: list[dict[str, Any]]
+    round_plan: dict[str, Any] | None
+    auto_start_next_round: bool
+    is_archived: bool
+    cover_image_url: str | None
+    accent_color: str | None
+
+
+class AdminGroupResponse(ApiResponse):
+    id: str
+    name: str
+    description: str | None
+    member_count: int
+    members: list[AdminUserResponse]
+
+
+class AdminRoundResponse(ApiResponse):
+    id: str
+    title: str
+    status: str
+    opens_at: datetime
+    closes_at: datetime
+    publish_at: datetime
+    submission_limit: int
+    prompt: str | None
+    publisher_account_id: str | None
+
+
+class AdminSeriesDetailResponse(AdminSeriesResponse):
+    groups: list[AdminGroupResponse]
+    rounds: list[AdminRoundResponse]
+
+
+class AdminRoundMemberResponse(AdminUserResponse):
+    submission_limit_override: int | None
+    removed_at: datetime | None
+
+
+class AdminRoundDetailResponse(AdminRoundResponse):
+    series_id: str
+    timezone: str
+    policy_snapshot: list[dict[str, Any]]
+    members: list[AdminRoundMemberResponse]
+
+
+class AdminPublicationEventResponse(ApiResponse):
+    id: str
+    action: str
+    created_at: datetime
+
+
+class AdminPublicationResponse(ApiResponse):
+    id: str
+    state: str
+    is_imported: bool
+    retirement_requested: bool
+    spotify_playlist_id: str | None
+    attempt_count: int
+    last_error: str | None
+    published_at: datetime | None
+    unpublished_at: datetime | None
+    events: list[AdminPublicationEventResponse]
+
+
+class AdminPublicationCommandResponse(ApiResponse):
+    publication_id: str
+    state: str
+
+
+class AdminSeriesCreatedResponse(ApiResponse):
+    id: str
+    slug: str
+
+
+class AdminInviteResponse(ApiResponse):
+    id: str
+    url: str
+    expires_at: datetime
+    role: str
+    max_uses: int | None
+
+
+class AdminIdResponse(ApiResponse):
+    id: str
+
+
+class AdminImportedRoundResponse(ApiResponse):
+    round_id: str

@@ -5,10 +5,11 @@ import { Link, useParams } from "react-router";
 import { api, del, patch, put } from "../../api/client";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/ToastProvider";
+import { formatDate } from "../../lib/format";
 import { toZonedInput, zonedInputToIso } from "../../lib/time";
 import { PublicationPanel } from "./PublicationPanel";
 import { errorMessage } from "./adminUtils";
-import type { AdminRound, User } from "./types";
+import type { AdminRound, Connection, User } from "./types";
 
 export function AdminRoundPage() {
   const { roundId } = useParams();
@@ -31,7 +32,13 @@ export function AdminRoundPage() {
   const [submissionLimit, setSubmissionLimit] = useState("");
   const [prompt, setPrompt] = useState("");
   const [promptEdited, setPromptEdited] = useState(false);
+  const [publisher, setPublisher] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
+  const connections = useQuery({
+    queryKey: ["connections"],
+    queryFn: () => api<Connection[]>("/connections"),
+    retry: false,
+  });
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["admin-round", roundId] });
   const users = useQuery({
@@ -97,6 +104,10 @@ export function AdminRoundPage() {
   const selectedPublishAt = publishAt || toZonedInput(round.publishAt, round.timezone);
   const selectedLimit = submissionLimit || String(round.submissionLimit);
   const selectedPrompt = promptEdited ? prompt : round.prompt ?? "";
+  const selectedPublisher = publisher ?? round.publisherAccountId ?? "";
+  const spotifyAccounts = (connections.data ?? []).filter(
+    (account) => account.provider === "spotify" && account.isActive,
+  );
   function submitSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedTitle.trim()) return showToast({ title: "Add a round title", tone: "error" });
@@ -113,6 +124,7 @@ export function AdminRoundPage() {
       publish_at: publishingIso,
       submission_limit: Number(selectedLimit),
       prompt: selectedPrompt.trim() || null,
+      publisher_account_id: selectedPublisher || null,
     });
   }
   return (
@@ -144,6 +156,13 @@ export function AdminRoundPage() {
             <label>Publishes<input type="datetime-local" min={selectedClosesAt} value={selectedPublishAt} required onChange={(event) => setPublishAt(event.target.value)} /></label>
             <label>Submissions per contributor<input type="number" min="0" value={selectedLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>
             <label>Prompt <span className="field-hint">Optional</span><textarea value={selectedPrompt} maxLength={2000} onChange={(event) => { setPromptEdited(true); setPrompt(event.target.value); }} placeholder="A theme, question, or loose idea for this round." /></label>
+            <label>Publishing account <span className="field-hint">Optional</span>
+              <select value={selectedPublisher} onChange={(event) => setPublisher(event.target.value)}>
+                <option value="">Release this round by hand</option>
+                {spotifyAccounts.map((account) => <option key={account.id} value={account.id}>{account.displayName ?? "Spotify account"}</option>)}
+              </select>
+              <span className="field-hint">{selectedPublisher ? `This round releases itself at its publish time, through this Spotify account.` : "Without an account, the round stays closed until somebody publishes it."}{spotifyAccounts.length === 0 ? " Link a Spotify account on your profile to enable this." : ""}</span>
+            </label>
             <button className="button" disabled={saveRound.isPending}>{saveRound.isPending ? "Saving…" : "Save round settings"}</button>
           </form>
         ) : <p className="muted">The schedule and default limit are frozen once a round has closed.</p>}
@@ -265,7 +284,7 @@ export function AdminRoundPage() {
                     <strong>
                       {member.displayName ?? member.email ?? "Unnamed user"}
                     </strong>
-                    <small>Removed {member.removedAt}</small>
+                    <small>Removed {member.removedAt ? formatDate(member.removedAt) : "earlier"}</small>
                   </div>
                 </article>
               ))}

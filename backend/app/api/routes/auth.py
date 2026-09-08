@@ -240,10 +240,8 @@ def _is_safe_return_path(value: str) -> bool:
     )
 
 
-def _is_claim_admin(settings: object, claims: dict[str, object]) -> bool:
-    from app.core.config import Settings
-
-    if not isinstance(settings, Settings) or not settings.oidc_admin_claim:
+def _is_claim_admin(settings: Settings, claims: dict[str, object]) -> bool:
+    if not settings.oidc_admin_claim:
         return False
     value = claims.get(settings.oidc_admin_claim)
     values = value if isinstance(value, list) else [value]
@@ -251,16 +249,12 @@ def _is_claim_admin(settings: object, claims: dict[str, object]) -> bool:
 
 
 def _provisioned_platform_role(
-    settings: object,
+    settings: Settings,
     subject: str,
     claims: dict[str, object],
     existing_user: bool,
 ) -> PlatformRole:
     """Determine a local role only when an OIDC identity is first provisioned."""
-    from app.core.config import Settings
-
-    if not isinstance(settings, Settings):
-        return PlatformRole.MEMBER
     if (
         (settings.oidc_bootstrap_first_user_admin and not existing_user)
         or _is_claim_admin(settings, claims)

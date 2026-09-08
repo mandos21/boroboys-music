@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file="../.env", extra="ignore")
 
     app_env: Literal["development", "test", "production"] = "development"
+    app_name: str = Field(default="BoroCrew Music", min_length=1, max_length=100)
     app_base_url: HttpUrl = HttpUrl("http://localhost:5173")
     database_url: str = "postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds"
     procrastinate_database_url: str = (

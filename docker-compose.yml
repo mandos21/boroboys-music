@@ -7,7 +7,9 @@ services:
       POSTGRES_USER: music_rounds
       POSTGRES_PASSWORD: music_rounds
     ports:
-      - "5432:5432"
+      # The application containers reach PostgreSQL over the compose network.
+      # Keep the published port on the local host for psql and backups only.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,6 +19,7 @@ services:
       retries: 10
 
   api:
+    restart: unless-stopped
     build:
       context: ./backend
     env_file:
@@ -41,6 +44,7 @@ services:
       retries: 10
 
   worker:
+    restart: unless-stopped
     build:
       context: ./backend
     env_file:
@@ -54,6 +58,7 @@ services:
         condition: service_healthy
 
   web:
+    restart: unless-stopped
     build:
       context: ./frontend
     ports:

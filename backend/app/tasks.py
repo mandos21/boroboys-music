@@ -13,11 +13,17 @@ from procrastinate import App, PsycopgConnector
 from procrastinate.exceptions import AlreadyEnqueued
 
 from app.core.config import get_settings
+from app.db.models import Publication, Round
 from app.db.session import get_session_factory
 from app.services.auth_cleanup import purge_expired_auth_state
 from app.services.evidence import refresh_round_evidence
 from app.services.lifecycle import reconcile_rounds
-from app.services.publications import execute_publication, execute_retirement
+from app.services.publications import (
+    defer_or_fail,
+    execute_publication,
+    execute_retirement,
+    start_due_publications,
+)
 from app.services.worker_health import record_heartbeat
 
 settings = get_settings()
@@ -27,12 +33,23 @@ app = App(connector=PsycopgConnector(conninfo=settings.procrastinate_database_ur
 @app.periodic(cron="* * * * *", queue="scheduling")
 @app.task(queue="scheduling", queueing_lock="reconcile-schedules")
 async def reconcile_schedules(timestamp: int) -> None:
-    """Reconcile timestamp-driven state after normal operation or worker downtime."""
+    """Reconcile timestamp-driven state after normal operation or worker downtime.
+
+    Closing and publishing are one pass because they are sequential: a round has
+    to be closed before its publication time can apply to it. Running them
+    together lets a round that closed during downtime still publish immediately.
+    """
 
     del timestamp
     with get_session_factory()() as db:
         reconcile_rounds(db)
         db.commit()
+        for publication_id in start_due_publications(db):
+            publication = db.get(Publication, publication_id)
+            round_ = db.get(Round, publication.round_id) if publication else None
+            if publication is None or round_ is None:  # pragma: no cover - just committed
+                continue
+            defer_or_fail(db, publication, round_, defer_publication)
 
 
 @app.periodic(cron="* * * * *", queue="scheduling")

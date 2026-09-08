@@ -341,6 +341,8 @@ draft → scheduled → open → closed → publishing → published → unpubli
 ```
 
 - **Draft:** administrators configure membership, policy, publisher, and schedule.
+  A round's publisher may be set when it is scheduled or any time before it
+  closes, and is what allows it to release itself at `publish_at`.
 - **Scheduled:** the round exists but is not open. Administrators may edit it.
 - **Open:** `opens_at <= now < closes_at`; eligible contributors may submit.
 - **Closed:** submissions are frozen. Administrators may make audited corrections.
@@ -417,6 +419,14 @@ Publishing is initiated by a due-task reconciliation or an explicit administrato
 action. Both defer the same Procrastinate `publish_round` task configured with a
 per-round queueing lock. `publications` supplies the domain-level uniqueness and
 idempotency record; the queueing lock prevents duplicate waiting work.
+
+Reconciliation only publishes a round that already names the Spotify account it
+should publish through, because no administrator is present to choose one. A
+round without a configured publisher stays closed until somebody publishes it,
+as does one whose publisher has since been disconnected or lost its credential;
+neither is treated as a failure. Republishing a round that was deliberately
+unpublished likewise stays a manual decision, so only a first publication ever
+happens on its own.
 
 1. The worker locks the round/publication record and verifies it is closed and has
    a valid connected Spotify publisher.

@@ -2,24 +2,37 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, or_, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.api.schemas import (
+    AdminIdResponse,
+    AdminImportedRoundResponse,
+    AdminInviteResponse,
+    AdminPublicationCommandResponse,
+    AdminPublicationResponse,
+    AdminRoundDetailResponse,
+    AdminRoundResponse,
+    AdminSeriesCreatedResponse,
+    AdminSeriesDetailResponse,
+    AdminSeriesResponse,
+    AdminUserResponse,
+)
 from app.core.config import get_settings
 from app.core.security import hash_secret, new_secret
 from app.db.models import (
     AuditEvent,
     ContributorGroup,
     ContributorGroupMember,
+    ExternalAccount,
+    ExternalProvider,
     PlatformRole,
     Publication,
     PublicationState,
@@ -35,6 +48,7 @@ from app.services.lifecycle import reconcile_round_status, status_for_timeline
 from app.services.membership import ensure_default_series_membership
 from app.services.publications import (
     PublicationError,
+    defer_or_fail,
     import_historical_playlist,
     start_publication,
     start_unpublish,
@@ -42,7 +56,6 @@ from app.services.publications import (
 from app.tasks import defer_publication, defer_retirement
 
 router = APIRouter(prefix="/admin", tags=["administration"], dependencies=[Depends(require_csrf)])
-LOGGER = logging.getLogger(__name__)
 
 
 class RollingRoundPlan(BaseModel):
@@ -145,6 +158,7 @@ class RoundCreate(BaseModel):
     contributor_user_ids: list[uuid.UUID] = Field(default_factory=list)
     policy_snapshot: list[dict[str, Any]] | None = None
     prompt: str | None = Field(default=None, max_length=2000)
+    publisher_account_id: uuid.UUID | None = None
 
     @field_validator("timezone")
     @classmethod
@@ -179,6 +193,7 @@ class RoundUpdate(BaseModel):
     publish_at: datetime | None = None
     submission_limit: int | None = Field(default=None, ge=0)
     prompt: str | None = Field(default=None, max_length=2000)
+    publisher_account_id: uuid.UUID | None = None
 
 
 class InviteCreate(BaseModel):
@@ -212,7 +227,7 @@ class PlaylistImportRequest(BaseModel):
         return self
 
 
-@router.get("/series")
+@router.get("/series", response_model=list[AdminSeriesResponse])
 def list_series_for_administration(
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
@@ -227,7 +242,7 @@ def list_series_for_administration(
     return [_series_summary(series) for series in db.scalars(query)]
 
 
-@router.get("/series/{series_id}")
+@router.get("/series/{series_id}", response_model=AdminSeriesDetailResponse)
 def get_series_for_administration(
     series_id: uuid.UUID,
     db: DbSession,
@@ -248,6 +263,14 @@ def get_series_for_administration(
             .order_by(Round.opens_at.desc())
         )
     )
+    members_by_group: dict[uuid.UUID, list[dict[str, object]]] = {group.id: [] for group in groups}
+    for group_id, member in db.execute(
+        select(ContributorGroupMember.group_id, User)
+        .join(User, User.id == ContributorGroupMember.user_id)
+        .where(ContributorGroupMember.group_id.in_(members_by_group))
+        .order_by(User.display_name, User.email, User.id)
+    ):
+        members_by_group[group_id].append(_user_summary(member))
     return {
         **_series_summary(series),
         "groups": [
@@ -255,23 +278,8 @@ def get_series_for_administration(
                 "id": str(group.id),
                 "name": group.name,
                 "description": group.description,
-                "memberCount": int(
-                    db.scalar(
-                        select(func.count())
-                        .select_from(ContributorGroupMember)
-                        .where(ContributorGroupMember.group_id == group.id)
-                    )
-                    or 0
-                ),
-                "members": [
-                    _user_summary(member)
-                    for member in db.scalars(
-                        select(User)
-                        .join(ContributorGroupMember, ContributorGroupMember.user_id == User.id)
-                        .where(ContributorGroupMember.group_id == group.id)
-                        .order_by(User.display_name, User.email, User.id)
-                    )
-                ],
+                "memberCount": len(members_by_group[group.id]),
+                "members": members_by_group[group.id],
             }
             for group in groups
         ],
@@ -279,7 +287,7 @@ def get_series_for_administration(
     }
 
 
-@router.patch("/series/{series_id}")
+@router.patch("/series/{series_id}", response_model=AdminSeriesResponse)
 def update_series(
     series_id: uuid.UUID,
     payload: SeriesUpdate,
@@ -309,7 +317,7 @@ def update_series(
     return _series_summary(series)
 
 
-@router.get("/series/{series_id}/users")
+@router.get("/series/{series_id}/users", response_model=list[AdminUserResponse])
 def search_users_for_series(
     series_id: uuid.UUID,
     query: Annotated[str, Query(min_length=2, max_length=100)],
@@ -317,12 +325,18 @@ def search_users_for_series(
     user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, object]]:
     _require_series_admin(db, user, series_id)
-    pattern = f"%{query.strip()}%"
+    # Escape the wildcards so a query of "%" searches for a literal percent
+    # sign rather than listing every provisioned account.
+    escaped = query.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
     users = db.scalars(
         select(User)
         .where(
             User.is_active.is_(True),
-            or_(User.email.ilike(pattern), User.display_name.ilike(pattern)),
+            or_(
+                User.email.ilike(pattern, escape="\\"),
+                User.display_name.ilike(pattern, escape="\\"),
+            ),
         )
         .order_by(User.display_name, User.email, User.id)
         .limit(20)
@@ -330,7 +344,7 @@ def search_users_for_series(
     return [_user_summary(candidate) for candidate in users]
 
 
-@router.get("/series/{series_id}/members")
+@router.get("/series/{series_id}/members", response_model=list[AdminUserResponse])
 def list_series_members(
     series_id: uuid.UUID,
     db: DbSession,
@@ -408,7 +422,11 @@ def remove_series_member(
     db.commit()
 
 
-@router.post("/series", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/series",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AdminSeriesCreatedResponse,
+)
 def create_series(
     payload: SeriesCreate,
     db: DbSession,
@@ -424,7 +442,11 @@ def create_series(
     return {"id": str(series.id), "slug": series.slug}
 
 
-@router.post("/series/{series_id}/invites", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/series/{series_id}/invites",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AdminInviteResponse,
+)
 def create_series_invite(
     series_id: uuid.UUID,
     payload: InviteCreate,
@@ -452,7 +474,11 @@ def create_series_invite(
     }
 
 
-@router.post("/series/{series_id}/import-spotify-playlist", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/series/{series_id}/import-spotify-playlist",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AdminImportedRoundResponse,
+)
 def import_spotify_playlist(
     series_id: uuid.UUID,
     payload: PlaylistImportRequest,
@@ -504,7 +530,11 @@ def add_series_admin(
     db.commit()
 
 
-@router.post("/series/{series_id}/groups", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/series/{series_id}/groups",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AdminIdResponse,
+)
 def create_group(
     series_id: uuid.UUID,
     payload: GroupCreate,
@@ -545,7 +575,7 @@ def add_group_member(
         db.commit()
 
 
-@router.post("/rounds", status_code=status.HTTP_201_CREATED)
+@router.post("/rounds", status_code=status.HTTP_201_CREATED, response_model=AdminIdResponse)
 def create_round(
     payload: RoundCreate,
     db: DbSession,
@@ -564,6 +594,8 @@ def create_round(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid group"
         )
+    if payload.publisher_account_id is not None:
+        _require_publishable_account(db, series.id, payload.publisher_account_id)
     round_ = Round(
         series_id=series.id,
         title=payload.title,
@@ -577,6 +609,7 @@ def create_round(
         if payload.policy_snapshot is not None
         else series.default_policies,
         prompt=payload.prompt,
+        publisher_account_id=payload.publisher_account_id,
     )
     db.add(round_)
     db.flush()
@@ -600,7 +633,7 @@ def create_round(
     return {"id": str(round_.id)}
 
 
-@router.patch("/rounds/{round_id}")
+@router.patch("/rounds/{round_id}", response_model=AdminRoundResponse)
 def update_round(
     round_id: uuid.UUID,
     payload: RoundUpdate,
@@ -631,13 +664,17 @@ def update_round(
         round_.submission_limit = payload.submission_limit
     if "prompt" in payload.model_fields_set:
         round_.prompt = payload.prompt
+    if "publisher_account_id" in payload.model_fields_set:
+        if payload.publisher_account_id is not None:
+            _require_publishable_account(db, round_.series_id, payload.publisher_account_id)
+        round_.publisher_account_id = payload.publisher_account_id
     round_.opens_at, round_.closes_at, round_.publish_at = opens_at, closes_at, publish_at
     round_.status = status_for_timeline(opens_at, closes_at)
     db.commit()
     return _round_summary(round_)
 
 
-@router.get("/rounds/{round_id}")
+@router.get("/rounds/{round_id}", response_model=AdminRoundDetailResponse)
 def get_round_for_administration(
     round_id: uuid.UUID,
     db: DbSession,
@@ -673,7 +710,9 @@ def get_round_for_administration(
     }
 
 
-@router.get("/rounds/{round_id}/publication")
+@router.get(
+    "/rounds/{round_id}/publication", response_model=AdminPublicationResponse | None
+)
 def get_publication_status(
     round_id: uuid.UUID,
     db: DbSession,
@@ -797,7 +836,11 @@ def remove_round_member(
     db.commit()
 
 
-@router.post("/rounds/{round_id}/publish", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/rounds/{round_id}/publish",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=AdminPublicationCommandResponse,
+)
 def publish_round_request(
     round_id: uuid.UUID,
     payload: PublishRequest,
@@ -814,11 +857,15 @@ def publish_round_request(
     except PublicationError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    _defer_or_mark_failed(db, publication, round_, defer_publication)
+    defer_or_fail(db, publication, round_, defer_publication)
     return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
-@router.post("/rounds/{round_id}/unpublish", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/rounds/{round_id}/unpublish",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=AdminPublicationCommandResponse,
+)
 def unpublish_round_request(
     round_id: uuid.UUID,
     db: DbSession,
@@ -834,11 +881,15 @@ def unpublish_round_request(
     except PublicationError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    _defer_or_mark_failed(db, publication, round_, defer_retirement)
+    defer_or_fail(db, publication, round_, defer_retirement)
     return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
-@router.post("/publications/{publication_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/publications/{publication_id}/retry",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=AdminPublicationCommandResponse,
+)
 def retry_publication(
     publication_id: uuid.UUID,
     db: DbSession,
@@ -860,8 +911,11 @@ def retry_publication(
             publication.state = PublicationState.PUBLISHING
             round_.status = RoundStatus.PUBLISHING
             defer = defer_publication
+        # The previous failure is no longer the current state of this
+        # publication, so it must not keep being reported as one.
+        publication.last_error = None
         db.commit()
-        _defer_or_mark_failed(db, publication, round_, defer)
+        defer_or_fail(db, publication, round_, defer)
     else:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="publication is not retryable"
@@ -869,21 +923,40 @@ def retry_publication(
     return {"publicationId": str(publication.id), "state": publication.state.value}
 
 
-def _defer_or_mark_failed(
-    db: DbSession,
-    publication: Publication,
-    round_: Round,
-    defer: Callable[[str], None],
-) -> None:
-    """Never leave a publication stranded when Procrastinate rejects an enqueue."""
-    try:
-        defer(str(publication.id))
-    except Exception:
-        LOGGER.exception("publication task enqueue failed", extra={"publication_id": str(publication.id)})
-        publication.state = PublicationState.FAILED
-        publication.last_error = "Publication could not be queued. Retry it from this page."
-        round_.status = RoundStatus.FAILED
-        db.commit()
+def _require_publishable_account(
+    db: DbSession, series_id: uuid.UUID, account_id: uuid.UUID
+) -> ExternalAccount:
+    """Accept a scheduled publisher only if a series administrator owns it.
+
+    A round publishes to this account without anyone present, so the account
+    must belong to somebody who could have published the round by hand.
+    """
+    account = db.get(ExternalAccount, account_id)
+    if (
+        account is None
+        or account.provider is not ExternalProvider.SPOTIFY
+        or not account.is_active
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="a connected Spotify account is required to publish automatically",
+        )
+    owner = db.get(User, account.user_id)
+    is_series_admin = owner is not None and (
+        owner.platform_role is PlatformRole.ADMIN
+        or db.scalar(
+            select(SeriesAdmin.id).where(
+                SeriesAdmin.series_id == series_id, SeriesAdmin.user_id == account.user_id
+            )
+        )
+        is not None
+    )
+    if not is_series_admin:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="the publishing account must belong to a series administrator",
+        )
+    return account
 
 
 def _require_platform_admin(user: User) -> None:
@@ -944,6 +1017,9 @@ def _round_summary(round_: Round) -> dict[str, object]:
         "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": round_.submission_limit,
         "prompt": round_.prompt,
+        "publisherAccountId": str(round_.publisher_account_id)
+        if round_.publisher_account_id
+        else None,
     }
 
 

@@ -5,6 +5,7 @@ export type Track = components["schemas"]["TrackResponse"];
 export type PolicyResult = components["schemas"]["PolicyResultResponse"];
 export type Evaluation = components["schemas"]["TrackEvaluationResponse"];
 export type Evidence = components["schemas"]["EvidenceResponse"];
+export type Submission = components["schemas"]["SubmissionResponse"];
 export type SubmissionResult = components["schemas"]["SubmissionResultResponse"];
 
 export type TrackInput = components["schemas"]["TrackInput"];

@@ -781,6 +781,248 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminGroupResponse */
+        AdminGroupResponse: {
+            /** Description */
+            description: string | null;
+            /** Id */
+            id: string;
+            /** Membercount */
+            memberCount: number;
+            /** Members */
+            members: components["schemas"]["AdminUserResponse"][];
+            /** Name */
+            name: string;
+        };
+        /** AdminIdResponse */
+        AdminIdResponse: {
+            /** Id */
+            id: string;
+        };
+        /** AdminImportedRoundResponse */
+        AdminImportedRoundResponse: {
+            /** Roundid */
+            roundId: string;
+        };
+        /** AdminInviteResponse */
+        AdminInviteResponse: {
+            /**
+             * Expiresat
+             * Format: date-time
+             */
+            expiresAt: string;
+            /** Id */
+            id: string;
+            /** Maxuses */
+            maxUses: number | null;
+            /** Role */
+            role: string;
+            /** Url */
+            url: string;
+        };
+        /** AdminPublicationCommandResponse */
+        AdminPublicationCommandResponse: {
+            /** Publicationid */
+            publicationId: string;
+            /** State */
+            state: string;
+        };
+        /** AdminPublicationEventResponse */
+        AdminPublicationEventResponse: {
+            /** Action */
+            action: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Id */
+            id: string;
+        };
+        /** AdminPublicationResponse */
+        AdminPublicationResponse: {
+            /** Attemptcount */
+            attemptCount: number;
+            /** Events */
+            events: components["schemas"]["AdminPublicationEventResponse"][];
+            /** Id */
+            id: string;
+            /** Isimported */
+            isImported: boolean;
+            /** Lasterror */
+            lastError: string | null;
+            /** Publishedat */
+            publishedAt: string | null;
+            /** Retirementrequested */
+            retirementRequested: boolean;
+            /** Spotifyplaylistid */
+            spotifyPlaylistId: string | null;
+            /** State */
+            state: string;
+            /** Unpublishedat */
+            unpublishedAt: string | null;
+        };
+        /** AdminRoundDetailResponse */
+        AdminRoundDetailResponse: {
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            closesAt: string;
+            /** Id */
+            id: string;
+            /** Members */
+            members: components["schemas"]["AdminRoundMemberResponse"][];
+            /**
+             * Opensat
+             * Format: date-time
+             */
+            opensAt: string;
+            /** Policysnapshot */
+            policySnapshot: {
+                [key: string]: unknown;
+            }[];
+            /** Prompt */
+            prompt: string | null;
+            /**
+             * Publishat
+             * Format: date-time
+             */
+            publishAt: string;
+            /** Publisheraccountid */
+            publisherAccountId: string | null;
+            /** Seriesid */
+            seriesId: string;
+            /** Status */
+            status: string;
+            /** Submissionlimit */
+            submissionLimit: number;
+            /** Timezone */
+            timezone: string;
+            /** Title */
+            title: string;
+        };
+        /** AdminRoundMemberResponse */
+        AdminRoundMemberResponse: {
+            /** Displayname */
+            displayName: string | null;
+            /** Email */
+            email: string | null;
+            /** Id */
+            id: string;
+            /** Removedat */
+            removedAt: string | null;
+            /** Submissionlimitoverride */
+            submissionLimitOverride: number | null;
+        };
+        /** AdminRoundResponse */
+        AdminRoundResponse: {
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            closesAt: string;
+            /** Id */
+            id: string;
+            /**
+             * Opensat
+             * Format: date-time
+             */
+            opensAt: string;
+            /** Prompt */
+            prompt: string | null;
+            /**
+             * Publishat
+             * Format: date-time
+             */
+            publishAt: string;
+            /** Publisheraccountid */
+            publisherAccountId: string | null;
+            /** Status */
+            status: string;
+            /** Submissionlimit */
+            submissionLimit: number;
+            /** Title */
+            title: string;
+        };
+        /** AdminSeriesCreatedResponse */
+        AdminSeriesCreatedResponse: {
+            /** Id */
+            id: string;
+            /** Slug */
+            slug: string;
+        };
+        /** AdminSeriesDetailResponse */
+        AdminSeriesDetailResponse: {
+            /** Accentcolor */
+            accentColor: string | null;
+            /** Autostartnextround */
+            autoStartNextRound: boolean;
+            /** Coverimageurl */
+            coverImageUrl: string | null;
+            /** Defaultpolicies */
+            defaultPolicies: {
+                [key: string]: unknown;
+            }[];
+            /** Description */
+            description: string | null;
+            /** Groups */
+            groups: components["schemas"]["AdminGroupResponse"][];
+            /** Id */
+            id: string;
+            /** Isarchived */
+            isArchived: boolean;
+            /** Name */
+            name: string;
+            /** Roundplan */
+            roundPlan: {
+                [key: string]: unknown;
+            } | null;
+            /** Rounds */
+            rounds: components["schemas"]["AdminRoundResponse"][];
+            /** Slug */
+            slug: string;
+            /** Timezone */
+            timezone: string;
+        };
+        /** AdminSeriesResponse */
+        AdminSeriesResponse: {
+            /** Accentcolor */
+            accentColor: string | null;
+            /** Autostartnextround */
+            autoStartNextRound: boolean;
+            /** Coverimageurl */
+            coverImageUrl: string | null;
+            /** Defaultpolicies */
+            defaultPolicies: {
+                [key: string]: unknown;
+            }[];
+            /** Description */
+            description: string | null;
+            /** Id */
+            id: string;
+            /** Isarchived */
+            isArchived: boolean;
+            /** Name */
+            name: string;
+            /** Roundplan */
+            roundPlan: {
+                [key: string]: unknown;
+            } | null;
+            /** Slug */
+            slug: string;
+            /** Timezone */
+            timezone: string;
+        };
+        /** AdminUserResponse */
+        AdminUserResponse: {
+            /** Displayname */
+            displayName: string | null;
+            /** Email */
+            email: string | null;
+            /** Id */
+            id: string;
+        };
         /**
          * CalendarRoundPlan
          * @description A calendar rule in the series timezone.
@@ -1011,6 +1253,8 @@ export interface components {
              * Format: date-time
              */
             publish_at: string;
+            /** Publisher Account Id */
+            publisher_account_id?: string | null;
             /**
              * Series Id
              * Format: uuid
@@ -1136,6 +1380,8 @@ export interface components {
             prompt?: string | null;
             /** Publish At */
             publish_at?: string | null;
+            /** Publisher Account Id */
+            publisher_account_id?: string | null;
             /** Submission Limit */
             submission_limit?: number | null;
             /** Title */
@@ -1505,9 +1751,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["AdminPublicationCommandResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1540,9 +1784,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["AdminIdResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1573,9 +1815,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AdminRoundDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1610,9 +1850,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AdminRoundResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1707,9 +1945,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    } | null;
+                    "application/json": components["schemas"]["AdminPublicationResponse"] | null;
                 };
             };
             /** @description Validation Error */
@@ -1744,9 +1980,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["AdminPublicationCommandResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1777,9 +2011,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["AdminPublicationCommandResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1808,9 +2040,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["AdminSeriesResponse"][];
                 };
             };
         };
@@ -1834,9 +2064,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["AdminSeriesCreatedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1867,9 +2095,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AdminSeriesDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1904,9 +2130,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AdminSeriesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1971,9 +2195,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["AdminIdResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2008,9 +2230,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["AdminImportedRoundResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2045,9 +2265,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AdminInviteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2078,9 +2296,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["AdminUserResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -2173,9 +2389,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["AdminUserResponse"][];
                 };
             };
             /** @description Validation Error */

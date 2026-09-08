@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -30,9 +32,81 @@ from app.db.models import (
 from app.services import spotify
 from app.services.lifecycle import create_successor
 
+LOGGER = logging.getLogger(__name__)
+
 
 class PublicationError(Exception):
     pass
+
+
+def defer_or_fail(
+    db: Session,
+    publication: Publication,
+    round_: Round,
+    defer: Callable[[str], None],
+) -> None:
+    """Never leave a publication stranded when Procrastinate rejects an enqueue."""
+    try:
+        defer(str(publication.id))
+    except Exception:
+        LOGGER.exception(
+            "publication task enqueue failed", extra={"publication_id": str(publication.id)}
+        )
+        publication.state = PublicationState.FAILED
+        publication.last_error = "Publication could not be queued. Retry it from this page."
+        round_.status = RoundStatus.FAILED
+        db.commit()
+
+
+def start_due_publications(db: Session, now: datetime | None = None) -> list[uuid.UUID]:
+    """Begin every publication whose round reached its configured publication time.
+
+    A round only publishes itself when an administrator has chosen the Spotify
+    account it should publish through. Rounds without one stay closed and wait
+    for a manual publication, which keeps the automated path from guessing which
+    person's account to write to.
+    """
+    instant = now or datetime.now(UTC)
+    # A publisher that has been disconnected or has lost its credential simply
+    # stops publishing automatically. The round then waits for a manual
+    # publication instead of failing, and retrying, once every minute.
+    due = list(
+        db.execute(
+            select(Round.id, ExternalAccount.id, ExternalAccount.user_id)
+            .join(ExternalAccount, ExternalAccount.id == Round.publisher_account_id)
+            .join(
+                ExternalCredential,
+                ExternalCredential.external_account_id == ExternalAccount.id,
+            )
+            .where(
+                Round.status == RoundStatus.CLOSED,
+                Round.publish_at <= instant,
+                ExternalAccount.provider == ExternalProvider.SPOTIFY,
+                ExternalAccount.is_active.is_(True),
+                # Republishing a round that was deliberately unpublished stays a
+                # manual decision; only a first publication happens on its own.
+                ~select(Publication.id)
+                .where(Publication.round_id == Round.id)
+                .exists(),
+            )
+            .order_by(Round.publish_at)
+        )
+    )
+    started: list[uuid.UUID] = []
+    for round_id, publisher_account_id, publisher_owner_id in due:
+        try:
+            publication = start_publication(
+                db, round_id, publisher_account_id, publisher_owner_id
+            )
+            db.commit()
+        except PublicationError as error:
+            db.rollback()
+            LOGGER.warning(
+                "scheduled publication was skipped round_id=%s reason=%s", round_id, error
+            )
+            continue
+        started.append(publication.id)
+    return started
 
 
 def start_publication(
@@ -273,7 +347,10 @@ def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
         access_token = get_spotify_access_token(db, account.id)
         if publication.spotify_playlist_id is None:
             publication.spotify_playlist_id = spotify.create_playlist(
-                access_token, account.provider_subject, round_.title, "Published by BoroCrew Music"
+                access_token,
+                account.provider_subject,
+                round_.title,
+                f"Published by {get_settings().app_name}",
             )
             publication.attempt_count += 1
             db.commit()

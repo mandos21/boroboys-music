@@ -1,6 +1,741 @@
 {
   "components": {
     "schemas": {
+      "AdminGroupResponse": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "memberCount": {
+            "title": "Membercount",
+            "type": "integer"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserResponse"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "memberCount",
+          "members"
+        ],
+        "title": "AdminGroupResponse",
+        "type": "object"
+      },
+      "AdminIdResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "AdminIdResponse",
+        "type": "object"
+      },
+      "AdminImportedRoundResponse": {
+        "properties": {
+          "roundId": {
+            "title": "Roundid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "roundId"
+        ],
+        "title": "AdminImportedRoundResponse",
+        "type": "object"
+      },
+      "AdminInviteResponse": {
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "maxUses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxuses"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "expiresAt",
+          "role",
+          "maxUses"
+        ],
+        "title": "AdminInviteResponse",
+        "type": "object"
+      },
+      "AdminPublicationCommandResponse": {
+        "properties": {
+          "publicationId": {
+            "title": "Publicationid",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publicationId",
+          "state"
+        ],
+        "title": "AdminPublicationCommandResponse",
+        "type": "object"
+      },
+      "AdminPublicationEventResponse": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "createdAt"
+        ],
+        "title": "AdminPublicationEventResponse",
+        "type": "object"
+      },
+      "AdminPublicationResponse": {
+        "properties": {
+          "attemptCount": {
+            "title": "Attemptcount",
+            "type": "integer"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPublicationEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isImported": {
+            "title": "Isimported",
+            "type": "boolean"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishedat"
+          },
+          "retirementRequested": {
+            "title": "Retirementrequested",
+            "type": "boolean"
+          },
+          "spotifyPlaylistId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotifyplaylistid"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "unpublishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unpublishedat"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "isImported",
+          "retirementRequested",
+          "spotifyPlaylistId",
+          "attemptCount",
+          "lastError",
+          "publishedAt",
+          "unpublishedAt",
+          "events"
+        ],
+        "title": "AdminPublicationResponse",
+        "type": "object"
+      },
+      "AdminRoundDetailResponse": {
+        "properties": {
+          "closesAt": {
+            "format": "date-time",
+            "title": "Closesat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRoundMemberResponse"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "opensAt": {
+            "format": "date-time",
+            "title": "Opensat",
+            "type": "string"
+          },
+          "policySnapshot": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Policysnapshot",
+            "type": "array"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "publishAt": {
+            "format": "date-time",
+            "title": "Publishat",
+            "type": "string"
+          },
+          "publisherAccountId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisheraccountid"
+          },
+          "seriesId": {
+            "title": "Seriesid",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submissionLimit": {
+            "title": "Submissionlimit",
+            "type": "integer"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "opensAt",
+          "closesAt",
+          "publishAt",
+          "submissionLimit",
+          "prompt",
+          "publisherAccountId",
+          "seriesId",
+          "timezone",
+          "policySnapshot",
+          "members"
+        ],
+        "title": "AdminRoundDetailResponse",
+        "type": "object"
+      },
+      "AdminRoundMemberResponse": {
+        "properties": {
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "removedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removedat"
+          },
+          "submissionLimitOverride": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submissionlimitoverride"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "submissionLimitOverride",
+          "removedAt"
+        ],
+        "title": "AdminRoundMemberResponse",
+        "type": "object"
+      },
+      "AdminRoundResponse": {
+        "properties": {
+          "closesAt": {
+            "format": "date-time",
+            "title": "Closesat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opensAt": {
+            "format": "date-time",
+            "title": "Opensat",
+            "type": "string"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "publishAt": {
+            "format": "date-time",
+            "title": "Publishat",
+            "type": "string"
+          },
+          "publisherAccountId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisheraccountid"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submissionLimit": {
+            "title": "Submissionlimit",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "opensAt",
+          "closesAt",
+          "publishAt",
+          "submissionLimit",
+          "prompt",
+          "publisherAccountId"
+        ],
+        "title": "AdminRoundResponse",
+        "type": "object"
+      },
+      "AdminSeriesCreatedResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug"
+        ],
+        "title": "AdminSeriesCreatedResponse",
+        "type": "object"
+      },
+      "AdminSeriesDetailResponse": {
+        "properties": {
+          "accentColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accentcolor"
+          },
+          "autoStartNextRound": {
+            "title": "Autostartnextround",
+            "type": "boolean"
+          },
+          "coverImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverimageurl"
+          },
+          "defaultPolicies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Defaultpolicies",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AdminGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isArchived": {
+            "title": "Isarchived",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roundPlan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roundplan"
+          },
+          "rounds": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRoundResponse"
+            },
+            "title": "Rounds",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "description",
+          "timezone",
+          "defaultPolicies",
+          "roundPlan",
+          "autoStartNextRound",
+          "isArchived",
+          "coverImageUrl",
+          "accentColor",
+          "groups",
+          "rounds"
+        ],
+        "title": "AdminSeriesDetailResponse",
+        "type": "object"
+      },
+      "AdminSeriesResponse": {
+        "properties": {
+          "accentColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accentcolor"
+          },
+          "autoStartNextRound": {
+            "title": "Autostartnextround",
+            "type": "boolean"
+          },
+          "coverImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverimageurl"
+          },
+          "defaultPolicies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Defaultpolicies",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isArchived": {
+            "title": "Isarchived",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roundPlan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roundplan"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "description",
+          "timezone",
+          "defaultPolicies",
+          "roundPlan",
+          "autoStartNextRound",
+          "isArchived",
+          "coverImageUrl",
+          "accentColor"
+        ],
+        "title": "AdminSeriesResponse",
+        "type": "object"
+      },
+      "AdminUserResponse": {
+        "properties": {
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ],
+        "title": "AdminUserResponse",
+        "type": "object"
+      },
       "CalendarRoundPlan": {
         "description": "A calendar rule in the series timezone.\n\n``full_month`` is the friendly monthly cadence exposed by the application:\nopen on the first, close at the end of the month, and release the next day.\nThe existing day/duration fields remain for imported and API-managed custom\ncalendar rules.",
         "properties": {
@@ -581,6 +1316,18 @@
             "title": "Publish At",
             "type": "string"
           },
+          "publisher_account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Account Id"
+          },
           "series_id": {
             "format": "uuid",
             "title": "Series Id",
@@ -897,6 +1644,18 @@
               }
             ],
             "title": "Publish At"
+          },
+          "publisher_account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Account Id"
           },
           "submission_limit": {
             "anyOf": [
@@ -1965,7 +2724,7 @@
     }
   },
   "info": {
-    "title": "Music Rounds API",
+    "title": "BoroCrew Music API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -2036,11 +2795,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Retry Publication Api V1 Admin Publications  Publication Id  Retry Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminPublicationCommandResponse"
                 }
               }
             },
@@ -2081,11 +2836,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Create Round Api V1 Admin Rounds Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminIdResponse"
                 }
               }
             },
@@ -2128,9 +2879,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Round For Administration Api V1 Admin Rounds  Round Id  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminRoundDetailResponse"
                 }
               }
             },
@@ -2181,9 +2930,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Update Round Api V1 Admin Rounds  Round Id  Patch",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminRoundResponse"
                 }
               }
             },
@@ -2329,8 +3076,7 @@
                 "schema": {
                   "anyOf": [
                     {
-                      "additionalProperties": true,
-                      "type": "object"
+                      "$ref": "#/components/schemas/AdminPublicationResponse"
                     },
                     {
                       "type": "null"
@@ -2389,11 +3135,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Publish Round Request Api V1 Admin Rounds  Round Id  Publish Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminPublicationCommandResponse"
                 }
               }
             },
@@ -2436,11 +3178,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Unpublish Round Request Api V1 Admin Rounds  Round Id  Unpublish Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminPublicationCommandResponse"
                 }
               }
             },
@@ -2472,8 +3210,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/AdminSeriesResponse"
                   },
                   "title": "Response List Series For Administration Api V1 Admin Series Get",
                   "type": "array"
@@ -2505,11 +3242,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Create Series Api V1 Admin Series Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminSeriesCreatedResponse"
                 }
               }
             },
@@ -2552,9 +3285,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Series For Administration Api V1 Admin Series  Series Id  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminSeriesDetailResponse"
                 }
               }
             },
@@ -2606,9 +3337,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Update Series Api V1 Admin Series  Series Id  Patch",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminSeriesResponse"
                 }
               }
             },
@@ -2707,11 +3436,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Create Group Api V1 Admin Series  Series Id  Groups Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminIdResponse"
                 }
               }
             },
@@ -2764,11 +3489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Import Spotify Playlist Api V1 Admin Series  Series Id  Import Spotify Playlist Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminImportedRoundResponse"
                 }
               }
             },
@@ -2821,9 +3542,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Create Series Invite Api V1 Admin Series  Series Id  Invites Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdminInviteResponse"
                 }
               }
             },
@@ -2868,8 +3587,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/AdminUserResponse"
                   },
                   "title": "Response List Series Members Api V1 Admin Series  Series Id  Members Get",
                   "type": "array"
@@ -3018,8 +3736,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/AdminUserResponse"
                   },
                   "title": "Response Search Users For Series Api V1 Admin Series  Series Id  Users Get",
                   "type": "array"

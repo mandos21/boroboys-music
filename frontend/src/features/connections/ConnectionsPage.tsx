@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Disc3, Eye, Headphones, Link2, ShieldCheck, Unplug } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { api, del, patch } from "../../api/client";
 import type { components } from "../../api/schema";
@@ -28,7 +28,17 @@ const providerInfo = {
   },
 } as const;
 
+const linkErrors: Record<string, string> = {
+  denied: "The request was cancelled before the account was linked. You can try again whenever you like.",
+  expired: "That linking request expired. Start it again from this page.",
+  failed: "The provider did not complete the request. Try again in a moment.",
+  "already-linked": "That account is already linked to a different person here.",
+};
+
 export function ConnectionsPage() {
+  const [searchParams] = useSearchParams();
+  const linkError = searchParams.get("linkError");
+  const linkErrorProvider = searchParams.get("provider");
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [connectionToDisconnect, setConnectionToDisconnect] = useState<Connection | null>(null);
@@ -55,11 +65,11 @@ export function ConnectionsPage() {
     },
     onError: () => showToast({ title: "Couldn’t disconnect service", description: "Try again in a moment.", tone: "error" }),
   });
-  const active = new Map(
-    (connections.data ?? [])
-      .filter((connection) => connection.isActive)
-      .map((connection) => [connection.provider, connection]),
-  );
+  // A person may link more than one account for a provider, and each one has
+  // to stay individually visible so it can be inspected or disconnected.
+  const active = (connections.data ?? []).filter((connection) => connection.isActive);
+  const byProvider = (provider: Connection["provider"]) =>
+    active.filter((connection) => connection.provider === provider);
 
   return (
     <main className="shell settings-shell">
@@ -71,26 +81,31 @@ export function ConnectionsPage() {
           <p>Bring the services you already use into your series. You stay in control of what is connected and what listening evidence is shared.</p>
         </div>
       </header>
+      {linkError && (
+        <StatePanel kind="error" title={`We couldn’t connect ${linkErrorProvider === "lastfm" ? "Last.fm" : "Spotify"}`}>
+          {linkErrors[linkError] ?? "The provider did not complete the request. Try again in a moment."}
+        </StatePanel>
+      )}
       {connections.isLoading && <StatePanel kind="loading" title="Checking your connections">Looking for linked services.</StatePanel>}
       {connections.isError && <StatePanel kind="error" title="We couldn’t load your connections">Please refresh the page and try again.</StatePanel>}
       {!connections.isLoading && !connections.isError && (
         <div className="connection-grid">
           {(["spotify", "lastfm"] as const).map((provider) => {
-            const connection = active.get(provider);
+            const linked = byProvider(provider);
             const { description, icon: ProviderIcon, name } = providerInfo[provider];
             return (
-              <section className={`panel connection-card ${connection ? "connection-active" : ""}`} key={provider}>
+              <section className={`panel connection-card ${linked.length ? "connection-active" : ""}`} key={provider}>
                 <div className="connection-card-heading">
                   <span className="provider-icon" aria-hidden="true"><ProviderIcon size={22} /></span>
                   <div>
                     <p className="eyebrow">{name}</p>
-                    <h2>{connection ? connection.displayName ?? "Connected" : `Connect ${name}`}</h2>
+                    <h2>{linked.length ? name : `Connect ${name}`}</h2>
                   </div>
                 </div>
                 <p>{description}</p>
-                {connection ? (
-                  <div className="connection-controls">
-                    <p className="connection-state"><ShieldCheck aria-hidden="true" size={16} /> Connected and ready</p>
+                {linked.map((connection) => (
+                  <div className="connection-controls" key={connection.id}>
+                    <p className="connection-state"><ShieldCheck aria-hidden="true" size={16} /> {connection.displayName ?? "Connected"}</p>
                     {connection.provider === "lastfm" && (
                       <label className="connection-field">
                         <span><Eye aria-hidden="true" size={15} /> Listening evidence visibility</span>
@@ -102,14 +117,13 @@ export function ConnectionsPage() {
                       </label>
                     )}
                     <button className="text-button danger connection-disconnect" type="button" disabled={disconnect.isPending} onClick={() => setConnectionToDisconnect(connection)}>
-                      <Unplug aria-hidden="true" size={16} /> Disconnect {name}
+                      <Unplug aria-hidden="true" size={16} /> Disconnect {connection.displayName ?? name}
                     </button>
                   </div>
-                ) : (
-                  <a className="button connection-button" href={`/api/v1/connections/${provider}/login`}>
-                    <Link2 aria-hidden="true" size={17} /> Connect {name}
-                  </a>
-                )}
+                ))}
+                <a className="button connection-button" href={`/api/v1/connections/${provider}/login`}>
+                  <Link2 aria-hidden="true" size={17} /> {linked.length ? `Connect another ${name} account` : `Connect ${name}`}
+                </a>
               </section>
             );
           })}

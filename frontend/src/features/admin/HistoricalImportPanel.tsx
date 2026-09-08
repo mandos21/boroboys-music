@@ -4,14 +4,17 @@ import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
 import { useToast } from "../../components/ui/ToastProvider";
+import { zonedInputToIso } from "../../lib/time";
 import { errorMessage } from "./adminUtils";
 import type { Connection } from "./types";
 
 export function HistoricalImportPanel({
   seriesId,
+  timezone,
   onImported,
 }: {
   seriesId: string;
+  timezone: string;
   onImported: () => void;
 }) {
   const { showToast } = useToast();
@@ -27,18 +30,25 @@ export function HistoricalImportPanel({
     retry: false,
   });
   const importPlaylist = useMutation({
-    mutationFn: () =>
-      post<{ roundId: string }>(
+    mutationFn: () => {
+      const timestamps = {
+        opens_at: zonedInputToIso(opensAt, timezone),
+        closes_at: zonedInputToIso(closesAt, timezone),
+        published_at: zonedInputToIso(publishedAt, timezone),
+      };
+      if (Object.values(timestamps).some((value) => value === null)) {
+        throw new Error(`Those times are not valid in ${timezone}.`);
+      }
+      return post<{ roundId: string }>(
         `/admin/series/${seriesId}/import-spotify-playlist`,
         {
           publisher_account_id: publisherId,
           spotify_playlist_id: playlistId,
           title: title.trim() || null,
-          opens_at: new Date(opensAt).toISOString(),
-          closes_at: new Date(closesAt).toISOString(),
-          published_at: new Date(publishedAt).toISOString(),
+          ...timestamps,
         },
-      ),
+      );
+    },
     onSuccess: () => {
       setPlaylistId("");
       setTitle("");
@@ -55,7 +65,8 @@ export function HistoricalImportPanel({
       <summary>Import a historical Spotify playlist</summary>
       <p>
         Imports preserve the remote track order and create an immutable
-        published round. Imported playlists are never retired remotely.
+        published round. Imported playlists are never retired remotely. Times
+        below are read in {timezone}, the series timezone.
       </p>
       {accounts.length === 0 ? (
         <p>

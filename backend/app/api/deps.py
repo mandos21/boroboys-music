@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
@@ -17,18 +17,27 @@ from app.db.session import get_db_session
 DbSession = Annotated[Session, Depends(get_db_session)]
 
 
+SESSION_ACTIVITY_RESOLUTION = timedelta(minutes=5)
+
+
 def get_current_session(request: Request, db: DbSession) -> ServerSession:
     token = request.cookies.get(get_settings().session_cookie_name)
     if not token:
         raise _unauthenticated()
+    now = datetime.now(UTC)
     session = db.scalar(
         select(ServerSession).where(
             ServerSession.token_hash == _hash_for_lookup(token),
-            ServerSession.expires_at > datetime.now(UTC),
+            ServerSession.expires_at > now,
         )
     )
     if session is None:
         raise _unauthenticated()
+    # Recorded at a coarse resolution so an ordinary page load costs reads, not
+    # a write per request, while the column still answers "is this in use".
+    if session.last_seen_at < now - SESSION_ACTIVITY_RESOLUTION:
+        session.last_seen_at = now
+        db.commit()
     return session
 
 

@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import func, select
 
-from app.api.routes.admin import _defer_or_mark_failed, get_publication_status
+from app.api.routes.admin import get_publication_status
 from app.core.config import get_settings
 from app.core.security import encrypt
 from app.db.models import (
@@ -34,6 +34,7 @@ from app.db.session import get_session_factory
 from app.services import spotify
 from app.services.publications import (
     PublicationError,
+    defer_or_fail,
     execute_publication,
     execute_retirement,
     import_historical_playlist,
@@ -506,7 +507,7 @@ def test_enqueue_failure_marks_the_publication_failed_for_ui_retry() -> None:
         def rejected(_: str) -> None:
             raise RuntimeError("queue unavailable")
 
-        _defer_or_mark_failed(db, publication, round_, rejected)
+        defer_or_fail(db, publication, round_, rejected)
         db.refresh(publication)
         db.refresh(round_)
         assert publication.state is PublicationState.FAILED

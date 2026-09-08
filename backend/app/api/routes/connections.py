@@ -6,6 +6,7 @@ import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -15,7 +16,7 @@ from sqlalchemy import select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.api.schemas import ConnectionResponse
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.security import decrypt, encrypt, hash_secret, new_secret
 from app.db.models import (
     EvidenceVisibility,
@@ -93,11 +94,9 @@ def complete_spotify_link(
     state: str | None = None,
     error: str | None = None,
 ) -> RedirectResponse:
-    if error or not code or not state:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Spotify link was denied"
-        )
     settings = get_settings()
+    if error or not code or not state:
+        return _link_result_redirect(settings, "spotify", "denied")
     attempt = db.scalar(
         select(ExternalLinkAttempt)
         .where(
@@ -109,9 +108,7 @@ def complete_spotify_link(
         .with_for_update()
     )
     if attempt is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid Spotify state"
-        )
+        return _link_result_redirect(settings, "spotify", "expired")
     attempt.consumed_at = datetime.now(UTC)
     try:
         token = spotify.exchange_code(
@@ -123,11 +120,9 @@ def complete_spotify_link(
             ),
         )
         profile = spotify.current_profile(str(token["access_token"]))
-    except (httpx.HTTPError, spotify.SpotifyError) as exception:
+    except (httpx.HTTPError, spotify.SpotifyError):
         db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Spotify link failed"
-        ) from exception
+        return _link_result_redirect(settings, "spotify", "failed")
     account = db.scalar(
         select(ExternalAccount).where(
             ExternalAccount.provider == ExternalProvider.SPOTIFY,
@@ -135,9 +130,8 @@ def complete_spotify_link(
         )
     )
     if account is not None and account.user_id != attempt.user_id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Spotify account is already linked"
-        )
+        db.commit()
+        return _link_result_redirect(settings, "spotify", "already-linked")
     if account is None:
         account = ExternalAccount(
             user_id=attempt.user_id,
@@ -160,6 +154,9 @@ def complete_spotify_link(
             else profile["id"]
         )
         account.profile_image_url = _spotify_profile_image(profile)
+        # Re-linking is how a listener grants a newly required scope, so the
+        # recorded grant has to follow the authorization that just happened.
+        account.scopes = str(token.get("scope", "")).split()
     credential = db.scalar(
         select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
     )
@@ -176,7 +173,25 @@ def complete_spotify_link(
     else:
         credential.ciphertext, credential.expires_at = ciphertext, spotify.token_expiry(token)
     db.commit()
-    return RedirectResponse(f"{str(settings.app_base_url).rstrip('/')}/", status_code=303)
+    return _link_result_redirect(settings)
+
+
+def _link_result_redirect(
+    settings: Settings, provider: str | None = None, reason: str | None = None
+) -> RedirectResponse:
+    """Return a browser to the profile page instead of a raw API error body.
+
+    These endpoints are provider redirects, so the person following them is
+    looking at a browser tab, not reading a JSON response.
+    """
+    query = (
+        f"?{urlencode({'linkError': reason, 'provider': provider})}"
+        if provider and reason
+        else ""
+    )
+    return RedirectResponse(
+        f"{str(settings.app_base_url).rstrip('/')}/profile{query}", status_code=303
+    )
 
 
 def _spotify_profile_image(profile: dict[str, object]) -> str | None:
@@ -220,11 +235,9 @@ def begin_lastfm_link(
 def complete_lastfm_link(
     db: DbSession, token: str | None = None, state: str | None = None
 ) -> RedirectResponse:
-    if not token or not state:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Last.fm link was denied"
-        )
     settings = get_settings()
+    if not token or not state:
+        return _link_result_redirect(settings, "lastfm", "denied")
     attempt = db.scalar(
         select(ExternalLinkAttempt)
         .where(
@@ -236,17 +249,13 @@ def complete_lastfm_link(
         .with_for_update()
     )
     if attempt is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid Last.fm state"
-        )
+        return _link_result_redirect(settings, "lastfm", "expired")
     attempt.consumed_at = datetime.now(UTC)
     try:
         session = lastfm.exchange_session(settings, token)
-    except (httpx.HTTPError, lastfm.LastfmError) as error:
+    except (httpx.HTTPError, lastfm.LastfmError):
         db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Last.fm link failed"
-        ) from error
+        return _link_result_redirect(settings, "lastfm", "failed")
     account = db.scalar(
         select(ExternalAccount).where(
             ExternalAccount.provider == ExternalProvider.LASTFM,
@@ -254,9 +263,8 @@ def complete_lastfm_link(
         )
     )
     if account is not None and account.user_id != attempt.user_id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Last.fm account is already linked"
-        )
+        db.commit()
+        return _link_result_redirect(settings, "lastfm", "already-linked")
     if account is None:
         account = ExternalAccount(
             user_id=attempt.user_id,
@@ -285,7 +293,7 @@ def complete_lastfm_link(
     else:
         credential.ciphertext = ciphertext
     db.commit()
-    return RedirectResponse(f"{str(settings.app_base_url).rstrip('/')}/", status_code=303)
+    return _link_result_redirect(settings)
 
 
 @router.patch("/{account_id}/visibility", dependencies=[Depends(require_csrf)])

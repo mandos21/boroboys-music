@@ -144,16 +144,22 @@ def get_round(
             Publication.spotify_playlist_id.is_not(None),
         )
     )
-    background_artwork_url = db.scalar(
-        select(Track.artwork_url)
-        .join(Submission, Submission.track_id == Track.id)
-        .where(
-            Submission.round_id == round_.id,
-            Submission.status == SubmissionStatus.ACCEPTED,
-            Track.artwork_url.is_not(None),
+    # A stable choice per round. Re-rolling this on every request made the round
+    # header change its backdrop each time the page refetched.
+    artwork_urls = list(
+        db.scalars(
+            select(Track.artwork_url)
+            .join(Submission, Submission.track_id == Track.id)
+            .where(
+                Submission.round_id == round_.id,
+                Submission.status == SubmissionStatus.ACCEPTED,
+                Track.artwork_url.is_not(None),
+            )
+            .order_by(Submission.created_at, Submission.id)
         )
-        .order_by(func.random())
-        .limit(1)
+    )
+    background_artwork_url = (
+        artwork_urls[round_.id.int % len(artwork_urls)] if artwork_urls else None
     )
     submitted_count = int(
         db.scalar(
@@ -420,13 +426,7 @@ def get_evidence(
     )
     evidence = []
     for account, item in rows:
-        if account.user_id == user.id:
-            pass
-        elif account.evidence_visibility is EvidenceVisibility.ROUND_MEMBERS and is_member:
-            pass
-        elif account.evidence_visibility is EvidenceVisibility.SERIES_ADMINS and is_series_admin:
-            pass
-        else:
+        if not _may_see_evidence(account, user, is_member=is_member, is_series_admin=is_series_admin):
             continue
         evidence.append(
             {
@@ -657,6 +657,24 @@ def withdraw_submission(
     db.commit()
 
 
+def _may_see_evidence(
+    account: ExternalAccount, user: User, *, is_member: bool, is_series_admin: bool
+) -> bool:
+    """Apply the visibility ladder a listener chose for their own history.
+
+    The settings are ordered from most to least open: round members, then series
+    administrators, then nobody. A series administrator is more privileged than a
+    round member, so anything shared with round members is also visible to them.
+    """
+    if account.user_id == user.id:
+        return True
+    if account.evidence_visibility is EvidenceVisibility.PRIVATE:
+        return False
+    if account.evidence_visibility is EvidenceVisibility.SERIES_ADMINS:
+        return is_series_admin
+    return is_member or is_series_admin
+
+
 def _member_round(
     db: DbSession, round_id: uuid.UUID, user_id: uuid.UUID, lock_round: bool = False
 ) -> tuple[Round, RoundMember]:
@@ -716,6 +734,9 @@ def _viewer_round(
 
 
 def _require_open_round(round_: Round) -> None:
+    # Reconcile first so a round whose opening time has passed is not refused
+    # merely because no worker has moved it out of `scheduled` yet.
+    reconcile_round_status(round_)
     now = datetime.now(UTC)
     if round_.status is not RoundStatus.OPEN or not (round_.opens_at <= now < round_.closes_at):
         raise HTTPException(

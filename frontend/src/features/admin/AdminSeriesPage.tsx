@@ -13,7 +13,7 @@ import { InvitePanel } from "./InvitePanel";
 import { PolicyEditor } from "./PolicyEditor";
 import { SuccessorPlanEditor } from "./SuccessorPlanEditor";
 import { errorMessage } from "./adminUtils";
-import type { SeriesDetail, User } from "./types";
+import type { Connection, SeriesDetail, User } from "./types";
 
 function suggestedOpening(rounds: SeriesDetail["rounds"] | undefined, timezone: string) {
   const now = new Date();
@@ -32,6 +32,7 @@ export function AdminSeriesPage() {
   const { showToast } = useToast();
   const detail = useQuery({ queryKey: ["admin-series", seriesId], queryFn: () => api<SeriesDetail>(`/admin/series/${seriesId}`), enabled: Boolean(seriesId), retry: false });
   const members = useQuery({ queryKey: ["series-members", seriesId], queryFn: () => api<User[]>(`/admin/series/${seriesId}/members`), enabled: Boolean(seriesId), retry: false });
+  const connections = useQuery({ queryKey: ["connections"], queryFn: () => api<Connection[]>("/connections"), retry: false });
   const [roundTitle, setRoundTitle] = useState("");
   const [opensAt, setOpensAt] = useState("");
   const [closesAt, setClosesAt] = useState("");
@@ -43,6 +44,7 @@ export function AdminSeriesPage() {
   const [publishEdited, setPublishEdited] = useState(false);
   const [policies, setPolicies] = useState<Record<string, unknown>[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
+  const [publisher, setPublisher] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<User | null>(null);
   const deferredMemberSearch = useDeferredValue(memberSearch.trim());
   const seriesTimezone = detail.data?.timezone ?? "UTC";
@@ -66,6 +68,7 @@ export function AdminSeriesPage() {
       submission_limit: Number(submissionLimit), contributor_user_ids: (members.data ?? []).map((member) => member.id),
       policy_snapshot: policies.length > 0 ? policies : undefined,
       prompt: prompt.trim() || null,
+      publisher_account_id: publisher || null,
     }),
     onSuccess: () => { setRoundTitle(""); setTitleEdited(false); setOpensAt(""); setClosesAt(""); setCloseEdited(false); setPublishAt(""); setPublishEdited(false); setPrompt(""); setPolicies([]); invalidate(); showToast({ title: "Round scheduled", description: "Every current series member will be included." }); },
     onError: (error) => showToast({ title: "Couldn’t schedule round", description: errorMessage(error) ?? "Check the schedule and try again.", tone: "error" }),
@@ -91,6 +94,9 @@ export function AdminSeriesPage() {
   if (detail.isError || !detail.data) return <main className="shell narrow-page-shell"><StatePanel kind="error" title="Series unavailable"><Link to="/">Return to your series</Link></StatePanel></main>;
   const series = detail.data;
   const currentMembers = members.data ?? [];
+  const spotifyAccounts = (connections.data ?? []).filter(
+    (account) => account.provider === "spotify" && account.isActive,
+  );
   function submitRound(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedTitle.trim()) return showToast({ title: "Add a round title", tone: "error" });
@@ -127,6 +133,13 @@ export function AdminSeriesPage() {
           <label>Submissions per contributor<input type="number" min="0" value={submissionLimit} required onChange={(event) => setSubmissionLimit(event.target.value)} /></label>
           <label>Prompt <span className="field-hint">Optional</span><textarea value={prompt} maxLength={2000} onChange={(event) => setPrompt(event.target.value)} placeholder="A theme, question, or loose idea for this round." /></label>
           <p className="field-hint">{currentMembers.length ? `${currentMembers.length} current series member${currentMembers.length === 1 ? "" : "s"} will be included.` : "Add members before scheduling this round."}</p>
+          <label>Publishing account <span className="field-hint">Optional</span>
+            <select value={publisher} onChange={(event) => setPublisher(event.target.value)}>
+              <option value="">Release this round by hand</option>
+              {spotifyAccounts.map((account) => <option key={account.id} value={account.id}>{account.displayName ?? "Spotify account"}</option>)}
+            </select>
+            <span className="field-hint">{publisher ? "This round releases itself at its publish time." : "Without an account, somebody has to publish the round once it closes."}{spotifyAccounts.length === 0 ? " Link a Spotify account on your profile to enable this." : ""}</span>
+          </label>
           <PolicyEditor value={policies} onChange={setPolicies} />
           <button className="button" disabled={createRound.isPending || currentMembers.length === 0}>{createRound.isPending ? "Scheduling…" : "Schedule round"}</button>
           {errorMessage(createRound.error) && <p className="error-message" role="alert">{errorMessage(createRound.error)}</p>}
@@ -134,7 +147,7 @@ export function AdminSeriesPage() {
       </div>
       <section className="panel admin-history" id="history"><h2>Rounds</h2>{series.rounds.length === 0 ? <p>No rounds are scheduled yet.</p> : <div className="admin-items">{series.rounds.map((round) => <article key={round.id}><div><span className={`status ${round.status}`}>{round.status}</span><strong>{round.title}</strong><span>Opens {formatDate(round.opensAt)} · closes {formatDate(round.closesAt)}</span></div><Link to={`/admin/rounds/${round.id}`}>Manage contributors</Link></article>)}</div>}</section>
       <InvitePanel seriesId={series.id} />
-      <HistoricalImportPanel seriesId={series.id} onImported={invalidate} />
+      <HistoricalImportPanel seriesId={series.id} timezone={series.timezone} onImported={invalidate} />
       <ConfirmDialog open={Boolean(memberToRemove)} title="Remove this member?" description={<>They will remain part of already-created rounds, but will not be added to future rounds in {series.name}.</>} confirmLabel="Remove member" isPending={removeMember.isPending} onOpenChange={(open) => { if (!open && !removeMember.isPending) setMemberToRemove(null); }} onConfirm={() => { if (memberToRemove) removeMember.mutate(memberToRemove.id); }} />
     </main>
   );

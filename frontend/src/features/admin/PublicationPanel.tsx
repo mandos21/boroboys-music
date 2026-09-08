@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 
@@ -10,6 +10,8 @@ import { formatDate } from "../../lib/format";
 import { errorMessage } from "./adminUtils";
 import type { AdminRound, Connection, Publication } from "./types";
 
+const IN_FLIGHT_STATES = ["pending", "publishing", "unpublishing"];
+
 export function PublicationPanel({
   round,
   onChanged,
@@ -19,13 +21,26 @@ export function PublicationPanel({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
   const publication = useQuery({
     queryKey: ["publication", round.id],
     queryFn: () =>
       api<Publication | null>(`/admin/rounds/${round.id}/publication`),
     retry: false,
-    refetchInterval: (query) => ["publishing", "unpublishing"].includes(query.state.data?.state ?? "") ? 5_000 : false,
+    refetchInterval: (query) => (IN_FLIGHT_STATES.includes(query.state.data?.state ?? "") ? 5_000 : false),
   });
+  // The round's own status changes with the publication's. Without this the
+  // page would still believe the round was publishing after the poll settled.
+  const publicationState = publication.data?.state;
+  const previousState = useRef(publicationState);
+  useEffect(() => {
+    const settled = Boolean(publicationState) && !IN_FLIGHT_STATES.includes(publicationState ?? "");
+    if (settled && previousState.current && IN_FLIGHT_STATES.includes(previousState.current)) {
+      onChangedRef.current();
+    }
+    previousState.current = publicationState;
+  }, [publicationState]);
   const connections = useQuery({
     queryKey: ["connections"],
     queryFn: () => api<Connection[]>("/connections"),
@@ -68,7 +83,7 @@ export function PublicationPanel({
   );
   const current = publication.data;
   const stateDescription = current && {
-    queued: "The worker will begin this publication shortly.",
+    pending: "The worker will begin this publication shortly.",
     publishing: "Creating and populating the Spotify playlist. This page refreshes automatically while it runs.",
     published: "The playlist is published and available to the group.",
     failed: "The last attempt did not finish. Review the message below, then retry when ready.",
@@ -126,7 +141,17 @@ export function PublicationPanel({
         </>
       )}
       {!current && round.status !== "closed" && (
-        <p>This round can be published after it has closed.</p>
+        <p>
+          This round can be published after it has closed.
+          {round.publisherAccountId
+            ? ` It will publish itself at ${formatDate(round.publishAt)}.`
+            : " Choose a publishing account in its round settings to release it automatically."}
+        </p>
+      )}
+      {!current && round.status === "closed" && round.publisherAccountId && (
+        <p className="field-hint">
+          This round is scheduled to publish itself. You can also release it now.
+        </p>
       )}
       {current && (
         <>
