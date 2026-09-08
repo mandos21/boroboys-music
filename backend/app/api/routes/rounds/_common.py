@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import DbSession
@@ -23,13 +23,13 @@ from app.db.models import (
     Submission,
     SubmissionStatus,
     Track,
-    TrackArtist,
     User,
 )
 from app.services import spotify
 from app.services.authorization import is_series_admin
 from app.services.lifecycle import reconcile_round_status
 from app.services.publications import get_spotify_access_token
+from app.services.track_metadata import sync_track_artists
 
 router = APIRouter(prefix="/rounds", tags=["rounds"])
 
@@ -265,7 +265,14 @@ def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
         # enrichment remains additive: a transient lookup failure must never
         # make a previously known genre disappear.
         track.provider_metadata = {**track.provider_metadata, **input_track.provider_metadata}
-        _sync_track_artists(db, track, input_track.artists)
+        sync_track_artists(
+            db,
+            track,
+            [
+                (artist.spotify_artist_id, artist.name, artist.position)
+                for artist in input_track.artists
+            ],
+        )
         return track
     # Tracks are shared across overlapping rounds.  PostgreSQL resolves the
     # first-insert race without turning a normal simultaneous evaluation into
@@ -285,50 +292,15 @@ def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
         )
     if track is None:  # defensive: only possible with an unexpected transaction failure
         raise RuntimeError("track insert did not return a track")
-    _sync_track_artists(db, track, input_track.artists)
-    return track
-
-
-def _sync_track_artists(db: DbSession, track: Track, artists: list[TrackArtistInput]) -> None:
-    """Replace legacy display-name credits with Spotify's canonical credits."""
-    if not artists:
-        if not db.scalar(select(TrackArtist.track_id).where(TrackArtist.track_id == track.id)):
-            db.add(
-                TrackArtist(
-                    track_id=track.id,
-                    spotify_artist_id=f"legacy:{track.id}",
-                    name=track.artist,
-                    position=0,
-                )
-            )
-            db.flush()
-        return
-    artist_ids = {artist.spotify_artist_id for artist in artists}
-    db.execute(
-        delete(TrackArtist).where(
-            TrackArtist.track_id == track.id,
-            TrackArtist.spotify_artist_id.not_in(artist_ids),
-        )
+    sync_track_artists(
+        db,
+        track,
+        [
+            (artist.spotify_artist_id, artist.name, artist.position)
+            for artist in input_track.artists
+        ],
     )
-    existing = {
-        artist.spotify_artist_id: artist
-        for artist in db.scalars(select(TrackArtist).where(TrackArtist.track_id == track.id))
-    }
-    for artist in artists:
-        persisted = existing.get(artist.spotify_artist_id)
-        if persisted is None:
-            db.add(
-                TrackArtist(
-                    track_id=track.id,
-                    spotify_artist_id=artist.spotify_artist_id,
-                    name=artist.name,
-                    position=artist.position,
-                )
-            )
-        else:
-            persisted.name = artist.name
-            persisted.position = artist.position
-    db.flush()
+    return track
 
 
 def _policy_payload(result: Any) -> dict[str, object]:

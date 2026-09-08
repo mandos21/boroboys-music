@@ -3,7 +3,7 @@
 POETRY_VERSION ?= 2.1.1
 POETRY ?= $(shell command -v poetry 2>/dev/null || printf '%s/.local/bin/poetry' "$(HOME)")
 
-.PHONY: help setup dev-setup bootstrap db-up db-down test-db migrate task-schema api worker web api-contract test lint typecheck verify history-dry-run history-import history-artwork docker-env docker-build docker-up docker-down docker-logs
+.PHONY: help setup dev-setup bootstrap db-up db-down test-db migrate task-schema api worker web api-contract test lint typecheck verify history-dry-run history-import history-artwork history-genres docker-env docker-build docker-up docker-down docker-logs
 
 TEST_DATABASE_URL ?= postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds_test
 
@@ -87,6 +87,9 @@ history-import: ## Import private history (also set CONFIRM_HISTORICAL_IMPORT=ye
 
 history-artwork: ## Cache album art using configured Spotify app credentials
 	cd backend && "$(POETRY)" run python -m app.cli.backfill_track_artwork --client-credentials
+
+history-genres: ## Backfill canonical Spotify artists and cached genres for historical tracks
+	cd backend && "$(POETRY)" run python -m app.cli.backfill_historical_track_metadata
 
 docker-env: ## Create a local Docker environment file if needed
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example; review local secrets before starting"; fi
