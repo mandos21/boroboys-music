@@ -32,7 +32,9 @@ def test_login_redirects_disabled_oidc_to_a_recoverable_ui_without_touching_data
     response = asyncio.run(auth.login(db=None))  # type: ignore[arg-type]
 
     assert response.status_code == 303
-    assert response.headers["location"] == "http://localhost:5173/auth/error?reason=oidc-unavailable"
+    assert (
+        response.headers["location"] == "http://localhost:5173/auth/error?reason=oidc-unavailable"
+    )
 
 
 def test_return_path_must_stay_within_the_frontend() -> None:
@@ -81,7 +83,10 @@ def test_first_user_bootstrap_can_be_disabled_without_disabling_claim_mapping() 
 
 
 def test_oidc_scopes_preserve_openid_and_remove_duplicates() -> None:
-    assert Settings(oidc_scopes="email openid profile email").oidc_scope_string == "openid email profile"
+    assert (
+        Settings(oidc_scopes="email openid profile email").oidc_scope_string
+        == "openid email profile"
+    )
 
 
 def test_multi_audience_id_tokens_require_this_client_as_the_authorized_party() -> None:

@@ -161,7 +161,11 @@ def validate_historical_import_target(
         raise HistoricalImportError("the Spotify publisher must belong to a series administrator")
     playlist_ids = [round_.playlist.spotify_playlist_id for round_ in plan.rounds]
     existing = list(
-        db.scalars(select(Publication.spotify_playlist_id).where(Publication.spotify_playlist_id.in_(playlist_ids)))
+        db.scalars(
+            select(Publication.spotify_playlist_id).where(
+                Publication.spotify_playlist_id.in_(playlist_ids)
+            )
+        )
     )
     if existing:
         raise HistoricalImportError(
@@ -232,11 +236,14 @@ def _load_identity_map(identity_map_path: Path) -> dict[str, str]:
         email, subject = email.strip().lower(), subject.strip()
         if not separator or not email or not subject:
             raise HistoricalImportError(
-                f"identity map line {line_number} must contain an email and OIDC subject separated by a tab"
+                f"identity map line {line_number} must contain an email and OIDC "
+                "subject separated by a tab"
             )
         existing_subject = identities.get(email)
         if existing_subject is not None and existing_subject != subject:
-            raise HistoricalImportError(f"identity map has conflicting subjects on line {line_number}")
+            raise HistoricalImportError(
+                f"identity map has conflicting subjects on line {line_number}"
+            )
         identities[email] = subject
     if not identities:
         raise HistoricalImportError("identity map is empty")
@@ -272,9 +279,7 @@ def _load_playlist(path: Path) -> HistoricalPlaylistSource:
     if not entries:
         raise HistoricalImportError(f"{path.name} contains no playlist items")
     months = {
-        datetime(value.year, value.month, 1)
-        for entry in entries
-        for value in entry.submitted_at
+        datetime(value.year, value.month, 1) for entry in entries for value in entry.submitted_at
     }
     if len(months) != 1:
         raise HistoricalImportError(f"{path.name} has submissions from more than one month")
@@ -294,7 +299,9 @@ def _load_submission_source(
     spotify_track_id = _required_field(path, position, row, "spotify_id", 64)
     album = (row.get("album") or "").strip() or None
     if album is not None and len(album) > 500:
-        raise HistoricalImportError(f"{path.name} row {position} has an album value that is too long")
+        raise HistoricalImportError(
+            f"{path.name} row {position} has an album value that is too long"
+        )
     emails = tuple(
         value.strip().lower()
         for value in (row.get("submitted_by_email") or "").split(";")
@@ -377,9 +384,7 @@ def _plan_rounds(
     )
 
 
-def _year_end_playlist_ids(
-    playlists: list[HistoricalPlaylistSource], month: int
-) -> set[str]:
+def _year_end_playlist_ids(playlists: list[HistoricalPlaylistSource], month: int) -> set[str]:
     if month != 1:
         return set()
     if len(playlists) == 1:
@@ -388,7 +393,9 @@ def _year_end_playlist_ids(
     largest = max(len(playlist.submissions) for playlist in playlists)
     candidates = [playlist for playlist in playlists if len(playlist.submissions) == largest]
     if len(candidates) != 1:
-        raise HistoricalImportError("cannot infer the year-end playlist from equally sized January lists")
+        raise HistoricalImportError(
+            "cannot infer the year-end playlist from equally sized January lists"
+        )
     return {candidates[0].spotify_playlist_id}
 
 
@@ -418,9 +425,7 @@ def _next_month(value: datetime) -> datetime:
 
 
 def _submission_counts(playlist: HistoricalPlaylistSource) -> Counter[str]:
-    return Counter(
-        email for item in playlist.submissions for email in item.contributor_emails
-    )
+    return Counter(email for item in playlist.submissions for email in item.contributor_emails)
 
 
 def _resolved_submission_counts(

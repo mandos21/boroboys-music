@@ -124,7 +124,11 @@ def test_round_without_a_publisher_or_before_its_time_is_left_alone() -> None:
             db, series, f"{suffix}-none", publish_at=now - timedelta(minutes=5), publisher=None
         )
         not_yet_due = _closed_round(
-            db, series, f"{suffix}-later", publish_at=now + timedelta(days=3650), publisher=account.id
+            db,
+            series,
+            f"{suffix}-later",
+            publish_at=now + timedelta(days=3650),
+            publisher=account.id,
         )
         db.commit()
 

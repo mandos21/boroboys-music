@@ -163,10 +163,16 @@ def test_open_series_are_listed_first_with_contributor_progress() -> None:
             platform_role=PlatformRole.MEMBER,
         )
         open_series = Series(
-            name=f"Open series {suffix}", slug=f"open-series-{suffix}", timezone="UTC", default_policies=[]
+            name=f"Open series {suffix}",
+            slug=f"open-series-{suffix}",
+            timezone="UTC",
+            default_policies=[],
         )
         closed_series = Series(
-            name=f"Closed series {suffix}", slug=f"closed-series-{suffix}", timezone="UTC", default_policies=[]
+            name=f"Closed series {suffix}",
+            slug=f"closed-series-{suffix}",
+            timezone="UTC",
+            default_policies=[],
         )
         db.add_all((listener, another_contributor, open_series, closed_series))
         db.flush()

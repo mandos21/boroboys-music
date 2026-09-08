@@ -148,7 +148,12 @@ def test_client_credentials_token_uses_application_grant(monkeypatch: pytest.Mon
 
     monkeypatch.setattr(spotify.httpx, "post", fake_post)
 
-    assert spotify.client_credentials_token(Settings(spotify_client_id="client", spotify_client_secret="secret")) == "application-token"
+    assert (
+        spotify.client_credentials_token(
+            Settings(spotify_client_id="client", spotify_client_secret="secret")
+        )
+        == "application-token"
+    )
     assert observed["data"] == {"grant_type": "client_credentials"}
     assert observed["auth"] == ("client", "secret")
 

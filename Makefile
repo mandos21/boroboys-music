@@ -55,16 +55,16 @@ test: ## Run tests
 	cd frontend && npm run test -- --run
 
 lint: ## Run linters
-	cd backend && "$(POETRY)" run ruff check .
-	cd frontend && npm run lint
+	cd backend && "$(POETRY)" run ruff check . && "$(POETRY)" run ruff format --check app tests
+	cd frontend && npm run lint && npm run format:check
 
 typecheck: ## Run type checks
 	cd backend && "$(POETRY)" run mypy app
 	cd frontend && npm run typecheck
 
 verify: ## Run the local release-quality gate (PostgreSQL must be running)
-	cd backend && "$(POETRY)" run alembic upgrade head && "$(POETRY)" run alembic check && "$(POETRY)" run ruff check . && "$(POETRY)" run mypy app && "$(POETRY)" run pytest
-	cd frontend && npm run lint && npm run typecheck && npm run build
+	cd backend && "$(POETRY)" run alembic upgrade head && "$(POETRY)" run alembic check && "$(POETRY)" run ruff check . && "$(POETRY)" run ruff format --check app tests && "$(POETRY)" run mypy app && "$(POETRY)" run pytest
+	cd frontend && npm run lint && npm run format:check && npm run typecheck && npm run build
 
 history-dry-run: ## Validate a private history bundle (requires SERIES_SLUG, PUBLISHER_ACCOUNT_ID, IDENTITY_MAP)
 	@test -n "$(SERIES_SLUG)" || (echo "SERIES_SLUG is required" >&2; exit 2)

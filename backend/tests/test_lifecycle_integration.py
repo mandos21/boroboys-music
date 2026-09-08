@@ -20,7 +20,10 @@ from app.services.lifecycle import (
 def test_status_for_timeline_opens_a_round_that_is_currently_in_its_window() -> None:
     now = datetime.now(UTC)
 
-    assert status_for_timeline(now - timedelta(minutes=1), now + timedelta(minutes=1), now) is RoundStatus.OPEN
+    assert (
+        status_for_timeline(now - timedelta(minutes=1), now + timedelta(minutes=1), now)
+        is RoundStatus.OPEN
+    )
 
 
 def test_published_rolling_round_creates_one_open_successor_with_member_snapshot() -> None:

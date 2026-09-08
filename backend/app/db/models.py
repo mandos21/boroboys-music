@@ -333,7 +333,9 @@ class Submission(UUIDTimestampMixin, Base):
 
 class SubmissionDraft(UUIDTimestampMixin, Base):
     __tablename__ = "submission_drafts"
-    __table_args__ = (UniqueConstraint("round_id", "user_id", name="uq_submission_drafts_round_user"),)
+    __table_args__ = (
+        UniqueConstraint("round_id", "user_id", name="uq_submission_drafts_round_user"),
+    )
 
     round_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False, index=True
@@ -355,7 +357,9 @@ class SeriesInvite(UUIDTimestampMixin, Base):
     created_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="contributor")
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     max_uses: Mapped[int | None] = mapped_column(Integer)
     use_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

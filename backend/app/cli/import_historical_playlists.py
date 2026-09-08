@@ -67,15 +67,17 @@ def main() -> int:
             str(configured_issuer).rstrip("/") if configured_issuer is not None else None
         )
         if not issuer:
-            raise HistoricalImportError("OIDC issuer is required; set OIDC_ISSUER_URL or --oidc-issuer")
+            raise HistoricalImportError(
+                "OIDC issuer is required; set OIDC_ISSUER_URL or --oidc-issuer"
+            )
         with get_session_factory()() as db:
             series = db.scalar(select(Series).where(Series.slug == args.series_slug))
             if series is None:
                 raise HistoricalImportError("series was not found")
-            plan = load_historical_import_plan(args.playlist_dir, args.identity_map, series.timezone)
-            validate_historical_import_target(
-                db, args.series_slug, args.publisher_account_id, plan
+            plan = load_historical_import_plan(
+                args.playlist_dir, args.identity_map, series.timezone
             )
+            validate_historical_import_target(db, args.series_slug, args.publisher_account_id, plan)
             if args.dry_run:
                 _print_plan(plan)
                 return 0
@@ -84,7 +86,12 @@ def main() -> int:
                 db, args.series_slug, args.publisher_account_id, issuer, plan, artwork_by_track_id
             )
             db.commit()
-    except (HistoricalImportError, PublicationError, spotify.SpotifyError, httpx.HTTPError) as error:
+    except (
+        HistoricalImportError,
+        PublicationError,
+        spotify.SpotifyError,
+        httpx.HTTPError,
+    ) as error:
         print(f"Historical import refused: {error}", file=sys.stderr)
         return 2
 

@@ -144,9 +144,9 @@ def test_import_materializes_a_published_snapshot_with_attributed_submissions(
         assert imported_round.submission_limit == 3
         submissions = list(
             db.scalars(
-                select(Submission).where(Submission.round_id == imported_round.id).order_by(
-                    Submission.submitted_at
-                )
+                select(Submission)
+                .where(Submission.round_id == imported_round.id)
+                .order_by(Submission.submitted_at)
             )
         )
         assert len(submissions) == 5
@@ -167,9 +167,13 @@ def test_import_materializes_a_published_snapshot_with_attributed_submissions(
             )
             is None
         )
-        members = list(db.scalars(select(RoundMember).where(RoundMember.round_id == imported_round.id)))
+        members = list(
+            db.scalars(select(RoundMember).where(RoundMember.round_id == imported_round.id))
+        )
         assert sorted(member.submission_limit_override for member in members) == [2, 3]
-        publication = db.scalar(select(Publication).where(Publication.round_id == imported_round.id))
+        publication = db.scalar(
+            select(Publication).where(Publication.round_id == imported_round.id)
+        )
         assert publication is not None
         assert publication.is_imported is True
         items = list(

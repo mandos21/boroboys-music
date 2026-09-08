@@ -33,6 +33,7 @@ jobs:
         with: { poetry-version: "2.1.1" }
       - run: poetry install --with dev
       - run: poetry run ruff check .
+      - run: poetry run ruff format --check app tests
       - run: poetry run mypy app
       - run: poetry run alembic upgrade head
       - run: poetry run alembic check
@@ -52,6 +53,7 @@ jobs:
       - run: npm ci
       - run: npm run generate:api && git diff --exit-code -- src/api/schema.ts
       - run: npm run lint
+      - run: npm run format:check
       - run: npm run typecheck
       - run: npm run test -- --run
       - run: npm run build

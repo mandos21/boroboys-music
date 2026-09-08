@@ -85,9 +85,7 @@ def start_due_publications(db: Session, now: datetime | None = None) -> list[uui
                 ExternalAccount.is_active.is_(True),
                 # Republishing a round that was deliberately unpublished stays a
                 # manual decision; only a first publication happens on its own.
-                ~select(Publication.id)
-                .where(Publication.round_id == Round.id)
-                .exists(),
+                ~select(Publication.id).where(Publication.round_id == Round.id).exists(),
             )
             .order_by(Round.publish_at)
         )
@@ -95,9 +93,7 @@ def start_due_publications(db: Session, now: datetime | None = None) -> list[uui
     started: list[uuid.UUID] = []
     for round_id, publisher_account_id, publisher_owner_id in due:
         try:
-            publication = start_publication(
-                db, round_id, publisher_account_id, publisher_owner_id
-            )
+            publication = start_publication(db, round_id, publisher_account_id, publisher_owner_id)
             db.commit()
         except PublicationError as error:
             db.rollback()
@@ -140,9 +136,14 @@ def start_publication(
         or publisher.user_id != publisher_owner_id
     ):
         raise PublicationError("a connected Spotify publisher is required")
-    if db.scalar(
-        select(ExternalCredential.id).where(ExternalCredential.external_account_id == publisher.id)
-    ) is None:
+    if (
+        db.scalar(
+            select(ExternalCredential.id).where(
+                ExternalCredential.external_account_id == publisher.id
+            )
+        )
+        is None
+    ):
         raise PublicationError("Spotify publisher needs reauthorization")
     sequence = (
         db.scalar(
@@ -262,7 +263,9 @@ def import_historical_playlist(
     series = db.scalar(select(Series).where(Series.id == series_id).with_for_update())
     if series is None:
         raise PublicationError("series not found")
-    if db.scalar(select(Publication.id).where(Publication.spotify_playlist_id == spotify_playlist_id)):
+    if db.scalar(
+        select(Publication.id).where(Publication.spotify_playlist_id == spotify_playlist_id)
+    ):
         raise PublicationError("Spotify playlist has already been imported or published")
     publisher = db.get(ExternalAccount, publisher_account_id)
     if (
@@ -459,11 +462,15 @@ def _import_track(db: Session, raw_track: dict[str, object]) -> Track:
     if track is not None:
         return track
     artists = raw_track.get("artists")
-    artist = ", ".join(
-        item["name"]
-        for item in artists
-        if isinstance(item, dict) and isinstance(item.get("name"), str)
-    ) if isinstance(artists, list) else "Unknown artist"
+    artist = (
+        ", ".join(
+            item["name"]
+            for item in artists
+            if isinstance(item, dict) and isinstance(item.get("name"), str)
+        )
+        if isinstance(artists, list)
+        else "Unknown artist"
+    )
     album_data = raw_track.get("album")
     album = album_data.get("name") if isinstance(album_data, dict) else None
     artwork_url = None

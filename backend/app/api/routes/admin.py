@@ -258,9 +258,7 @@ def get_series_for_administration(
     )
     rounds = list(
         db.scalars(
-            select(Round)
-            .where(Round.series_id == series.id)
-            .order_by(Round.opens_at.desc())
+            select(Round).where(Round.series_id == series.id).order_by(Round.opens_at.desc())
         )
     )
     members_by_group: dict[uuid.UUID, list[dict[str, object]]] = {group.id: [] for group in groups}
@@ -623,10 +621,14 @@ def create_round(
     requested_members = set(payload.contributor_user_ids)
     if requested_members:
         valid_members = set(
-            db.scalars(select(User.id).where(User.id.in_(requested_members), User.is_active.is_(True)))
+            db.scalars(
+                select(User.id).where(User.id.in_(requested_members), User.is_active.is_(True))
+            )
         )
         if valid_members != requested_members:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid user")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid user"
+            )
         member_ids.update(requested_members)
     db.add_all(RoundMember(round_id=round_.id, user_id=member_id) for member_id in member_ids)
     db.commit()
@@ -655,9 +657,15 @@ def update_round(
     closes_at = payload.closes_at or round_.closes_at
     publish_at = payload.publish_at or round_.publish_at
     if any(value.tzinfo is None for value in (opens_at, closes_at, publish_at)):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="round timestamps must include an offset")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="round timestamps must include an offset",
+        )
     if opens_at >= closes_at or closes_at > publish_at:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="round timeline must satisfy opens < closes <= publish")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="round timeline must satisfy opens < closes <= publish",
+        )
     if payload.title is not None:
         round_.title = payload.title
     if payload.submission_limit is not None:
@@ -710,9 +718,7 @@ def get_round_for_administration(
     }
 
 
-@router.get(
-    "/rounds/{round_id}/publication", response_model=AdminPublicationResponse | None
-)
+@router.get("/rounds/{round_id}/publication", response_model=AdminPublicationResponse | None)
 def get_publication_status(
     round_id: uuid.UUID,
     db: DbSession,
@@ -932,11 +938,7 @@ def _require_publishable_account(
     must belong to somebody who could have published the round by hand.
     """
     account = db.get(ExternalAccount, account_id)
-    if (
-        account is None
-        or account.provider is not ExternalProvider.SPOTIFY
-        or not account.is_active
-    ):
+    if account is None or account.provider is not ExternalProvider.SPOTIFY or not account.is_active:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="a connected Spotify account is required to publish automatically",

@@ -185,9 +185,7 @@ def _link_result_redirect(
     looking at a browser tab, not reading a JSON response.
     """
     query = (
-        f"?{urlencode({'linkError': reason, 'provider': provider})}"
-        if provider and reason
-        else ""
+        f"?{urlencode({'linkError': reason, 'provider': provider})}" if provider and reason else ""
     )
     return RedirectResponse(
         f"{str(settings.app_base_url).rstrip('/')}/profile{query}", status_code=303

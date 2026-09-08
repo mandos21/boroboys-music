@@ -52,7 +52,9 @@ def test_rotation_reencrypts_only_the_requested_key_version() -> None:
             == 1
         )
         db.commit()
-        rotated = db.scalar(select(ExternalCredential).where(ExternalCredential.id == credential.id))
+        rotated = db.scalar(
+            select(ExternalCredential).where(ExternalCredential.id == credential.id)
+        )
         assert rotated is not None
         assert rotated.key_version == new_version
         assert decrypt(rotated.ciphertext, new_key) == '{"session_key":"old"}'

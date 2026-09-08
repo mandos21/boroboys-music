@@ -22,10 +22,13 @@ def ensure_default_series_membership(db: Session, series_id: uuid.UUID, user_id:
         group = ContributorGroup(series_id=series_id, name="Series members")
         db.add(group)
         db.flush()
-    if db.scalar(
-        select(ContributorGroupMember.id).where(
-            ContributorGroupMember.group_id == group.id,
-            ContributorGroupMember.user_id == user_id,
+    if (
+        db.scalar(
+            select(ContributorGroupMember.id).where(
+                ContributorGroupMember.group_id == group.id,
+                ContributorGroupMember.user_id == user_id,
+            )
         )
-    ) is None:
+        is None
+    ):
         db.add(ContributorGroupMember(group_id=group.id, user_id=user_id))

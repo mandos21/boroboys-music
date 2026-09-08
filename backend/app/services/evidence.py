@@ -131,7 +131,9 @@ def _lastfm_playcount(settings: Settings, username: str, method: str, track: Tra
     return _playcount(payload, method.split(".")[0])
 
 
-def _optional_lastfm_playcount(settings: Settings, username: str, method: str, track: Track) -> int | None:
+def _optional_lastfm_playcount(
+    settings: Settings, username: str, method: str, track: Track
+) -> int | None:
     try:
         return _lastfm_playcount(settings, username, method, track)
     except (httpx.HTTPError, LastfmUnmatched, ValueError, TypeError):

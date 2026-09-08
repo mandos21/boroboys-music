@@ -170,16 +170,12 @@ def test_warning_requires_confirmation_and_persists_an_audit_record(opened_task_
             artist="The Testers",
             spotify_uri=f"spotify:track:{suffix}",
         )
-        preflight = evaluate_track(
-            round_.id, TrackEvaluationRequest(track=track), db, contributor
-        )
+        preflight = evaluate_track(round_.id, TrackEvaluationRequest(track=track), db, contributor)
         assert preflight["canSubmit"] is True
         assert preflight["requiresWarningConfirmation"] is True
         assert preflight["limitRemaining"] == 1
 
-        unconfirmed = create_submission(
-            round_.id, SubmissionCreate(track=track), db, contributor
-        )
+        unconfirmed = create_submission(round_.id, SubmissionCreate(track=track), db, contributor)
         assert unconfirmed["accepted"] is False
         assert unconfirmed["requiresWarningConfirmation"] is True
         assert (
@@ -274,7 +270,10 @@ def test_track_replacement_rechecks_policies_and_preserves_prior_evaluations(
         submission = db.get(Submission, submission_id)
         assert submission is not None
         assert submission.note == "original note"
-        assert db.scalar(select(Track.spotify_track_id).where(Track.id == submission.track_id)) == original.spotify_track_id
+        assert (
+            db.scalar(select(Track.spotify_track_id).where(Track.id == submission.track_id))
+            == original.spotify_track_id
+        )
 
         updated = update_submission(
             submission_id,
@@ -287,7 +286,10 @@ def test_track_replacement_rechecks_policies_and_preserves_prior_evaluations(
         submission = db.get(Submission, submission_id)
         assert submission is not None
         assert submission.note == "original note"
-        assert db.scalar(select(Track.spotify_track_id).where(Track.id == submission.track_id)) == replacement.spotify_track_id
+        assert (
+            db.scalar(select(Track.spotify_track_id).where(Track.id == submission.track_id))
+            == replacement.spotify_track_id
+        )
         assert (
             db.scalar(
                 select(func.count())

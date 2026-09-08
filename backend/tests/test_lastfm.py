@@ -21,7 +21,9 @@ class FakeResponse:
         }
 
 
-def test_monthly_top_tracks_returns_usable_track_suggestions(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_monthly_top_tracks_returns_usable_track_suggestions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     observed: dict[str, object] = {}
 
     def fake_get(*_: object, **kwargs: object) -> FakeResponse:

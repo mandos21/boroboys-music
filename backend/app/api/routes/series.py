@@ -43,9 +43,7 @@ def accept_series_invite(
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
     invite = db.scalar(
-        select(SeriesInvite)
-        .where(SeriesInvite.token_hash == hash_secret(token))
-        .with_for_update()
+        select(SeriesInvite).where(SeriesInvite.token_hash == hash_secret(token)).with_for_update()
     )
     already_member = invite is not None and _has_series_membership(db, invite.series_id, user.id)
     if (
@@ -189,9 +187,7 @@ def _series_payloads(
         )
     )
     is_platform_admin = user.platform_role is PlatformRole.ADMIN
-    membership = (
-        (RoundMember.user_id == user.id) & RoundMember.removed_at.is_(None)
-    )
+    membership = (RoundMember.user_id == user.id) & RoundMember.removed_at.is_(None)
     round_query = select(Round).where(Round.series_id.in_(series_ids))
     if not is_platform_admin:
         round_query = (
@@ -257,10 +253,7 @@ def _series_payloads(
         artwork_urls = artwork_by_round.get(featured.id, []) if featured else []
         fallback_artwork_url = (
             artwork_urls[featured.id.int % len(artwork_urls)]
-            if featured
-            and artwork_urls
-            and not series.cover_image_url
-            and not series.accent_color
+            if featured and artwork_urls and not series.cover_image_url and not series.accent_color
             else None
         )
         payloads.append(
@@ -449,6 +442,7 @@ def _series_stats(db: DbSession, rounds: list[Round]) -> dict[str, object]:
         "songCount": len(rows),
         "artistCount": len(artists),
         "contributors": sorted(
-            contributors.values(), key=lambda contributor: str(contributor["displayName"]).casefold()
+            contributors.values(),
+            key=lambda contributor: str(contributor["displayName"]).casefold(),
         ),
     }

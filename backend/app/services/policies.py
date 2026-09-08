@@ -77,11 +77,16 @@ def evaluate_submission(
                 )
         elif kind == "no_recent_series_repeat":
             lookback_rounds = _positive_int(policy.get("lookback_rounds"), default=1)
-            recent_rounds = select(Round.id).where(
-                Round.series_id == round_.series_id,
-                Round.status == RoundStatus.PUBLISHED,
-                Round.published_sequence.is_not(None),
-            ).order_by(Round.published_sequence.desc()).limit(lookback_rounds)
+            recent_rounds = (
+                select(Round.id)
+                .where(
+                    Round.series_id == round_.series_id,
+                    Round.status == RoundStatus.PUBLISHED,
+                    Round.published_sequence.is_not(None),
+                )
+                .order_by(Round.published_sequence.desc())
+                .limit(lookback_rounds)
+            )
             duplicate = db.scalar(
                 select(Submission.id)
                 .where(

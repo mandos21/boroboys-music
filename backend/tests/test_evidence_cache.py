@@ -52,7 +52,9 @@ def test_fresh_evidence_avoids_a_remote_refresh(monkeypatch: pytest.MonkeyPatch)
         assert evidence_row.playcount == 4
 
 
-def test_stale_evidence_refresh_keeps_the_stronger_playcount(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stale_evidence_refresh_keeps_the_stronger_playcount(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     suffix = uuid.uuid4().hex[:12]
     with get_session_factory()() as db:
         user = User(oidc_issuer="https://issuer.test", oidc_subject=f"stale-{suffix}")

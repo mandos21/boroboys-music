@@ -17,7 +17,9 @@ class LastfmError(Exception):
     pass
 
 
-def monthly_top_tracks(settings: Settings, username: str, limit: int = 8) -> list[dict[str, str | None]]:
+def monthly_top_tracks(
+    settings: Settings, username: str, limit: int = 8
+) -> list[dict[str, str | None]]:
     """Return a listener's recent top tracks for voluntary submission suggestions."""
     if not settings.lastfm_api_key:
         raise LastfmError("Last.fm is not configured")
@@ -49,14 +51,17 @@ def monthly_top_tracks(settings: Settings, username: str, limit: int = 8) -> lis
             artwork_url = None
             if isinstance(images, list):
                 image_urls = [image.get("#text") for image in images if isinstance(image, dict)]
-                artwork_url = next((url for url in reversed(image_urls) if isinstance(url, str) and url), None)
+                artwork_url = next(
+                    (url for url in reversed(image_urls) if isinstance(url, str) and url), None
+                )
             suggestions.append({"name": name, "artist": artist_name, "artworkUrl": artwork_url})
     return suggestions
 
 
 def authorization_url(settings: Settings, state: str) -> str:
     callback = f"{settings.lastfm_callback_url}?{urlencode({'state': state})}"
-    return f"{AUTH_URL}?{urlencode({'api_key': settings.lastfm_api_key.get_secret_value() if settings.lastfm_api_key else '', 'cb': callback})}"
+    api_key = settings.lastfm_api_key.get_secret_value() if settings.lastfm_api_key else ""
+    return f"{AUTH_URL}?{urlencode({'api_key': api_key, 'cb': callback})}"
 
 
 def exchange_session(settings: Settings, token: str) -> dict[str, str]:

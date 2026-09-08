@@ -198,7 +198,9 @@ def test_retry_resumes_after_a_committed_spotify_batch(monkeypatch: pytest.Monke
         )
         assert (
             db.scalar(
-                select(func.count()).select_from(AuditEvent).where(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(
                     AuditEvent.target_id == publication.id,
                     AuditEvent.action == "publication.published",
                 )
@@ -295,7 +297,9 @@ def test_historical_playlist_import_preserves_order_without_remote_retirement(
         )
         assert len(imported_items) == 2
         assert [item.position for item in imported_items] == [1, 2]
-        assert all(item.contributor_id is None and item.submission_id is None for item in imported_items)
+        assert all(
+            item.contributor_id is None and item.submission_id is None for item in imported_items
+        )
         with pytest.raises(PublicationError, match="historically imported"):
             start_unpublish(db, imported.id)
 

@@ -108,11 +108,7 @@ def create_app() -> FastAPI:
                 media_type="application/json",
             )
         return Response(
-            content=(
-                '{"status":"ok","observedAt":"'
-                f"{heartbeat.observed_at.isoformat()}"
-                '"}'
-            ),
+            content=('{"status":"ok","observedAt":"' f"{heartbeat.observed_at.isoformat()}" '"}'),
             media_type="application/json",
         )
 

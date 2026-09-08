@@ -134,10 +134,14 @@ def get_round(
     if reconcile_round_status(round_):
         db.commit()
     limit = (
-        membership.submission_limit_override
-        if membership.submission_limit_override is not None
+        (
+            membership.submission_limit_override
+            if membership.submission_limit_override is not None
+            else round_.submission_limit
+        )
+        if membership is not None
         else round_.submission_limit
-    ) if membership is not None else round_.submission_limit
+    )
     playlist_id = db.scalar(
         select(Publication.spotify_playlist_id).where(
             Publication.round_id == round_.id,
@@ -196,7 +200,9 @@ def get_round(
         "closesAt": round_.closes_at.isoformat(),
         "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": limit,
-        "spotifyPlaylistUrl": f"https://open.spotify.com/playlist/{playlist_id}" if playlist_id else None,
+        "spotifyPlaylistUrl": f"https://open.spotify.com/playlist/{playlist_id}"
+        if playlist_id
+        else None,
         "prompt": round_.prompt,
         "submittedCount": submitted_count,
         "contributorCount": contributor_count,
@@ -213,7 +219,9 @@ def get_submission_draft(
 ) -> dict[str, object]:
     _member_round(db, round_id, user.id)
     draft = db.scalar(
-        select(SubmissionDraft).where(SubmissionDraft.round_id == round_id, SubmissionDraft.user_id == user.id)
+        select(SubmissionDraft).where(
+            SubmissionDraft.round_id == round_id, SubmissionDraft.user_id == user.id
+        )
     )
     return {"track": draft.track if draft else None, "note": draft.note if draft else None}
 
@@ -232,7 +240,9 @@ def save_submission_draft(
     round_, _ = _member_round(db, round_id, user.id)
     _require_open_round(round_)
     draft = db.scalar(
-        select(SubmissionDraft).where(SubmissionDraft.round_id == round_id, SubmissionDraft.user_id == user.id)
+        select(SubmissionDraft).where(
+            SubmissionDraft.round_id == round_id, SubmissionDraft.user_id == user.id
+        )
     )
     if draft is None:
         draft = SubmissionDraft(round_id=round_id, user_id=user.id)
@@ -313,9 +323,7 @@ def list_round_submissions(
             "isMine": submission.contributor_id == user.id,
             "contributor": {
                 "id": str(contributor.id),
-                "displayName": contributor.display_name
-                or contributor.email
-                or "Unknown listener",
+                "displayName": contributor.display_name or contributor.email or "Unknown listener",
                 "spotifyProfileImageUrl": profile_image_url,
             },
             "track": _track_payload(track),
@@ -426,7 +434,9 @@ def get_evidence(
     )
     evidence = []
     for account, item in rows:
-        if not _may_see_evidence(account, user, is_member=is_member, is_series_admin=is_series_admin):
+        if not _may_see_evidence(
+            account, user, is_member=is_member, is_series_admin=is_series_admin
+        ):
             continue
         evidence.append(
             {
@@ -520,7 +530,10 @@ def create_submission(
             "requiresWarningConfirmation": False,
             "policyResults": [_policy_payload(item) for item in decisions],
         }
-    if any(item.decision is EvaluationDecision.WARN for item in decisions) and not payload.confirm_warnings:
+    if (
+        any(item.decision is EvaluationDecision.WARN for item in decisions)
+        and not payload.confirm_warnings
+    ):
         return {
             "accepted": False,
             "requiresWarningConfirmation": True,
@@ -595,7 +608,10 @@ def update_submission(
                 "requiresWarningConfirmation": False,
                 "policyResults": [_policy_payload(item) for item in decisions],
             }
-        if any(item.decision is EvaluationDecision.WARN for item in decisions) and not payload.confirm_warnings:
+        if (
+            any(item.decision is EvaluationDecision.WARN for item in decisions)
+            and not payload.confirm_warnings
+        ):
             return {
                 "accepted": False,
                 "requiresWarningConfirmation": True,
@@ -811,11 +827,15 @@ def _canonical_track_input(db: DbSession, user: User, input_track: TrackInput) -
     name = track.get("name")
     uri = track.get("uri")
     artists = track.get("artists")
-    artist = ", ".join(
-        item["name"]
-        for item in artists
-        if isinstance(item, dict) and isinstance(item.get("name"), str)
-    ) if isinstance(artists, list) else ""
+    artist = (
+        ", ".join(
+            item["name"]
+            for item in artists
+            if isinstance(item, dict) and isinstance(item.get("name"), str)
+        )
+        if isinstance(artists, list)
+        else ""
+    )
     if not isinstance(name, str) or not isinstance(uri, str) or not artist:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -866,7 +886,9 @@ def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
     if track_id is not None:
         track = db.get(Track, track_id)
     else:
-        track = db.scalar(select(Track).where(Track.spotify_track_id == input_track.spotify_track_id))
+        track = db.scalar(
+            select(Track).where(Track.spotify_track_id == input_track.spotify_track_id)
+        )
     if track is None:  # defensive: only possible with an unexpected transaction failure
         raise RuntimeError("track insert did not return a track")
     return track

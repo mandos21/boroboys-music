@@ -96,9 +96,7 @@ def create_rolling_successor(
     publish_delay_minutes = _nonnegative_int(plan, "publish_delay_minutes", 0)
     if duration_days is None and duration_hours is None:
         return None
-    existing = db.scalar(
-        select(Round).where(Round.successor_of_round_id == published_round.id)
-    )
+    existing = db.scalar(select(Round).where(Round.successor_of_round_id == published_round.id))
     if existing is not None:
         return existing
     opens_at = now or datetime.now(UTC)
@@ -168,9 +166,7 @@ def create_calendar_successor(
         publish_delay_minutes = _nonnegative_int(plan, "publish_delay_minutes", 0)
         publish_at = closes_at + timedelta(minutes=publish_delay_minutes)
     title = _calendar_successor_title(plan, published_round.title, candidate)
-    existing = db.scalar(
-        select(Round).where(Round.successor_of_round_id == published_round.id)
-    )
+    existing = db.scalar(select(Round).where(Round.successor_of_round_id == published_round.id))
     if existing is not None:
         return existing
     configured_limit = _nonnegative_int_or_none(plan, "submission_limit")

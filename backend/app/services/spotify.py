@@ -25,7 +25,18 @@ def authorization_url(settings: Settings, state: str, verifier: str) -> str:
     challenge = (
         base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     )
-    return f"{SPOTIFY_ACCOUNTS}/authorize?{urlencode({'response_type': 'code', 'client_id': settings.spotify_client_id, 'redirect_uri': str(settings.spotify_redirect_uri), 'scope': SCOPES, 'state': state, 'code_challenge_method': 'S256', 'code_challenge': challenge})}"
+    query = urlencode(
+        {
+            "response_type": "code",
+            "client_id": settings.spotify_client_id,
+            "redirect_uri": str(settings.spotify_redirect_uri),
+            "scope": SCOPES,
+            "state": state,
+            "code_challenge_method": "S256",
+            "code_challenge": challenge,
+        }
+    )
+    return f"{SPOTIFY_ACCOUNTS}/authorize?{query}"
 
 
 def exchange_code(settings: Settings, code: str, verifier: str) -> dict[str, Any]:
