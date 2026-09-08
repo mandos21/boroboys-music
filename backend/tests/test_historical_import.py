@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.db.models import (
     ExternalAccount,
@@ -22,7 +23,6 @@ from app.db.models import (
     Submission,
     User,
 )
-from app.db.session import get_session_factory
 from app.services.historical_import import (
     HistoricalImportError,
     import_historical_playlist_bundle,
@@ -31,6 +31,7 @@ from app.services.historical_import import (
 
 
 def test_import_plan_infers_monthly_and_year_end_rounds_and_keeps_repeats(
+    db: Session,
     tmp_path: Path,
 ) -> None:
     playlist_directory = tmp_path / "playlists"
@@ -63,7 +64,9 @@ def test_import_plan_infers_monthly_and_year_end_rounds_and_keeps_repeats(
     assert plan.rounds[0].closes_at == datetime(2023, 2, 1, tzinfo=plan.rounds[0].opens_at.tzinfo)
 
 
-def test_import_plan_refuses_an_unmapped_historical_contributor(tmp_path: Path) -> None:
+def test_import_plan_refuses_an_unmapped_historical_contributor(
+    db: Session, tmp_path: Path
+) -> None:
     playlist_directory = tmp_path / "playlists"
     playlist_directory.mkdir()
     _write_playlist(
@@ -77,6 +80,7 @@ def test_import_plan_refuses_an_unmapped_historical_contributor(tmp_path: Path) 
 
 
 def test_import_materializes_a_published_snapshot_with_attributed_submissions(
+    db: Session,
     tmp_path: Path,
 ) -> None:
     suffix = uuid.uuid4().hex[:12]
@@ -105,97 +109,92 @@ def test_import_materializes_a_published_snapshot_with_attributed_submissions(
         },
     )
     plan = load_historical_import_plan(playlist_directory, identity_map, "UTC")
-    with get_session_factory()() as db:
-        administrator = User(
-            oidc_issuer="https://issuer.test",
-            oidc_subject=f"administrator-{suffix}",
-        )
-        series = Series(
-            name=f"Historical import {suffix}",
-            slug=f"historical-import-{suffix}",
-            timezone="UTC",
-            default_policies=[],
-        )
-        db.add_all((administrator, series))
-        db.flush()
-        publisher = ExternalAccount(
-            user_id=administrator.id,
-            provider=ExternalProvider.SPOTIFY,
-            provider_subject=f"publisher-{suffix}",
-            is_active=False,
-        )
-        db.add_all((publisher, SeriesAdmin(series_id=series.id, user_id=administrator.id)))
-        db.commit()
+    administrator = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"administrator-{suffix}",
+    )
+    series = Series(
+        name=f"Historical import {suffix}",
+        slug=f"historical-import-{suffix}",
+        timezone="UTC",
+        default_policies=[],
+    )
+    db.add_all((administrator, series))
+    db.flush()
+    publisher = ExternalAccount(
+        user_id=administrator.id,
+        provider=ExternalProvider.SPOTIFY,
+        provider_subject=f"publisher-{suffix}",
+        is_active=False,
+    )
+    db.add_all((publisher, SeriesAdmin(series_id=series.id, user_id=administrator.id)))
+    db.commit()
 
-        result = import_historical_playlist_bundle(
+    result = import_historical_playlist_bundle(
+        db,
+        series.slug,
+        publisher.id,
+        "https://issuer.test",
+        plan,
+    )
+    db.commit()
+
+    imported_round = db.scalar(select(Round).where(Round.series_id == series.id))
+    assert imported_round is not None
+    assert imported_round.title == "March 2023"
+    assert imported_round.published_sequence == 1
+    assert imported_round.opens_at == datetime(2023, 3, 1, tzinfo=UTC)
+    assert imported_round.submission_limit == 3
+    submissions = list(
+        db.scalars(
+            select(Submission)
+            .where(Submission.round_id == imported_round.id)
+            .order_by(Submission.submitted_at)
+        )
+    )
+    assert len(submissions) == 5
+    canonical_user = db.scalar(
+        select(User).where(
+            User.oidc_issuer == "https://issuer.test",
+            User.oidc_subject == "subject-alpha",
+        )
+    )
+    assert canonical_user is not None
+    assert canonical_user.email == "alpha@example.test"
+    assert (
+        db.scalar(
+            select(User).where(
+                User.oidc_issuer == "https://issuer.test",
+                User.oidc_subject == "subject-unused",
+            )
+        )
+        is None
+    )
+    members = list(db.scalars(select(RoundMember).where(RoundMember.round_id == imported_round.id)))
+    assert sorted(member.submission_limit_override for member in members) == [2, 3]
+    publication = db.scalar(select(Publication).where(Publication.round_id == imported_round.id))
+    assert publication is not None
+    assert publication.is_imported is True
+    items = list(
+        db.scalars(
+            select(PublicationItem)
+            .where(PublicationItem.publication_id == publication.id)
+            .order_by(PublicationItem.position)
+        )
+    )
+    assert [item.position for item in items] == [1, 2, 3, 4]
+    assert items[0].track_id == items[1].track_id
+    assert result.submission_count == 5
+
+    with pytest.raises(HistoricalImportError, match="already been imported"):
+        import_historical_playlist_bundle(
             db,
             series.slug,
             publisher.id,
             "https://issuer.test",
             plan,
         )
-        db.commit()
-
-        imported_round = db.scalar(select(Round).where(Round.series_id == series.id))
-        assert imported_round is not None
-        assert imported_round.title == "March 2023"
-        assert imported_round.published_sequence == 1
-        assert imported_round.opens_at == datetime(2023, 3, 1, tzinfo=UTC)
-        assert imported_round.submission_limit == 3
-        submissions = list(
-            db.scalars(
-                select(Submission)
-                .where(Submission.round_id == imported_round.id)
-                .order_by(Submission.submitted_at)
-            )
-        )
-        assert len(submissions) == 5
-        canonical_user = db.scalar(
-            select(User).where(
-                User.oidc_issuer == "https://issuer.test",
-                User.oidc_subject == "subject-alpha",
-            )
-        )
-        assert canonical_user is not None
-        assert canonical_user.email == "alpha@example.test"
-        assert (
-            db.scalar(
-                select(User).where(
-                    User.oidc_issuer == "https://issuer.test",
-                    User.oidc_subject == "subject-unused",
-                )
-            )
-            is None
-        )
-        members = list(
-            db.scalars(select(RoundMember).where(RoundMember.round_id == imported_round.id))
-        )
-        assert sorted(member.submission_limit_override for member in members) == [2, 3]
-        publication = db.scalar(
-            select(Publication).where(Publication.round_id == imported_round.id)
-        )
-        assert publication is not None
-        assert publication.is_imported is True
-        items = list(
-            db.scalars(
-                select(PublicationItem)
-                .where(PublicationItem.publication_id == publication.id)
-                .order_by(PublicationItem.position)
-            )
-        )
-        assert [item.position for item in items] == [1, 2, 3, 4]
-        assert items[0].track_id == items[1].track_id
-        assert result.submission_count == 5
-
-        with pytest.raises(HistoricalImportError, match="already been imported"):
-            import_historical_playlist_bundle(
-                db,
-                series.slug,
-                publisher.id,
-                "https://issuer.test",
-                plan,
-            )
-        db.rollback()
+    db.rollback()
 
 
 def _row(spotify_id: str, email: str, submitted_at: str) -> dict[str, str]:
