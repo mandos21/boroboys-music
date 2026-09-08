@@ -1,0 +1,13 @@
+# The Dockerfile copies app/, migrations/ and alembic.ini explicitly, but the
+# build context is still sent to the daemon in full without this.
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+tests
+.env
+.env.*

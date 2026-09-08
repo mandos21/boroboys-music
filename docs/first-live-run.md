@@ -14,7 +14,6 @@ APP_ENV=production
 APP_BASE_URL=https://boromusic.dege.app
 DATABASE_URL=postgresql+psycopg://…
 PROCRASTINATE_DATABASE_URL=postgresql://…
-SESSION_SECRET=<long random value>
 CREDENTIAL_ENCRYPTION_KEY=<Fernet key>
 CREDENTIAL_ENCRYPTION_KEY_VERSION=v1
 

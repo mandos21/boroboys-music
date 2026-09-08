@@ -6,7 +6,9 @@ retained alongside the backup in the deployment secret manager.
 
 ## Before deploying
 
-1. Set production-only `SESSION_SECRET` and `CREDENTIAL_ENCRYPTION_KEY` values.
+1. Set a production-only `CREDENTIAL_ENCRYPTION_KEY`. Sessions need no signing
+   secret: the cookie carries an opaque random token and only its SHA-256 hash
+   is stored, so there is nothing to sign.
 2. Apply Alembic migrations before starting an updated worker: `make migrate`.
 3. Apply the Procrastinate schema when its library version changes:
    `make task-schema`.

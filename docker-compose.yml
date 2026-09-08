@@ -22,6 +22,9 @@ services:
     restart: unless-stopped
     build:
       context: ./backend
+    # Named so the worker can run the same artifact rather than building the
+    # identical Dockerfile a second time into an image that can drift from it.
+    image: music-rounds-api
     env_file:
       - .env
     ports:
@@ -31,9 +34,11 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://music_rounds:music_rounds@postgres:5432/music_rounds
       PROCRASTINATE_DATABASE_URL: postgresql://music_rounds:music_rounds@postgres:5432/music_rounds
+    # The image puts the virtualenv on PATH, so Poetry stays a build-time tool
+    # and is never needed to start the process.
     command: >-
-      sh -c 'poetry run alembic upgrade head &&
-      exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000'
+      sh -c 'alembic upgrade head &&
+      exec uvicorn app.main:app --host 0.0.0.0 --port 8000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,14 +50,13 @@ services:
 
   worker:
     restart: unless-stopped
-    build:
-      context: ./backend
+    image: music-rounds-api
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql+psycopg://music_rounds:music_rounds@postgres:5432/music_rounds
       PROCRASTINATE_DATABASE_URL: postgresql://music_rounds:music_rounds@postgres:5432/music_rounds
-    command: ["poetry", "run", "procrastinate", "--app=app.tasks.app", "worker"]
+    command: ["procrastinate", "--app=app.tasks.app", "worker"]
     depends_on:
       api:
         condition: service_healthy
@@ -62,7 +66,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5173:80"
+      - "5173:8080"
     depends_on:
       api:
         condition: service_healthy

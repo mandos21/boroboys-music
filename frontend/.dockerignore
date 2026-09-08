@@ -1,0 +1,8 @@
+# Never let host state into the image build. `COPY . .` runs after `npm ci`, so
+# a host node_modules would overwrite the one just installed for this platform
+# and make the build depend on whatever the developer happens to have.
+node_modules
+dist
+*.tsbuildinfo
+.env
+.env.*
