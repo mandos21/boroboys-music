@@ -100,12 +100,22 @@ export function SubmissionPage() {
     evaluation.mutate(track);
   }
 
+  // Seeds the form from the saved draft once it loads. Both rules below object
+  // to the shape of this effect rather than to a detail of it: a guard does not
+  // remove the synchronous setState, and adding the missing dependencies makes
+  // it re-run and re-evaluate the track. Its position before the autosave
+  // effect is also load-bearing, because the re-render it causes clears that
+  // effect's pending timer and stops an empty payload overwriting the draft.
+  // Cleanup plan item 6 replaces this with React Hook Form's `reset`, which is
+  // the supported way to seed a form from async data; these disables go with it.
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     if (!selected && draft.data?.track) {
       chooseTrack(trackFromInput(draft.data.track));
       setNote(draft.data.note ?? "");
     }
   }, [draft.data]);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   useEffect(() => {
     draftPayloadRef.current = { track: selected, note };

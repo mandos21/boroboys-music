@@ -21,8 +21,13 @@ export function PublicationPanel({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  // Held in a ref so the settle effect below does not re-run whenever the
+  // parent passes a new callback identity. Assigned in an effect rather than
+  // during render, which is not a safe time to touch a ref.
   const onChangedRef = useRef(onChanged);
-  onChangedRef.current = onChanged;
+  useEffect(() => {
+    onChangedRef.current = onChanged;
+  });
   const publication = useQuery({
     queryKey: ["publication", round.id],
     queryFn: () =>
