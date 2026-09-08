@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import { useToast } from "../../components/ui/ToastProvider";
 import { zonedInputToIso } from "../../lib/time";
 import { errorMessage } from "./adminUtils";
@@ -25,7 +26,7 @@ export function HistoricalImportPanel({
   const [closesAt, setClosesAt] = useState("");
   const [publishedAt, setPublishedAt] = useState("");
   const connections = useQuery({
-    queryKey: ["connections"],
+    queryKey: queryKeys.connections(),
     queryFn: () => api<Connection[]>("/connections"),
     retry: false,
   });

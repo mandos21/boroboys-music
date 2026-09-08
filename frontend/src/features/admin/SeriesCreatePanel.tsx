@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 
 import { post } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 
@@ -28,8 +29,8 @@ export function SeriesCreatePanel() {
         round_plan: null,
       }),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["series"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-series"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.series() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminSeries() });
       showToast({
         title: "Series created",
         description: "Add people, a schedule, and automation in its workspace.",

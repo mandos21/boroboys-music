@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
 import { api, del, patch, put } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
@@ -16,7 +17,7 @@ export function AdminRoundPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const detail = useQuery({
-    queryKey: ["admin-round", roundId],
+    queryKey: queryKeys.adminRound(roundId),
     queryFn: () => api<AdminRound>(`/admin/rounds/${roundId}`),
     enabled: Boolean(roundId),
     retry: false,
@@ -35,13 +36,14 @@ export function AdminRoundPage() {
   const [publisher, setPublisher] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
   const connections = useQuery({
-    queryKey: ["connections"],
+    queryKey: queryKeys.connections(),
     queryFn: () => api<Connection[]>("/connections"),
     retry: false,
   });
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-round", roundId] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.adminRound(roundId) });
   const users = useQuery({
-    queryKey: ["round-users", detail.data?.seriesId, deferredSearch],
+    queryKey: queryKeys.roundUsers(detail.data?.seriesId, deferredSearch),
     queryFn: () =>
       api<User[]>(
         `/admin/series/${detail.data?.seriesId}/users?query=${encodeURIComponent(deferredSearch)}`,

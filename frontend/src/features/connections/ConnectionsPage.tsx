@@ -4,6 +4,7 @@ import { Disc3, Eye, Headphones, Link2, ShieldCheck, Unplug } from "lucide-react
 import { Link, useSearchParams } from "react-router";
 
 import { api, del, patch } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
@@ -44,10 +45,10 @@ export function ConnectionsPage() {
   const { showToast } = useToast();
   const [connectionToDisconnect, setConnectionToDisconnect] = useState<Connection | null>(null);
   const connections = useQuery({
-    queryKey: ["connections"],
+    queryKey: queryKeys.connections(),
     queryFn: () => api<Connection[]>("/connections"),
   });
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["connections"] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.connections() });
   const visibility = useMutation({
     mutationFn: ({ id, value }: { id: string; value: Connection["visibility"] }) =>
       patch(`/connections/${id}/visibility`, { visibility: value }),

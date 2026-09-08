@@ -5,6 +5,7 @@ import { LogOut, Menu, Music2, UserRound, X } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 import { api, logout } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import { avatarStyle } from "../../lib/avatar";
 import { ThemeToggle } from "../ui/ThemeToggle";
 
@@ -35,7 +36,7 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const session = useQuery({
-    queryKey: ["session"],
+    queryKey: queryKeys.session(),
     queryFn: () => api<Session>("/auth/session"),
     retry: false,
   });

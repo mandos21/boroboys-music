@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
@@ -29,7 +30,7 @@ export function PublicationPanel({
     onChangedRef.current = onChanged;
   });
   const publication = useQuery({
-    queryKey: ["publication", round.id],
+    queryKey: queryKeys.publication(round.id),
     queryFn: () => api<Publication | null>(`/admin/rounds/${round.id}/publication`),
     retry: false,
     refetchInterval: (query) =>
@@ -47,14 +48,14 @@ export function PublicationPanel({
     previousState.current = publicationState;
   }, [publicationState]);
   const connections = useQuery({
-    queryKey: ["connections"],
+    queryKey: queryKeys.connections(),
     queryFn: () => api<Connection[]>("/connections"),
     retry: false,
   });
   const [publisherId, setPublisherId] = useState("");
   const [unpublishRequested, setUnpublishRequested] = useState(false);
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["publication", round.id] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.publication(round.id) });
     onChanged();
   };
   const publish = useMutation({

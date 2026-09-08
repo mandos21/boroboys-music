@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { api, patch, post, put } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
@@ -37,13 +38,13 @@ export function SubmissionPage() {
   const draftPayloadRef = useRef<{ track: Track | null; note: string }>({ track: null, note: "" });
   const deferredQuery = useDeferredValue(query.trim());
   const round = useQuery({
-    queryKey: ["round", roundId],
+    queryKey: queryKeys.round(roundId),
     queryFn: () => api<Round>(`/rounds/${roundId}`),
     enabled: Boolean(roundId),
     retry: false,
   });
   const tracks = useQuery({
-    queryKey: ["track-search", roundId, deferredQuery],
+    queryKey: queryKeys.trackSearch(roundId, deferredQuery),
     queryFn: () =>
       api<Track[]>(`/rounds/${roundId}/track-search?query=${encodeURIComponent(deferredQuery)}`),
     enabled: Boolean(roundId) && deferredQuery.length >= 2,
@@ -58,12 +59,12 @@ export function SubmissionPage() {
     },
   });
   const evidence = useQuery({
-    queryKey: ["evidence", roundId, evaluation.data?.trackId],
+    queryKey: queryKeys.evidence(roundId, evaluation.data?.trackId),
     queryFn: () => api<Evidence>(`/rounds/${roundId}/tracks/${evaluation.data?.trackId}/evidence`),
     enabled: Boolean(roundId && evaluation.data?.trackId),
   });
   const draft = useQuery({
-    queryKey: ["submission-draft", roundId],
+    queryKey: queryKeys.submissionDraft(roundId),
     queryFn: () => api<SubmissionDraft>(`/rounds/${roundId}/draft`),
     enabled: Boolean(roundId && !replaceId),
     retry: false,
@@ -72,13 +73,13 @@ export function SubmissionPage() {
   // the remaining allowance comes from the submissions the page already shares
   // with the round view rather than from the round's total limit.
   const submissions = useQuery({
-    queryKey: ["round-submissions", roundId],
+    queryKey: queryKeys.roundSubmissions(roundId),
     queryFn: () => api<Submission[]>(`/rounds/${roundId}/submissions`),
     enabled: Boolean(roundId),
     retry: false,
   });
   const suggestions = useQuery({
-    queryKey: ["listening-suggestions", roundId],
+    queryKey: queryKeys.listeningSuggestions(roundId),
     queryFn: () =>
       api<Array<{ name: string; artist: string; artworkUrl: string | null }>>(
         `/rounds/${roundId}/listening-suggestions`,
@@ -106,9 +107,9 @@ export function SubmissionPage() {
     onSuccess: (result) => {
       if (result.accepted) {
         submittedRef.current = true;
-        void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
-        void queryClient.invalidateQueries({ queryKey: ["round-submissions", roundId] });
-        void queryClient.invalidateQueries({ queryKey: ["series"] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.round(roundId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissions(roundId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.series() });
         showToast({
           title: replaceId ? "Track replaced" : "Track submitted",
           description: "Your choice is now part of this round.",

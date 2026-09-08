@@ -4,6 +4,7 @@ import { CalendarDays, Clock3, Disc3, ListMusic, UsersRound } from "lucide-react
 import { Link, useParams } from "react-router";
 
 import { api, patch, post } from "../../api/client";
+import { queryKeys } from "../../api/queryKeys";
 import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
@@ -21,20 +22,20 @@ export function RoundPage() {
   const { showToast } = useToast();
   const [submissionToWithdraw, setSubmissionToWithdraw] = useState<Submission | null>(null);
   const round = useQuery({
-    queryKey: ["round", roundId],
+    queryKey: queryKeys.round(roundId),
     queryFn: () => api<Round>(`/rounds/${roundId}`),
     enabled: Boolean(roundId),
     retry: false,
   });
   const submissions = useQuery({
-    queryKey: ["round-submissions", roundId],
+    queryKey: queryKeys.roundSubmissions(roundId),
     queryFn: () => api<Submission[]>(`/rounds/${roundId}/submissions`),
     enabled: Boolean(roundId) && round.isSuccess,
     retry: false,
   });
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["round-submissions", roundId] });
-    queryClient.invalidateQueries({ queryKey: ["round", roundId] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissions(roundId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.round(roundId) });
   };
   const withdraw = useMutation({
     mutationFn: (submissionId: string) =>
@@ -423,7 +424,7 @@ function RoundSubmissions({
 export function SeriesPage() {
   const { seriesId } = useParams();
   const series = useQuery({
-    queryKey: ["series", seriesId],
+    queryKey: queryKeys.seriesDetail(seriesId),
     queryFn: () => api<SeriesHistory>(`/series/${seriesId}`),
     enabled: Boolean(seriesId),
     retry: false,

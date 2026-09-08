@@ -4,6 +4,7 @@ import { ChevronRight, ListMusic, Sparkles } from "lucide-react";
 import { Link, Navigate, Route, Routes, useParams, useSearchParams } from "react-router";
 
 import { api, post } from "../api/client";
+import { queryKeys } from "../api/queryKeys";
 import type { components } from "../api/schema";
 import { AppShell } from "../components/layout/AppShell";
 import { StatePanel } from "../components/ui/StatePanel";
@@ -30,12 +31,12 @@ function seriesAccent(series: SeriesPreview) {
 
 function HomePage() {
   const session = useQuery({
-    queryKey: ["session"],
+    queryKey: queryKeys.session(),
     queryFn: () => api<Session>("/auth/session"),
     retry: false,
   });
   const series = useQuery({
-    queryKey: ["series"],
+    queryKey: queryKeys.series(),
     queryFn: () => api<SeriesPreview[]>("/series"),
     enabled: session.isSuccess,
   });
@@ -282,12 +283,12 @@ function SignedOutPage() {
 function InviteAcceptPage() {
   const { token } = useParams();
   const session = useQuery({
-    queryKey: ["session"],
+    queryKey: queryKeys.session(),
     queryFn: () => api<Session>("/auth/session"),
     retry: false,
   });
   const accept = useQuery({
-    queryKey: ["accept-invite", token],
+    queryKey: queryKeys.acceptInvite(token),
     queryFn: () => post<{ seriesId: string }>(`/series/invites/${token}/accept`, {}),
     enabled: Boolean(token && session.isSuccess),
     retry: false,
