@@ -10,25 +10,36 @@
 .profile-identity p:not(.eyebrow) { max-width: 35rem; margin: .6rem 0 0; color: #58677d; line-height: 1.55; }
 .profile-variety { display: grid; grid-template-columns: auto minmax(9rem, 13rem); align-items: center; gap: .85rem; }
 .profile-variety > p { margin: 0; color: #58677d; font-size: .82rem; line-height: 1.45; }
-.variety-orbit { display: grid; width: 5.7rem; height: 5.7rem; place-content: center; border-radius: 50%; background: conic-gradient(#16a34a var(--variety), #d7eadc 0); box-shadow: inset 0 0 0 .42rem #f8fcf9; text-align: center; }
+/* The centre is a solid disc painted over the sweep, not an inset ring at the
+   edge. Previously the label sat directly on the conic gradient, so its
+   contrast depended on the score: 2.2:1 over the filled arc against 5.7:1 over
+   the track. Text now sits on a known surface and reads the same at any value. */
+.variety-orbit { display: grid; width: 5.7rem; height: 5.7rem; place-content: center; border-radius: 50%; background: radial-gradient(closest-side, #f8fcf9 62%, transparent 63%), conic-gradient(#16a34a var(--variety), #d7eadc 0); text-align: center; }
 .variety-orbit strong { color: #166534; font-size: 1.25rem; letter-spacing: -.04em; }
-.variety-orbit span { color: #64748b; font-size: .62rem; font-weight: 800; text-transform: uppercase; }
+.variety-orbit span { color: #475569; font-size: .62rem; font-weight: 800; text-transform: uppercase; }
 .profile-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0; }
 .profile-stat { display: grid; grid-template-columns: auto 1fr; gap: .18rem .5rem; padding: .9rem; border: 1px solid #d7eadc; border-radius: .85rem; background: rgb(248 252 249 / 84%); }
 .profile-stat svg { grid-row: span 2; align-self: center; color: #15803d; }
 .profile-stat strong { color: #1e293b; font-size: 1.2rem; line-height: 1; }
 .profile-stat span { color: #64748b; font-size: .73rem; font-weight: 700; }
-.profile-insights-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+/* Twelve month labels cannot fit in a third of the row, so the series takes
+   a full-width row of its own and the two summaries sit beneath it. */
+.profile-insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.profile-insights-grid .activity-chart { grid-column: 1 / -1; }
 .profile-chart { min-width: 0; }
 .profile-chart-heading { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }
 .profile-chart-heading .eyebrow { margin-bottom: .35rem; }
 .profile-chart-heading h2 { font-size: 1.08rem; }
 .profile-chart-heading > span { color: #64748b; font-size: .72rem; font-weight: 700; text-align: right; }
-.activity-bars { display: flex; height: 10.25rem; align-items: end; gap: .35rem; padding: 1.25rem 0 0; margin: .4rem 0 0; border-bottom: 1px solid #d7eadc; list-style: none; }
-.activity-bar { display: grid; min-width: 0; flex: 1; grid-template-rows: 1rem 1fr 1.2rem; align-items: end; gap: .25rem; text-align: center; }
+/* `align-items: end` here left each column sized to its own content, so the
+   1fr bar row had no definite height and the bars' percentage heights resolved
+   to zero - the counts and labels rendered, the bars did not. Stretching the
+   columns to the track height is what gives that row something to resolve against. */
+.activity-bars { display: flex; height: 10.25rem; align-items: stretch; gap: .35rem; padding: 1.25rem 0 0; margin: .4rem 0 0; border-bottom: 1px solid #d7eadc; list-style: none; }
+.activity-bar { display: grid; min-width: 0; flex: 1; grid-template-rows: 1rem minmax(0, 1fr) 1.2rem; align-items: end; gap: .25rem; text-align: center; }
 .activity-count { color: #166534; font-size: .65rem; font-weight: 800; }
 .activity-bar i { display: block; width: 100%; height: var(--height); align-self: end; border-radius: .28rem .28rem 0 0; background: linear-gradient(#4ade80, #15803d); box-shadow: 0 -4px 12px rgb(22 163 74 / 14%); }
-.activity-bar small { overflow: hidden; color: #64748b; font-size: .58rem; line-height: 1; text-overflow: clip; white-space: nowrap; }
+.activity-bar small { overflow: hidden; color: #475569; font-size: .62rem; line-height: 1; text-overflow: clip; white-space: nowrap; }
 .profile-top-artists ol { display: grid; gap: .65rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
 .profile-top-artists li { display: grid; grid-template-columns: minmax(4rem, 1fr) minmax(3rem, 1.15fr) auto; align-items: center; gap: .5rem; }
 .profile-top-artists li > span { overflow: hidden; color: #475569; font-size: .76rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
@@ -60,7 +71,6 @@
 .profile-connections { margin-top: 2.5rem; }
 .profile-connections .connection-grid { margin-top: 1rem; }
 
-@media (max-width: 60rem) { .profile-insights-grid { grid-template-columns: 1fr 1fr; }.profile-insights-grid .activity-chart { grid-column: 1 / -1; } }
 @media (max-width: 44rem) { .profile-overview { align-items: start; flex-direction: column; gap: 1.2rem; }.profile-variety { width: 100%; grid-template-columns: auto 1fr; }.profile-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.profile-insights-grid { grid-template-columns: 1fr; }.profile-insights-grid .activity-chart { grid-column: auto; }.profile-submission { grid-template-columns: 3rem minmax(0, 1fr); align-items: start; }.profile-submission > img, .profile-track-placeholder { width: 3rem; height: 3rem; }.profile-submission-round { grid-column: 2; justify-items: start; text-align: left; }.profile-submission-round a { max-width: 100%; }.activity-bars { gap: .22rem; } }
 
 html[data-theme="dark"] .profile-overview { background: linear-gradient(135deg, #173525, #17231c); border-color: #396344; }
@@ -68,9 +78,10 @@ html[data-theme="dark"] .profile-overview::after { background: #265e3b; opacity:
 html[data-theme="dark"] .profile-avatar { border-color: #17231c; }
 html[data-theme="dark"] .profile-identity h1, html[data-theme="dark"] .profile-stat strong, html[data-theme="dark"] .profile-submission-track strong { color: #eef8f0; }
 html[data-theme="dark"] .profile-identity p:not(.eyebrow), html[data-theme="dark"] .profile-variety > p, html[data-theme="dark"] .profile-stat span, html[data-theme="dark"] .profile-submission-track span, html[data-theme="dark"] .profile-submission-track em { color: #a7bbae; }
-html[data-theme="dark"] .variety-orbit { background: conic-gradient(#4ade80 var(--variety), #31483a 0); box-shadow: inset 0 0 0 .42rem #172a20; }
+html[data-theme="dark"] .variety-orbit { background: radial-gradient(closest-side, #172a20 62%, transparent 63%), conic-gradient(#4ade80 var(--variety), #31483a 0); }
 html[data-theme="dark"] .variety-orbit strong { color: #86efac; }
 html[data-theme="dark"] .variety-orbit span { color: #a7bbae; }
+html[data-theme="dark"] .activity-bar small { color: #a7bbae; }
 html[data-theme="dark"] .profile-stat { border-color: #31483a; background: #172a20; }
 html[data-theme="dark"] .profile-stat svg { color: #86efac; }
 html[data-theme="dark"] .activity-bars { border-color: #31483a; }

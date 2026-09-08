@@ -282,7 +282,11 @@ function ActivityChart({ activity }: { activity: Profile["stats"]["activity"] })
                 } as CSSProperties
               }
             />
-            <small aria-hidden="true">{`${item.label.slice(0, 3)} ’${item.month.slice(2, 4)}`}</small>
+            <small aria-hidden="true">
+              {item.month.endsWith("-01")
+                ? `${item.label.slice(0, 3)} ’${item.month.slice(2, 4)}`
+                : item.label.slice(0, 3)}
+            </small>
             <span className="profile-sr-only">{`${item.label}: ${item.count} picks`}</span>
           </li>
         ))}
