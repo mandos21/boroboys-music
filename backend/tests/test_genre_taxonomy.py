@@ -11,7 +11,6 @@ from app.services.genre_taxonomy import OTHER_GROUP, family_for, group_for
     ("genre", "group"),
     [
         # Exact terms the tree carries.
-        ("shoegaze", "rock"),
         ("bebop", "jazz"),
         ("dancehall", "global"),
         # The head noun is the last word, so the rightmost term wins. Matching
@@ -23,10 +22,20 @@ from app.services.genre_taxonomy import OTHER_GROUP, family_for, group_for
         ("rap", "hip hop"),
         ("edm", "electronic"),
         ("neo-psychedelic", "rock"),
-        # The tree overrides what the words suggest: dream pop is a rock genre.
-        ("dream pop", "rock"),
+        # Promoted branches: the tree separates these inside rock, and rock is
+        # otherwise so dominant that emo, shoegaze and garage rock would all
+        # share one colour.
+        ("midwest emo", "punk"),
+        ("shoegaze", "alternative"),
+        ("garage rock", "rock"),
+        # The tree overrides what the words suggest: dream pop sits under
+        # alternative rock, not pop.
+        ("dream pop", "alternative"),
+        # Metal is its own family here, not a branch of rock.
+        ("sludge metal", "metal"),
+        ("metalcore", "metal"),
         # Word boundaries stop a short term matching inside a longer one.
-        ("skate punk", "rock"),
+        ("skate punk", "punk"),
     ],
 )
 def test_genres_group_by_taxonomy_not_by_spelling(genre: str, group: str) -> None:
@@ -42,11 +51,14 @@ def test_an_unrecognised_genre_is_grouped_as_other_rather_than_guessed() -> None
 def test_the_vendored_tree_still_carries_the_families_we_map() -> None:
     """A refreshed tree must not silently drop a family we colour by."""
     for genre, family in [
-        ("shoegaze", "rock"),
         ("bebop", "jazz"),
         ("afrobeat", "african"),
         ("dancehall", "reggae"),
         ("bluegrass", "country"),
         ("house", "electronic"),
+        # Metal was moved out of rock deliberately; heavy metal stays behind as
+        # the origin. A refreshed upstream tree would undo both.
+        ("sludge metal", "metal"),
+        ("heavy metal", "rock"),
     ]:
         assert family_for(genre) == family, genre

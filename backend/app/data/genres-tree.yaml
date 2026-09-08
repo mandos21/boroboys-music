@@ -587,6 +587,53 @@
     - west coast jazz
 - kids music:
     - kinderlieder
+- metal:
+    - nu metal
+    - stoner metal
+    - alternative metal:
+        - funk metal
+    - black metal:
+        - viking metal
+    - christian metal
+    - death metal:
+        - death/doom
+        - goregrind
+        - melodic death metal
+        - old school death metal
+        - technical death metal
+    - doom metal:
+        - epic doom metal
+        - funeral doom
+    - drone metal
+    - epic metal
+    - folk metal:
+        - celtic metal
+        - medieval metal
+        - pagan metal
+    - funk metal
+    - glam metal
+    - gothic metal
+    - industrial metal:
+        - industrial death metal
+    - metalcore:
+        - deathcore
+        - mathcore:
+            - djent
+        - synthcore
+    - neoclassical metal
+    - post-metal
+    - power metal:
+        - progressive power metal
+    - progressive metal
+    - sludge metal
+    - speed metal
+    - symphonic metal
+    - thrash metal:
+        - crossover thrash
+        - groove metal
+        - progressive thrash metal
+        - teutonic thrash metal
+    - traditional heavy metal
 - pop:
     - adult contemporary
     - arab pop
@@ -647,7 +694,6 @@
             - twee pop
         - indie rock
         - noise pop
-        - nu metal
         - post-punk revival
         - post-rock:
             - post-metal
@@ -666,53 +712,8 @@
     - garage rock
     - glam rock
     - hard rock
-    - heavy metal:
-        - alternative metal:
-            - funk metal
-        - black metal:
-            - viking metal
-        - christian metal
-        - death metal:
-            - death/doom
-            - goregrind
-            - melodic death metal
-            - old school death metal
-            - technical death metal
-        - doom metal:
-            - epic doom metal
-            - funeral doom
-        - drone metal
-        - epic metal
-        - folk metal:
-            - celtic metal
-            - medieval metal
-            - pagan metal
-        - funk metal
-        - glam metal
-        - gothic metal
-        - industrial metal:
-            - industrial death metal
-        - metalcore:
-            - deathcore
-            - mathcore:
-                - djent
-            - synthcore
-        - neoclassical metal
-        - post-metal
-        - power metal:
-            - progressive power metal
-        - progressive metal
-        - sludge metal
-        - speed metal
-        - stoner rock:
-            - stoner metal
-        - symphonic metal
-        - thrash metal:
-            - crossover thrash
-            - groove metal
-            - progressive thrash metal
-            - teutonic thrash metal
-        - traditional heavy metal
+    - heavy metal
+    - stoner rock
     - math rock
     - new wave:
         - synthwave

@@ -37,9 +37,9 @@ router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 _DEFAULT_HISTORY_LIMIT = 30
 _MAX_HISTORY_LIMIT = 60
-# Eight tags described a listener too thinly once genres were grouped; this is
-# enough to show the long tail without the cloud becoming the whole panel.
-_GENRE_SPREAD_LIMIT = 24
+# Enough tags to show the long tail, few enough that the cloud stays the same
+# height as the artists panel beside it.
+_GENRE_SPREAD_LIMIT = 12
 
 
 @router.get("/me", response_model=ProfileResponse)

@@ -48,16 +48,25 @@
 .profile-top-artists li i { display: block; width: var(--width); height: 100%; border-radius: inherit; background: #15803d; }
 .profile-top-artists li strong { color: #166534; font-size: .75rem; }
 .genre-cloud { display: flex; flex-wrap: wrap; align-content: center; gap: .5rem; min-height: 8.7rem; padding-top: 1rem; }
-.genre-token { display: inline-flex; align-items: center; gap: .35rem; padding: .4rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 800; }
-.genre-token small { font-size: .67rem; opacity: .75; }
-.genre-token-rock { background: #dcfce7; color: #166534; }
-.genre-token-electronic { background: #dbeafe; color: #1d4ed8; }
-.genre-token-pop { background: #fce7f3; color: #be123c; }
-.genre-token-hip-hop { background: #f3e8ff; color: #7e22ce; }
-.genre-token-jazz { background: #fef3c7; color: #a16207; }
-.genre-token-roots { background: #ffedd5; color: #c2410c; }
-.genre-token-global { background: #cffafe; color: #0891b2; }
-.genre-token-other { background: #e2e8f0; color: #334155; }
+/* Identity lives in the dot, not the text. Ten groups need ten separable
+   hues, and a hue dark enough to read as label text on a tinted chip is a much
+   smaller set than one that only has to be visible - roots came out at 2.9:1
+   as text where the dot needs 3:1 against the surface. Splitting the two jobs
+   lets the palette stay validated while every label keeps one legible ink. */
+.genre-token { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .6rem; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; color: #1e293b; font-size: .75rem; font-weight: 750; }
+.genre-token i { width: .5rem; height: .5rem; flex: none; border-radius: 50%; background: var(--genre-color, #64748b); }
+.genre-token small { color: #64748b; font-size: .67rem; font-weight: 700; }
+.genre-token-rock { --genre-color: #166534; }
+.genre-token-alternative { --genre-color: #0d9488; }
+.genre-token-punk { --genre-color: #dc2626; }
+.genre-token-metal { --genre-color: #4338ca; }
+.genre-token-electronic { --genre-color: #0284c7; }
+.genre-token-hip-hop { --genre-color: #a855f7; }
+.genre-token-pop { --genre-color: #db2777; }
+.genre-token-jazz { --genre-color: #b45309; }
+.genre-token-roots { --genre-color: #65a30d; }
+.genre-token-global { --genre-color: #0891b2; }
+.genre-token-other { --genre-color: #64748b; }
 .profile-chart-empty { margin: 1.2rem 0 0; color: #64748b; font-size: .84rem; line-height: 1.55; }
 .profile-history { margin-top: 1rem; }
 .profile-history-count { display: inline-flex; padding: .32rem .55rem; border-radius: 999px; background: #f0fdf4; color: #166534; font-size: .75rem; font-weight: 800; }
@@ -99,14 +108,19 @@ html[data-theme="dark"] .profile-top-artists li > div { background: #27402e; }
 html[data-theme="dark"] .profile-top-artists li i { background: #4ade80; }
 html[data-theme="dark"] .profile-top-artists li strong { color: #86efac; }
 html[data-theme="dark"] .profile-history-count { background: #1b3825; color: #bbf7d0; }
-html[data-theme="dark"] .genre-token-rock { background: #14321f; color: #4ade80; }
-html[data-theme="dark"] .genre-token-electronic { background: #16253f; color: #60a5fa; }
-html[data-theme="dark"] .genre-token-pop { background: #3a1626; color: #f43f5e; }
-html[data-theme="dark"] .genre-token-hip-hop { background: #2b1b3d; color: #c084fc; }
-html[data-theme="dark"] .genre-token-jazz { background: #33270f; color: #facc15; }
-html[data-theme="dark"] .genre-token-roots { background: #3a2214; color: #f97316; }
-html[data-theme="dark"] .genre-token-global { background: #10303a; color: #22d3ee; }
-html[data-theme="dark"] .genre-token-other { background: #232f2a; color: #cbd5e1; }
+html[data-theme="dark"] .genre-token { border-color: #31483a; background: #172a20; color: #eef8f0; }
+html[data-theme="dark"] .genre-token small { color: #a7bbae; }
+html[data-theme="dark"] .genre-token-rock { --genre-color: #4ade80; }
+html[data-theme="dark"] .genre-token-alternative { --genre-color: #2dd4bf; }
+html[data-theme="dark"] .genre-token-punk { --genre-color: #f87171; }
+html[data-theme="dark"] .genre-token-metal { --genre-color: #818cf8; }
+html[data-theme="dark"] .genre-token-electronic { --genre-color: #38bdf8; }
+html[data-theme="dark"] .genre-token-hip-hop { --genre-color: #c084fc; }
+html[data-theme="dark"] .genre-token-pop { --genre-color: #f472b6; }
+html[data-theme="dark"] .genre-token-jazz { --genre-color: #fbbf24; }
+html[data-theme="dark"] .genre-token-roots { --genre-color: #a3e635; }
+html[data-theme="dark"] .genre-token-global { --genre-color: #22d3ee; }
+html[data-theme="dark"] .genre-token-other { --genre-color: #94a3b8; }
 html[data-theme="dark"] .profile-submission { border-color: #31483a; }
 html[data-theme="dark"] .profile-track-placeholder { background: #1b3825; color: #86efac; }
 html[data-theme="dark"] .profile-submission-round a { color: #86efac; }

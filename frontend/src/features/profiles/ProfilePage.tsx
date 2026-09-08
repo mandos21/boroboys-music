@@ -354,6 +354,7 @@ function GenreSpread({
               className={`genre-token genre-token-${genre.group.replace(" ", "-")}`}
               key={genre.name}
             >
+              <i aria-hidden="true" />
               {genre.name} <small>{genre.count}</small>
             </span>
           ))}
