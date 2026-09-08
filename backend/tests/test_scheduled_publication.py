@@ -16,6 +16,7 @@ from app.db.models import (
     Round,
     RoundStatus,
     Series,
+    SeriesAdmin,
     User,
 )
 from app.services.publications import start_due_publications
@@ -127,6 +128,31 @@ def test_a_disconnected_publisher_stops_publishing_automatically(
     round_ = _closed(make_round, make_series(), due=True, publisher=account)
     db.commit()
 
+    started = start_due_publications(db, now=NOW)
+
+    db.refresh(round_)
+    assert round_.status is RoundStatus.CLOSED
+    assert round_.id not in _round_ids(db, started)
+
+
+def test_a_publisher_that_is_no_longer_a_series_admin_does_not_publish(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+    make_spotify_account: Callable[..., ExternalAccount],
+) -> None:
+    """The background worker must re-check durable authorization, not trust setup-time state."""
+    owner = make_user()
+    account = make_spotify_account(owner)
+    series = make_series()
+    db.add(SeriesAdmin(series_id=series.id, user_id=owner.id))
+    db.flush()
+    round_ = _closed(make_round, series, due=True, publisher=account)
+    db.commit()
+
+    db.query(SeriesAdmin).filter_by(series_id=series.id, user_id=owner.id).delete()
+    db.commit()
     started = start_due_publications(db, now=NOW)
 
     db.refresh(round_)

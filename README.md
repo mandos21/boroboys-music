@@ -122,4 +122,9 @@ make typecheck
 make verify
 ```
 
+`make test` and `make verify` create and use `music_rounds_test`, never the
+database configured for the running API. Backend pytest also refuses to start
+unless `TEST_DATABASE_URL` names a database ending in `_test`; point that value
+at a disposable PostgreSQL database when not using the local Compose stack.
+
 Copy `.env.example` to `.env` before starting local services. Never commit secrets.

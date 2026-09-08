@@ -28,8 +28,10 @@ from app.db.models import (
     Submission,
     SubmissionStatus,
     Track,
+    User,
 )
 from app.services import spotify
+from app.services.authorization import is_series_admin
 from app.services.lifecycle import create_successor
 
 LOGGER = logging.getLogger(__name__)
@@ -129,13 +131,18 @@ def start_publication(
     if existing is not None and existing.state is not PublicationState.UNPUBLISHED:
         raise PublicationError("round already has a publication")
     publisher = db.get(ExternalAccount, publisher_account_id)
+    publisher_owner = db.get(User, publisher_owner_id)
     if (
         publisher is None
         or publisher.provider is not ExternalProvider.SPOTIFY
         or not publisher.is_active
         or publisher.user_id != publisher_owner_id
+        or publisher_owner is None
+        or not is_series_admin(db, series.id, publisher_owner)
     ):
-        raise PublicationError("a connected Spotify publisher is required")
+        raise PublicationError(
+            "a connected Spotify account owned by a series administrator is required"
+        )
     if (
         db.scalar(
             select(ExternalCredential.id).where(

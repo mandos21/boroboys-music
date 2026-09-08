@@ -38,8 +38,10 @@ jobs:
       - run: poetry run alembic upgrade head
       - run: poetry run alembic check
       - run: poetry run procrastinate --app=app.tasks.app schema --apply
+      - run: PGPASSWORD=music_rounds createdb -h localhost -U music_rounds music_rounds_test
+      - run: DATABASE_URL=postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds_test poetry run alembic upgrade head
       - run: poetry run python scripts/generate_openapi.py > /tmp/openapi.json && diff -u openapi.json /tmp/openapi.json
-      - run: poetry run pytest
+      - run: TEST_DATABASE_URL=postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds_test poetry run pytest
 
   frontend:
     runs-on: ubuntu-latest

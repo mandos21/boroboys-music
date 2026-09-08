@@ -9,7 +9,16 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import PlatformRole, Round, RoundMember, RoundStatus, Series, User
+from app.db.models import (
+    ExternalAccount,
+    ExternalProvider,
+    PlatformRole,
+    Round,
+    RoundMember,
+    RoundStatus,
+    Series,
+    User,
+)
 from app.services.lifecycle import (
     create_calendar_successor,
     create_rolling_successor,
@@ -57,6 +66,13 @@ def test_published_rolling_round_creates_one_open_successor_with_member_snapshot
     )
     db.add_all((first, second, series))
     db.flush()
+    publisher = ExternalAccount(
+        user_id=first.id,
+        provider=ExternalProvider.SPOTIFY,
+        provider_subject=f"rolling-publisher-{suffix}",
+    )
+    db.add(publisher)
+    db.flush()
     published = Round(
         series_id=series.id,
         title=f"Published {suffix}",
@@ -67,6 +83,7 @@ def test_published_rolling_round_creates_one_open_successor_with_member_snapshot
         publish_at=published_at - timedelta(hours=1),
         status=RoundStatus.PUBLISHED,
         published_sequence=1,
+        publisher_account_id=publisher.id,
         policy_snapshot=[{"kind": "no_duplicate_in_round"}],
     )
     db.add(published)
@@ -89,6 +106,7 @@ def test_published_rolling_round_creates_one_open_successor_with_member_snapshot
     assert successor.publish_at == published_at + timedelta(hours=72, minutes=30)
     assert successor.submission_limit == 3
     assert successor.policy_snapshot == published.policy_snapshot
+    assert successor.publisher_account_id == publisher.id
     assert successor.successor_of_round_id == published.id
     members = list(
         db.scalars(
@@ -179,6 +197,13 @@ def test_calendar_successor_skips_elapsed_windows_and_keeps_the_series_timezone(
     )
     db.add_all((user, series))
     db.flush()
+    publisher = ExternalAccount(
+        user_id=user.id,
+        provider=ExternalProvider.SPOTIFY,
+        provider_subject=f"calendar-publisher-{suffix}",
+    )
+    db.add(publisher)
+    db.flush()
     published = Round(
         series_id=series.id,
         title="2026-04",
@@ -189,6 +214,7 @@ def test_calendar_successor_skips_elapsed_windows_and_keeps_the_series_timezone(
         publish_at=datetime(2026, 4, 8, 10, 30, tzinfo=timezone),
         status=RoundStatus.PUBLISHED,
         policy_snapshot=[{"kind": "no_duplicate_in_round"}],
+        publisher_account_id=publisher.id,
     )
     db.add(published)
     db.flush()
@@ -204,6 +230,7 @@ def test_calendar_successor_skips_elapsed_windows_and_keeps_the_series_timezone(
     assert successor.publish_at == datetime(2026, 6, 8, 14, 30, tzinfo=UTC)
     assert successor.submission_limit == 2
     assert successor.policy_snapshot == published.policy_snapshot
+    assert successor.publisher_account_id == publisher.id
     assert successor.successor_of_round_id == published.id
     db.flush()
     assert (

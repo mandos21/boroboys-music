@@ -117,6 +117,10 @@ def create_rolling_successor(
         closes_at=closes_at,
         publish_at=closes_at + timedelta(minutes=publish_delay_minutes),
         status=RoundStatus.OPEN,
+        # The scheduler still verifies that the account is connected and owned
+        # by a current series administrator before it can publish. Carrying the
+        # selection forward makes an explicitly automated series stay automated.
+        publisher_account_id=published_round.publisher_account_id,
         successor_of_round_id=published_round.id,
         policy_snapshot=published_round.policy_snapshot,
     )
@@ -181,6 +185,7 @@ def create_calendar_successor(
         closes_at=closes_at,
         publish_at=publish_at,
         status=RoundStatus.OPEN if opens_at <= instant < closes_at else RoundStatus.SCHEDULED,
+        publisher_account_id=published_round.publisher_account_id,
         successor_of_round_id=published_round.id,
         policy_snapshot=published_round.policy_snapshot,
     )

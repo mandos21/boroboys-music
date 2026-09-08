@@ -26,6 +26,7 @@ from app.db.models import (
     Round,
     RoundStatus,
     Series,
+    SeriesAdmin,
     Submission,
     SubmissionStatus,
     Track,
@@ -127,7 +128,7 @@ def test_retry_resumes_after_a_committed_spotify_batch(
     )
     db.add(other_account)
     db.commit()
-    with pytest.raises(PublicationError, match="connected Spotify publisher"):
+    with pytest.raises(PublicationError, match="owned by a series administrator"):
         start_publication(db, round_.id, other_account.id, publisher.id)
 
     publication = start_publication(db, round_.id, account.id, publisher.id)
@@ -423,6 +424,7 @@ def test_concurrent_publication_requests_allocate_distinct_series_sequences() ->
         )
         db.add_all((publisher, series))
         db.flush()
+        db.add(SeriesAdmin(series_id=series.id, user_id=publisher.id))
         account = ExternalAccount(
             user_id=publisher.id,
             provider=ExternalProvider.SPOTIFY,

@@ -3,7 +3,9 @@
 POETRY_VERSION ?= 2.1.1
 POETRY ?= $(shell command -v poetry 2>/dev/null || printf '%s/.local/bin/poetry' "$(HOME)")
 
-.PHONY: help setup dev-setup bootstrap db-up db-down migrate task-schema api worker web api-contract test lint typecheck verify history-dry-run history-import history-artwork docker-env docker-build docker-up docker-down docker-logs
+.PHONY: help setup dev-setup bootstrap db-up db-down test-db migrate task-schema api worker web api-contract test lint typecheck verify history-dry-run history-import history-artwork docker-env docker-build docker-up docker-down docker-logs
+
+TEST_DATABASE_URL ?= postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds_test
 
 help: ## Show commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-16s %s\n", $$1, $$2}'
@@ -31,6 +33,9 @@ db-up: ## Start PostgreSQL
 db-down: ## Stop PostgreSQL
 	docker compose down
 
+test-db: db-up ## Create the isolated PostgreSQL database used by tests
+	@docker compose exec -T postgres sh -c 'psql -U music_rounds -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '\''music_rounds_test'\''" | grep -q 1 || createdb -U music_rounds music_rounds_test'
+
 migrate: ## Apply Alembic migrations
 	cd backend && "$(POETRY)" run alembic upgrade head
 
@@ -50,8 +55,9 @@ api-contract: ## Regenerate OpenAPI JSON and frontend API types
 	cd backend && "$(POETRY)" run python scripts/generate_openapi.py > openapi.json
 	cd frontend && npm run generate:api
 
-test: ## Run tests
-	cd backend && "$(POETRY)" run pytest
+test: test-db ## Run tests against the isolated test database
+	cd backend && DATABASE_URL="$(TEST_DATABASE_URL)" "$(POETRY)" run alembic upgrade head
+	cd backend && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" "$(POETRY)" run pytest
 	cd frontend && npm run test -- --run
 
 lint: ## Run linters
@@ -62,8 +68,8 @@ typecheck: ## Run type checks
 	cd backend && "$(POETRY)" run mypy app
 	cd frontend && npm run typecheck
 
-verify: ## Run the local release-quality gate (PostgreSQL must be running)
-	cd backend && "$(POETRY)" run alembic upgrade head && "$(POETRY)" run alembic check && "$(POETRY)" run ruff check . && "$(POETRY)" run ruff format --check app tests && "$(POETRY)" run mypy app && "$(POETRY)" run pytest
+verify: test-db ## Run the local release-quality gate against the isolated test database
+	cd backend && DATABASE_URL="$(TEST_DATABASE_URL)" "$(POETRY)" run alembic upgrade head && DATABASE_URL="$(TEST_DATABASE_URL)" "$(POETRY)" run alembic check && "$(POETRY)" run ruff check . && "$(POETRY)" run ruff format --check app tests && "$(POETRY)" run mypy app && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" "$(POETRY)" run pytest
 	cd frontend && npm run lint && npm run format:check && npm run typecheck && npm run build
 
 history-dry-run: ## Validate a private history bundle (requires SERIES_SLUG, PUBLISHER_ACCOUNT_ID, IDENTITY_MAP)

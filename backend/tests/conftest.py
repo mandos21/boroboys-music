@@ -10,12 +10,14 @@ around whatever earlier runs left behind.
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -35,6 +37,30 @@ from app.db.models import (
     User,
 )
 from app.db.session import get_session_factory
+
+
+def pytest_configure() -> None:
+    """Make test execution impossible to aim at a development database.
+
+    PostgreSQL-specific behavior is part of the product, so these tests need a
+    real database. They must nevertheless never share the database used by the
+    API, and particularly not the imported listening history database.
+    """
+    test_url = os.environ.get("TEST_DATABASE_URL")
+    if not test_url:
+        raise pytest.UsageError("TEST_DATABASE_URL is required to run backend tests")
+    database = make_url(test_url).database
+    if database is None or not database.endswith("_test"):
+        raise pytest.UsageError("TEST_DATABASE_URL must name a database ending in '_test'")
+    os.environ["DATABASE_URL"] = test_url
+    os.environ["PROCRASTINATE_DATABASE_URL"] = (
+        make_url(test_url).set(drivername="postgresql").render_as_string(hide_password=False)
+    )
+    # Test collection may import application modules before an individual test
+    # touches configuration. Clear defensively so the process uses the isolated
+    # URLs even when a plugin happened to resolve settings first.
+    get_settings.cache_clear()
+    get_session_factory.cache_clear()
 
 
 @pytest.fixture(scope="session")
@@ -70,6 +96,31 @@ def db(engine: Engine) -> Iterator[Session]:
         session.close()
         transaction.rollback()
         connection.close()
+
+
+@pytest.fixture(autouse=True)
+def clear_database_after_test(engine: Engine) -> Iterator[None]:
+    """Erase committed rows from multi-connection and worker tests.
+
+    Most tests use the rollback fixture above. Concurrency tests deliberately
+    use separate committed sessions, so each test also gets a clean test
+    database at teardown. Alembic's version marker is retained so migrations
+    only run once before the suite.
+    """
+    yield
+    with engine.begin() as connection:
+        names = list(
+            connection.scalars(
+                text(
+                    "SELECT tablename FROM pg_tables "
+                    "WHERE schemaname = 'public' AND tablename != 'alembic_version'"
+                )
+            )
+        )
+        if names:
+            quote = connection.dialect.identifier_preparer.quote
+            tables = ", ".join(quote(name) for name in names)
+            connection.execute(text(f"TRUNCATE TABLE {tables} CASCADE"))
 
 
 @pytest.fixture
