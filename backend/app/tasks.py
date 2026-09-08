@@ -1,7 +1,9 @@
-"""Procrastinate task registry.
+"""Procrastinate task registry and the defer helpers its callers use.
 
-Phase 0 intentionally exposes only the scheduler reconciliation task. Domain tasks
-are added with their durable, idempotent domain state in later phases.
+Periodic tasks reconcile timestamp-driven state: round transitions and due
+publications, worker liveness, and expiry of short-lived auth state. Domain
+tasks - publishing, retirement, evidence refresh - are deferred by the API and
+are idempotent, because Procrastinate may run one more than once.
 """
 
 from __future__ import annotations

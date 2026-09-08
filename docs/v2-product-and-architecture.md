@@ -517,11 +517,21 @@ provider responses containing credentials, or authorization internals.
 
 ## 11. Frontend architecture
 
-The frontend should be a route-oriented TypeScript React application, not one
-stateful `App.tsx` controller. Use Vite, React Router, TanStack Query for all
-server state, React Hook Form plus Zod for forms, and generated types from OpenAPI.
-Use a small accessible component system built on Radix primitives and Tailwind/CSS
-variables; do not create bespoke variants independently in every feature.
+The frontend is a route-oriented TypeScript React application, not one stateful
+`App.tsx` controller. It uses Vite, React Router, TanStack Query for all server
+state, React Hook Form plus Zod for forms, and types generated from OpenAPI.
+
+Two substitutions from the original plan, both deliberate. Accessible primitives
+come from Base UI rather than Radix; it is the same lineage and the same
+headless approach. Styling is hand-written CSS driven by custom properties
+rather than Tailwind: Tailwind was installed and wired but never used for a
+single utility class, and the stylesheet that grew instead is coherent - around
+580 lines, semantic class names, scoped per feature - so it was kept and
+Tailwind was removed. Do not create bespoke variants independently in every
+feature.
+
+Query keys live in one module (`src/api/queryKeys.ts`) so invalidation is
+greppable by symbol rather than by string.
 
 Feature-oriented layout:
 
