@@ -36,9 +36,10 @@
    to zero - the counts and labels rendered, the bars did not. Stretching the
    columns to the track height is what gives that row something to resolve against. */
 .activity-bars { display: flex; height: 10.25rem; align-items: stretch; gap: .35rem; padding: 1.25rem 0 0; margin: .4rem 0 0; border-bottom: 1px solid #d7eadc; list-style: none; }
-.activity-bar { display: grid; min-width: 0; flex: 1; grid-template-rows: 1rem minmax(0, 1fr) 1.2rem; align-items: end; gap: .25rem; text-align: center; }
+.activity-bar { display: grid; min-width: 0; flex: 1; grid-template-rows: minmax(0, 1fr) 1.2rem; align-items: end; gap: .25rem; text-align: center; }
+.activity-column { display: flex; height: 100%; flex-direction: column; justify-content: end; gap: .2rem; }
 .activity-count { color: #166534; font-size: .65rem; font-weight: 800; }
-.activity-bar i { display: block; width: 100%; height: var(--height); align-self: end; border-radius: .28rem .28rem 0 0; background: linear-gradient(#4ade80, #15803d); box-shadow: 0 -4px 12px rgb(22 163 74 / 14%); }
+.activity-bar i { display: block; width: 100%; height: var(--height); flex: none; border-radius: .28rem .28rem 0 0; background: linear-gradient(#4ade80, #15803d); box-shadow: 0 -4px 12px rgb(22 163 74 / 14%); }
 .activity-bar small { overflow: hidden; color: #475569; font-size: .62rem; line-height: 1; text-overflow: clip; white-space: nowrap; }
 .profile-top-artists ol { display: grid; gap: .65rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
 .profile-top-artists li { display: grid; grid-template-columns: minmax(4rem, 1fr) minmax(3rem, 1.15fr) auto; align-items: center; gap: .5rem; }
@@ -49,7 +50,14 @@
 .genre-cloud { display: flex; flex-wrap: wrap; align-content: center; gap: .5rem; min-height: 8.7rem; padding-top: 1rem; }
 .genre-token { display: inline-flex; align-items: center; gap: .35rem; padding: .4rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 800; }
 .genre-token small { font-size: .67rem; opacity: .75; }
-.genre-token-0 { background: #dcfce7; color: #166534; }.genre-token-1 { background: #dbeafe; color: #1d4ed8; }.genre-token-2 { background: #fef3c7; color: #a16207; }.genre-token-3 { background: #f3e8ff; color: #7e22ce; }
+.genre-token-rock { background: #dcfce7; color: #166534; }
+.genre-token-electronic { background: #dbeafe; color: #1d4ed8; }
+.genre-token-pop { background: #fce7f3; color: #be123c; }
+.genre-token-hip-hop { background: #f3e8ff; color: #7e22ce; }
+.genre-token-jazz { background: #fef3c7; color: #a16207; }
+.genre-token-roots { background: #ffedd5; color: #c2410c; }
+.genre-token-global { background: #cffafe; color: #0891b2; }
+.genre-token-other { background: #e2e8f0; color: #334155; }
 .profile-chart-empty { margin: 1.2rem 0 0; color: #64748b; font-size: .84rem; line-height: 1.55; }
 .profile-history { margin-top: 1rem; }
 .profile-history-count { display: inline-flex; padding: .32rem .55rem; border-radius: 999px; background: #f0fdf4; color: #166534; font-size: .75rem; font-weight: 800; }
@@ -91,6 +99,14 @@ html[data-theme="dark"] .profile-top-artists li > div { background: #27402e; }
 html[data-theme="dark"] .profile-top-artists li i { background: #4ade80; }
 html[data-theme="dark"] .profile-top-artists li strong { color: #86efac; }
 html[data-theme="dark"] .profile-history-count { background: #1b3825; color: #bbf7d0; }
+html[data-theme="dark"] .genre-token-rock { background: #14321f; color: #4ade80; }
+html[data-theme="dark"] .genre-token-electronic { background: #16253f; color: #60a5fa; }
+html[data-theme="dark"] .genre-token-pop { background: #3a1626; color: #f43f5e; }
+html[data-theme="dark"] .genre-token-hip-hop { background: #2b1b3d; color: #c084fc; }
+html[data-theme="dark"] .genre-token-jazz { background: #33270f; color: #facc15; }
+html[data-theme="dark"] .genre-token-roots { background: #3a2214; color: #f97316; }
+html[data-theme="dark"] .genre-token-global { background: #10303a; color: #22d3ee; }
+html[data-theme="dark"] .genre-token-other { background: #232f2a; color: #cbd5e1; }
 html[data-theme="dark"] .profile-submission { border-color: #31483a; }
 html[data-theme="dark"] .profile-track-placeholder { background: #1b3825; color: #86efac; }
 html[data-theme="dark"] .profile-submission-round a { color: #86efac; }

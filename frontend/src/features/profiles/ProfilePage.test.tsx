@@ -22,7 +22,7 @@ const profile = {
     genreTaggedTrackCount: 3,
     diversityScore: 67,
     topArtists: [{ name: "The Testers", count: 2 }],
-    genreSpread: [{ name: "dream pop", count: 2 }],
+    genreSpread: [{ name: "dream pop", count: 2, group: "rock" }],
     activity: [{ month: "2026-09", label: "Sep 2026", count: 3 }],
   },
   historyCount: 3,

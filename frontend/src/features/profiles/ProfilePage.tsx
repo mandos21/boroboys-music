@@ -257,6 +257,12 @@ function ProfileStat({
   );
 }
 
+/* The count rides on top of its bar and takes height of its own, so bars are
+   drawn into the part of the track left over. Scaling every bar by the same
+   factor keeps them comparable; letting the tallest fill the track instead
+   pushed it and its label through the baseline. */
+const BAR_TRACK_PERCENT = 86;
+
 function ActivityChart({ activity }: { activity: Profile["stats"]["activity"] }) {
   const maximum = Math.max(...activity.map((item) => item.count), 1);
   return (
@@ -271,17 +277,19 @@ function ActivityChart({ activity }: { activity: Profile["stats"]["activity"] })
       <ol className="activity-bars" aria-label="Submissions by month">
         {activity.map((item) => (
           <li className="activity-bar" key={item.month}>
-            <span className="activity-count" aria-hidden="true">
-              {item.count || ""}
-            </span>
-            <i
-              aria-hidden="true"
+            <div
+              className="activity-column"
               style={
                 {
-                  "--height": `${Math.max((item.count / maximum) * 100, item.count ? 10 : 3)}%`,
+                  "--height": `${Math.max((item.count / maximum) * BAR_TRACK_PERCENT, item.count ? 8 : 2)}%`,
                 } as CSSProperties
               }
-            />
+            >
+              <span className="activity-count" aria-hidden="true">
+                {item.count || ""}
+              </span>
+              <i aria-hidden="true" />
+            </div>
             <small aria-hidden="true">
               {item.month.endsWith("-01")
                 ? `${item.label.slice(0, 3)} ’${item.month.slice(2, 4)}`
@@ -301,7 +309,7 @@ function TopArtists({ artists }: { artists: Profile["stats"]["topArtists"] }) {
     <section className="panel profile-chart profile-top-artists">
       <div className="profile-chart-heading">
         <div>
-          <p className="eyebrow">Repeat listens</p>
+          <p className="eyebrow">Your favorites</p>
           <h2>Most shared artists</h2>
         </div>
       </div>
@@ -341,8 +349,11 @@ function GenreSpread({
       </div>
       {genres.length ? (
         <div className="genre-cloud">
-          {genres.map((genre, index) => (
-            <span className={`genre-token genre-token-${index % 4}`} key={genre.name}>
+          {genres.map((genre) => (
+            <span
+              className={`genre-token genre-token-${genre.group.replace(" ", "-")}`}
+              key={genre.name}
+            >
               {genre.name} <small>{genre.count}</small>
             </span>
           ))}

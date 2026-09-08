@@ -1237,6 +1237,19 @@ export interface components {
             /** Month */
             month: string;
         };
+        /**
+         * ProfileGenreItemResponse
+         * @description A genre plus the family group it belongs to, so the client can colour
+         *     related genres alike instead of by their rank in the list.
+         */
+        ProfileGenreItemResponse: {
+            /** Count */
+            count: number;
+            /** Group */
+            group: string;
+            /** Name */
+            name: string;
+        };
         /** ProfileResponse */
         ProfileResponse: {
             /** Displayname */
@@ -1269,7 +1282,7 @@ export interface components {
             /** Diversityscore */
             diversityScore: number;
             /** Genrespread */
-            genreSpread: components["schemas"]["ProfileStatItemResponse"][];
+            genreSpread: components["schemas"]["ProfileGenreItemResponse"][];
             /** Genretaggedtrackcount */
             genreTaggedTrackCount: number;
             /** Submissioncount */

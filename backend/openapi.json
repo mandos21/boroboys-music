@@ -1199,6 +1199,30 @@
         "title": "ProfileActivityResponse",
         "type": "object"
       },
+      "ProfileGenreItemResponse": {
+        "description": "A genre plus the family group it belongs to, so the client can colour\nrelated genres alike instead of by their rank in the list.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "count",
+          "group"
+        ],
+        "title": "ProfileGenreItemResponse",
+        "type": "object"
+      },
       "ProfileResponse": {
         "properties": {
           "displayName": {
@@ -1296,7 +1320,7 @@
           },
           "genreSpread": {
             "items": {
-              "$ref": "#/components/schemas/ProfileStatItemResponse"
+              "$ref": "#/components/schemas/ProfileGenreItemResponse"
             },
             "title": "Genrespread",
             "type": "array"

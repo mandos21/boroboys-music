@@ -110,6 +110,13 @@ class ProfileStatItemResponse(ApiResponse):
     count: int
 
 
+class ProfileGenreItemResponse(ProfileStatItemResponse):
+    """A genre plus the family group it belongs to, so the client can colour
+    related genres alike instead of by their rank in the list."""
+
+    group: str
+
+
 class ProfileActivityResponse(ApiResponse):
     month: str
     label: str
@@ -136,7 +143,7 @@ class ProfileStatsResponse(ApiResponse):
     genre_tagged_track_count: int
     diversity_score: int
     top_artists: list[ProfileStatItemResponse]
-    genre_spread: list[ProfileStatItemResponse]
+    genre_spread: list[ProfileGenreItemResponse]
     activity: list[ProfileActivityResponse]
 
 

@@ -31,11 +31,15 @@ from app.db.models import (
     TrackGenre,
     User,
 )
+from app.services.genre_taxonomy import group_for
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 _DEFAULT_HISTORY_LIMIT = 30
 _MAX_HISTORY_LIMIT = 60
+# Eight tags described a listener too thinly once genres were grouped; this is
+# enough to show the long tail without the cloud becoming the whole panel.
+_GENRE_SPREAD_LIMIT = 24
 
 
 @router.get("/me", response_model=ProfileResponse)
@@ -120,15 +124,18 @@ def _profile_payload(
         ).join(visible, TrackGenre.track_id == visible.c.track_id)
     ).one()
     genre_count, genre_tagged_track_count = (int(value) for value in genre_counts)
-    genre_spread = _stat_items(
-        db.execute(
-            select(TrackGenre.name, func.count(visible.c.submission_id).label("count"))
-            .join(visible, TrackGenre.track_id == visible.c.track_id)
-            .group_by(TrackGenre.genre_key, TrackGenre.name)
-            .order_by(func.count(visible.c.submission_id).desc(), func.lower(TrackGenre.name))
-            .limit(8)
-        ).all()
-    )
+    genre_spread = [
+        {**item, "group": group_for(str(item["name"]))}
+        for item in _stat_items(
+            db.execute(
+                select(TrackGenre.name, func.count(visible.c.submission_id).label("count"))
+                .join(visible, TrackGenre.track_id == visible.c.track_id)
+                .group_by(TrackGenre.genre_key, TrackGenre.name)
+                .order_by(func.count(visible.c.submission_id).desc(), func.lower(TrackGenre.name))
+                .limit(_GENRE_SPREAD_LIMIT)
+            ).all()
+        )
+    ]
     activity = _calendar_activity(
         db.execute(
             select(

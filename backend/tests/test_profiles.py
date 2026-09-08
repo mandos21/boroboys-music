@@ -91,9 +91,13 @@ def test_profile_summarizes_shared_history_without_leaking_private_rounds(
     assert visible["displayName"] == "Contributor"
     assert visible["stats"]["submissionCount"] == 1
     assert visible["stats"]["uniqueArtistCount"] == 1
+    # Each genre carries the family group it belongs to, so the client colours
+    # related genres alike rather than by their position in the list. Both of
+    # these group as rock: the taxonomy places dream pop there, which naive
+    # matching on the trailing word would have called pop.
     assert visible["stats"]["genreSpread"] == [
-        {"name": "dream pop", "count": 1},
-        {"name": "indie rock", "count": 1},
+        {"name": "dream pop", "count": 1, "group": "rock"},
+        {"name": "indie rock", "count": 1, "group": "rock"},
     ]
     assert [item["track"]["name"] for item in visible["submissions"]] == ["Shared song"]
 
