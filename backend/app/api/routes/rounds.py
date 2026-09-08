@@ -13,6 +13,12 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.api.payloads import (
+    contributor_display_name,
+    round_timeline,
+    spotify_profile_image_subquery,
+    stable_pick,
+)
 from app.api.schemas import (
     EvidenceResponse,
     RoundDetailResponse,
@@ -30,13 +36,11 @@ from app.db.models import (
     ExternalAccount,
     ExternalProvider,
     ListeningEvidence,
-    PlatformRole,
     PolicyEvaluation,
     Publication,
     Round,
     RoundMember,
     RoundStatus,
-    SeriesAdmin,
     Submission,
     SubmissionDraft,
     SubmissionStatus,
@@ -44,6 +48,7 @@ from app.db.models import (
     User,
 )
 from app.services import lastfm, spotify
+from app.services.authorization import is_round_member, is_series_admin
 from app.services.lifecycle import reconcile_round_status
 from app.services.policies import evaluate_submission
 from app.services.publications import get_spotify_access_token
@@ -107,13 +112,8 @@ def list_my_rounds(
         db.commit()
     return [
         {
-            "id": str(round_.id),
+            **round_timeline(round_),
             "seriesId": str(round_.series_id),
-            "title": round_.title,
-            "status": round_.status.value,
-            "opensAt": round_.opens_at.isoformat(),
-            "closesAt": round_.closes_at.isoformat(),
-            "publishAt": round_.publish_at.isoformat(),
             "submissionLimit": (
                 member.submission_limit_override
                 if member.submission_limit_override is not None
@@ -150,7 +150,7 @@ def get_round(
     )
     # A stable choice per round. Re-rolling this on every request made the round
     # header change its backdrop each time the page refetched.
-    artwork_urls = list(
+    artwork_urls: list[str] = list(
         db.scalars(
             select(Track.artwork_url)
             .join(Submission, Submission.track_id == Track.id)
@@ -162,9 +162,7 @@ def get_round(
             .order_by(Submission.created_at, Submission.id)
         )
     )
-    background_artwork_url = (
-        artwork_urls[round_.id.int % len(artwork_urls)] if artwork_urls else None
-    )
+    background_artwork_url = stable_pick(artwork_urls, round_.id)
     submitted_count = int(
         db.scalar(
             select(func.count(func.distinct(Submission.contributor_id))).where(
@@ -182,28 +180,14 @@ def get_round(
         )
         or 0
     )
-    can_manage = user.platform_role is PlatformRole.ADMIN or (
-        db.scalar(
-            select(SeriesAdmin.id).where(
-                SeriesAdmin.series_id == round_.series_id,
-                SeriesAdmin.user_id == user.id,
-            )
-        )
-        is not None
-    )
+    can_manage = is_series_admin(db, round_.series_id, user)
     return {
-        "id": str(round_.id),
+        **round_timeline(round_),
         "seriesId": str(round_.series_id),
-        "title": round_.title,
-        "status": round_.status.value,
-        "opensAt": round_.opens_at.isoformat(),
-        "closesAt": round_.closes_at.isoformat(),
-        "publishAt": round_.publish_at.isoformat(),
         "submissionLimit": limit,
-        "spotifyPlaylistUrl": f"https://open.spotify.com/playlist/{playlist_id}"
-        if playlist_id
-        else None,
-        "prompt": round_.prompt,
+        "spotifyPlaylistUrl": (
+            f"https://open.spotify.com/playlist/{playlist_id}" if playlist_id else None
+        ),
         "submittedCount": submitted_count,
         "contributorCount": contributor_count,
         "canManage": can_manage,
@@ -291,17 +275,7 @@ def list_round_submissions(
     visible_statuses = Submission.status == SubmissionStatus.ACCEPTED
     if membership is not None:
         visible_statuses = visible_statuses | (Submission.contributor_id == user.id)
-    spotify_profile_image = (
-        select(ExternalAccount.profile_image_url)
-        .where(
-            ExternalAccount.user_id == Submission.contributor_id,
-            ExternalAccount.provider == ExternalProvider.SPOTIFY,
-            ExternalAccount.is_active.is_(True),
-        )
-        .order_by(ExternalAccount.created_at)
-        .limit(1)
-        .scalar_subquery()
-    )
+    spotify_profile_image = spotify_profile_image_subquery(Submission.contributor_id)
     rows = db.execute(
         select(Submission, Track, User, spotify_profile_image)
         .join(Track, Track.id == Submission.track_id)
@@ -323,7 +297,9 @@ def list_round_submissions(
             "isMine": submission.contributor_id == user.id,
             "contributor": {
                 "id": str(contributor.id),
-                "displayName": contributor.display_name or contributor.email or "Unknown listener",
+                "displayName": contributor_display_name(
+                    contributor.display_name, contributor.email
+                ),
                 "spotifyProfileImageUrl": profile_image_url,
             },
             "track": _track_payload(track),
@@ -397,27 +373,9 @@ def get_evidence(
     round_ = db.get(Round, round_id)
     if round_ is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="round not found")
-    is_member = (
-        db.scalar(
-            select(RoundMember.id).where(
-                RoundMember.round_id == round_id,
-                RoundMember.user_id == user.id,
-                RoundMember.removed_at.is_(None),
-            )
-        )
-        is not None
-    )
-    is_series_admin = (
-        user.platform_role is PlatformRole.ADMIN
-        or db.scalar(
-            select(SeriesAdmin.id).where(
-                SeriesAdmin.series_id == round_.series_id,
-                SeriesAdmin.user_id == user.id,
-            )
-        )
-        is not None
-    )
-    if not is_member and not is_series_admin:
+    is_member = is_round_member(db, round_id, user.id)
+    viewer_is_series_admin = is_series_admin(db, round_.series_id, user)
+    if not is_member and not viewer_is_series_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="round access required")
     rows = list(
         db.execute(
@@ -435,7 +393,7 @@ def get_evidence(
     evidence = []
     for account, item in rows:
         if not _may_see_evidence(
-            account, user, is_member=is_member, is_series_admin=is_series_admin
+            account, user, is_member=is_member, is_series_admin=viewer_is_series_admin
         ):
             continue
         evidence.append(
@@ -735,16 +693,7 @@ def _viewer_round(
     )
     if membership is not None:
         return round_, membership
-    is_admin = user.platform_role is PlatformRole.ADMIN or (
-        db.scalar(
-            select(SeriesAdmin.id).where(
-                SeriesAdmin.series_id == round_.series_id,
-                SeriesAdmin.user_id == user.id,
-            )
-        )
-        is not None
-    )
-    if not is_admin:
+    if not is_series_admin(db, round_.series_id, user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="round access required")
     return round_, None
 

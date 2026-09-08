@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import delete, or_, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.api.payloads import round_timeline
 from app.api.schemas import (
     AdminIdResponse,
     AdminImportedRoundResponse,
@@ -44,6 +45,7 @@ from app.db.models import (
     SeriesInvite,
     User,
 )
+from app.services.authorization import is_series_admin
 from app.services.lifecycle import reconcile_round_status, status_for_timeline
 from app.services.membership import ensure_default_series_membership
 from app.services.publications import (
@@ -944,16 +946,7 @@ def _require_publishable_account(
             detail="a connected Spotify account is required to publish automatically",
         )
     owner = db.get(User, account.user_id)
-    is_series_admin = owner is not None and (
-        owner.platform_role is PlatformRole.ADMIN
-        or db.scalar(
-            select(SeriesAdmin.id).where(
-                SeriesAdmin.series_id == series_id, SeriesAdmin.user_id == account.user_id
-            )
-        )
-        is not None
-    )
-    if not is_series_admin:
+    if owner is None or not is_series_admin(db, series_id, owner):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="the publishing account must belong to a series administrator",
@@ -970,14 +963,7 @@ def _require_series_admin(db: DbSession, user: User, series_id: uuid.UUID) -> Se
     series = db.get(Series, series_id)
     if series is None:
         raise _not_found("series")
-    if user.platform_role is PlatformRole.ADMIN:
-        return series
-    assigned = db.scalar(
-        select(SeriesAdmin.id).where(
-            SeriesAdmin.series_id == series_id, SeriesAdmin.user_id == user.id
-        )
-    )
-    if assigned is None:
+    if not is_series_admin(db, series_id, user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="series admin required")
     return series
 
@@ -1011,17 +997,11 @@ def _series_summary(series: Series) -> dict[str, object]:
 
 def _round_summary(round_: Round) -> dict[str, object]:
     return {
-        "id": str(round_.id),
-        "title": round_.title,
-        "status": round_.status.value,
-        "opensAt": round_.opens_at.isoformat(),
-        "closesAt": round_.closes_at.isoformat(),
-        "publishAt": round_.publish_at.isoformat(),
+        **round_timeline(round_),
         "submissionLimit": round_.submission_limit,
-        "prompt": round_.prompt,
-        "publisherAccountId": str(round_.publisher_account_id)
-        if round_.publisher_account_id
-        else None,
+        "publisherAccountId": (
+            str(round_.publisher_account_id) if round_.publisher_account_id else None
+        ),
     }
 
 

@@ -11,13 +11,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_, select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
+from app.api.payloads import (
+    contributor_display_name,
+    round_timeline,
+    spotify_profile_image_subquery,
+    stable_pick,
+)
 from app.api.schemas import SeriesHistoryResponse, SeriesListResponse
 from app.core.security import hash_secret
 from app.db.models import (
     ContributorGroup,
     ContributorGroupMember,
-    ExternalAccount,
-    ExternalProvider,
     PlatformRole,
     Round,
     RoundMember,
@@ -30,6 +34,7 @@ from app.db.models import (
     Track,
     User,
 )
+from app.services.authorization import is_series_admin
 from app.services.lifecycle import reconcile_round_status
 from app.services.membership import ensure_default_series_membership
 
@@ -130,7 +135,7 @@ def get_series_history(
     series = db.get(Series, series_id)
     if series is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="series not found")
-    is_admin = _is_series_admin(db, series_id, user)
+    is_admin = is_series_admin(db, series_id, user)
     rounds = _visible_rounds(db, series_id, user, is_admin)
     if not is_admin and not rounds and not _has_series_membership(db, series_id, user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="series access required")
@@ -153,13 +158,7 @@ def get_series_history(
         "stats": stats,
         "rounds": [
             {
-                "id": str(round_.id),
-                "title": round_.title,
-                "status": round_.status.value,
-                "opensAt": round_.opens_at.isoformat(),
-                "closesAt": round_.closes_at.isoformat(),
-                "publishAt": round_.publish_at.isoformat(),
-                "prompt": round_.prompt,
+                **round_timeline(round_),
                 "artworkUrls": artwork_by_round.get(round_.id, []),
             }
             for round_ in rounds
@@ -307,18 +306,6 @@ def _round_sort_key(round_: Round) -> tuple[int, float]:
     )
 
 
-def _is_series_admin(db: DbSession, series_id: uuid.UUID, user: User) -> bool:
-    return user.platform_role is PlatformRole.ADMIN or (
-        db.scalar(
-            select(SeriesAdmin.id).where(
-                SeriesAdmin.series_id == series_id,
-                SeriesAdmin.user_id == user.id,
-            )
-        )
-        is not None
-    )
-
-
 def _has_series_membership(db: DbSession, series_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     return (
         db.scalar(
@@ -339,15 +326,9 @@ def _round_payload_from_counts(
     contributor_counts: dict[uuid.UUID, int],
 ) -> dict[str, object]:
     return {
-        "id": str(round_.id),
-        "title": round_.title,
-        "status": round_.status.value,
-        "opensAt": round_.opens_at.isoformat(),
-        "closesAt": round_.closes_at.isoformat(),
-        "publishAt": round_.publish_at.isoformat(),
+        **round_timeline(round_),
         "submittedCount": submitted_counts.get(round_.id, 0),
         "contributorCount": contributor_counts.get(round_.id, 0),
-        "prompt": round_.prompt,
     }
 
 
@@ -397,7 +378,7 @@ def _fallback_artwork_url(
         if artwork_urls:
             # A rotating offset keeps a no-theme series visually musical without
             # persisting a separate identity just for its first release.
-            return artwork_urls[round_.id.int % len(artwork_urls)]
+            return stable_pick(artwork_urls, round_.id)
     return None
 
 
@@ -405,17 +386,7 @@ def _series_stats(db: DbSession, rounds: list[Round]) -> dict[str, object]:
     if not rounds:
         return {"roundCount": 0, "songCount": 0, "artistCount": 0, "contributors": []}
     round_ids = [round_.id for round_ in rounds]
-    spotify_profile_image = (
-        select(ExternalAccount.profile_image_url)
-        .where(
-            ExternalAccount.user_id == User.id,
-            ExternalAccount.provider == ExternalProvider.SPOTIFY,
-            ExternalAccount.is_active.is_(True),
-        )
-        .order_by(ExternalAccount.created_at)
-        .limit(1)
-        .scalar_subquery()
-    )
+    spotify_profile_image = spotify_profile_image_subquery(User.id)
     rows = list(
         db.execute(
             select(User.id, User.display_name, User.email, spotify_profile_image, Track.artist)
@@ -433,7 +404,7 @@ def _series_stats(db: DbSession, rounds: list[Round]) -> dict[str, object]:
     for user_id, display_name, email, profile_image_url, artist in rows:
         contributors[user_id] = {
             "id": str(user_id),
-            "displayName": display_name or email or "Unknown listener",
+            "displayName": contributor_display_name(display_name, email),
             "spotifyProfileImageUrl": profile_image_url,
         }
         artists.add(artist.casefold())
