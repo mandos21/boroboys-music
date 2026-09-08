@@ -1,13 +1,40 @@
-import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 
 import { patch } from "../../api/client";
 import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 import type { Series } from "./types";
 
-export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSaved: () => void }) {
-  const { showToast } = useToast();
+const planSchema = z
+  .object({
+    kind: z.enum(["none", "rolling", "calendar"]),
+    rollingDays: z.string(),
+    limit: z.string(),
+    autoStart: z.boolean(),
+  })
+  .superRefine((value, context) => {
+    if (value.kind === "rolling" && !/^[1-9]\d*$/.test(value.rollingDays)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rollingDays"],
+        message: "Use a whole number of days.",
+      });
+    }
+    if (value.limit && !/^\d+$/.test(value.limit)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["limit"],
+        message: "Use a whole number of tracks.",
+      });
+    }
+  });
+
+type PlanValues = z.infer<typeof planSchema>;
+
+function defaults(series: Series): PlanValues {
   const initialKind =
     series.roundPlan?.kind === "rolling" || series.roundPlan?.kind === "calendar"
       ? series.roundPlan.kind
@@ -15,30 +42,40 @@ export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSav
   const legacyDurationHours = Number(series.roundPlan?.duration_hours ?? 0);
   const legacyDurationDays =
     legacyDurationHours > 0 ? Math.max(1, Math.round(legacyDurationHours / 24)) : "";
-  const [kind, setKind] = useState<"none" | "rolling" | "calendar">(initialKind);
-  const [rollingDays, setRollingDays] = useState(
-    String(series.roundPlan?.duration_days ?? legacyDurationDays),
-  );
-  const [limit, setLimit] = useState(String(series.roundPlan?.submission_limit ?? ""));
-  const [autoStart, setAutoStart] = useState(series.autoStartNextRound);
+  return {
+    kind: initialKind,
+    rollingDays: String(series.roundPlan?.duration_days ?? legacyDurationDays),
+    limit: String(series.roundPlan?.submission_limit ?? ""),
+    autoStart: series.autoStartNextRound,
+  };
+}
+
+export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSaved: () => void }) {
+  const { showToast } = useToast();
+  const form = useForm<PlanValues>({
+    resolver: zodResolver(planSchema),
+    defaultValues: defaults(series),
+  });
+  const { formState, handleSubmit, register } = form;
+  const kind = useWatch({ control: form.control, name: "kind" });
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: (values: PlanValues) =>
       patch(`/admin/series/${series.id}`, {
-        auto_start_next_round: kind === "none" ? false : autoStart,
+        auto_start_next_round: values.kind === "none" ? false : values.autoStart,
         round_plan:
-          kind === "rolling"
+          values.kind === "rolling"
             ? {
                 kind: "rolling",
-                duration_days: Number(rollingDays),
-                submission_limit: limit ? Number(limit) : null,
+                duration_days: Number(values.rollingDays),
+                submission_limit: values.limit ? Number(values.limit) : null,
               }
-            : kind === "calendar"
+            : values.kind === "calendar"
               ? {
                   kind: "calendar",
                   open_day: 1,
                   duration_days: 1,
                   full_month: true,
-                  submission_limit: limit ? Number(limit) : null,
+                  submission_limit: values.limit ? Number(values.limit) : null,
                 }
               : null,
       }),
@@ -56,23 +93,20 @@ export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSav
         tone: "error",
       }),
   });
+  const error = (name: keyof PlanValues) => formState.errors[name]?.message;
+
   return (
     <section className="panel">
       <h2>Automatic next round</h2>
       <p>Changing this affects only successors created after a successful publication.</p>
       <form
         className="admin-round-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          save.mutate();
-        }}
+        noValidate
+        onSubmit={handleSubmit((values) => save.mutate(values))}
       >
         <label>
           Timeline
-          <select
-            value={kind}
-            onChange={(event) => setKind(event.target.value as "none" | "rolling" | "calendar")}
-          >
+          <select {...register("kind")}>
             <option value="none">None — schedule rounds manually</option>
             <option value="rolling">Rolling — a continuous duration after publication</option>
             <option value="calendar">Monthly — first through last day of each month</option>
@@ -81,14 +115,8 @@ export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSav
         {kind === "rolling" && (
           <label>
             How many days should each rolling round stay open?
-            <input
-              type="number"
-              required
-              min="1"
-              max="365"
-              value={rollingDays}
-              onChange={(event) => setRollingDays(event.target.value)}
-            />
+            <input type="number" min="1" max="365" {...register("rollingDays")} />
+            {error("rollingDays") && <span className="error-message">{error("rollingDays")}</span>}
           </label>
         )}
         {kind === "rolling" && (
@@ -106,24 +134,14 @@ export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSav
         )}
         <label>
           Tracks each contributor can submit in future rounds (optional)
-          <input
-            type="number"
-            min="0"
-            disabled={kind === "none"}
-            value={limit}
-            onChange={(event) => setLimit(event.target.value)}
-          />
+          <input type="number" min="0" disabled={kind === "none"} {...register("limit")} />
           <span className="field-hint">
             Leave blank to reuse the submission limit from the round that was just published.
           </span>
+          {error("limit") && <span className="error-message">{error("limit")}</span>}
         </label>
         <label className="check-label">
-          <input
-            type="checkbox"
-            checked={autoStart}
-            disabled={kind === "none"}
-            onChange={(event) => setAutoStart(event.target.checked)}
-          />
+          <input type="checkbox" disabled={kind === "none"} {...register("autoStart")} />
           Create the next round automatically when this one is published
         </label>
         <button className="button" disabled={save.isPending}>

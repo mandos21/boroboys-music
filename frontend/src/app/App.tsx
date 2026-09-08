@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { CSSProperties } from "react";
+import { lazy, Suspense, type CSSProperties, type ReactNode } from "react";
 import { ChevronRight, ListMusic, Sparkles } from "lucide-react";
 import { Link, Navigate, Route, Routes, useParams, useSearchParams } from "react-router";
 
@@ -9,14 +9,38 @@ import type { components } from "../api/schema";
 import { AppShell } from "../components/layout/AppShell";
 import { StatePanel } from "../components/ui/StatePanel";
 import { ToastProvider } from "../components/ui/ToastProvider";
-import { AdminRoundPage, AdminSeriesPage, SeriesCreatePanel } from "../features/admin/AdminPages";
-import { ConnectionsPage } from "../features/connections/ConnectionsPage";
-import { RoundPage, SeriesPage } from "../features/rounds/RoundPages";
-import { SubmissionPage } from "../features/submissions/SubmissionPage";
+import { SeriesCreatePanel } from "../features/admin/AdminPages";
 import { formatDate } from "../lib/format";
 
 type Session = components["schemas"]["SessionResponse"];
 type SeriesPreview = components["schemas"]["SeriesListResponse"];
+
+// The dashboard is the usual first view. Keep its initial payload lean and
+// load the richer workspace screens only when somebody navigates to them.
+const RoundPage = lazy(() =>
+  import("../features/rounds/RoundPages").then((module) => ({ default: module.RoundPage })),
+);
+const SeriesPage = lazy(() =>
+  import("../features/rounds/RoundPages").then((module) => ({ default: module.SeriesPage })),
+);
+const SubmissionPage = lazy(() =>
+  import("../features/submissions/SubmissionPage").then((module) => ({
+    default: module.SubmissionPage,
+  })),
+);
+const ConnectionsPage = lazy(() =>
+  import("../features/connections/ConnectionsPage").then((module) => ({
+    default: module.ConnectionsPage,
+  })),
+);
+const AdminSeriesPage = lazy(() =>
+  import("../features/admin/AdminSeriesPage").then((module) => ({
+    default: module.AdminSeriesPage,
+  })),
+);
+const AdminRoundPage = lazy(() =>
+  import("../features/admin/AdminRoundPage").then((module) => ({ default: module.AdminRoundPage })),
+);
 
 function seriesAccent(series: SeriesPreview) {
   if (series.accentColor) return series.accentColor;
@@ -365,8 +389,12 @@ function NotFoundPage() {
     </main>
   );
 }
-function ShellRoute({ children }: { children: React.ReactNode }) {
+function ShellRoute({ children }: { children: ReactNode }) {
   return <AppShell>{children}</AppShell>;
+}
+
+function LazyRoute({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<LoadingPage message="Loading this page…" />}>{children}</Suspense>;
 }
 
 export function App() {
@@ -389,7 +417,9 @@ export function App() {
             path="/rounds/:roundId"
             element={
               <ShellRoute>
-                <RoundPage />
+                <LazyRoute>
+                  <RoundPage />
+                </LazyRoute>
               </ShellRoute>
             }
           />
@@ -397,7 +427,9 @@ export function App() {
             path="/rounds/:roundId/submit"
             element={
               <ShellRoute>
-                <SubmissionPage />
+                <LazyRoute>
+                  <SubmissionPage />
+                </LazyRoute>
               </ShellRoute>
             }
           />
@@ -405,7 +437,9 @@ export function App() {
             path="/series/:seriesId"
             element={
               <ShellRoute>
-                <SeriesPage />
+                <LazyRoute>
+                  <SeriesPage />
+                </LazyRoute>
               </ShellRoute>
             }
           />
@@ -421,7 +455,9 @@ export function App() {
             path="/profile"
             element={
               <ShellRoute>
-                <ConnectionsPage />
+                <LazyRoute>
+                  <ConnectionsPage />
+                </LazyRoute>
               </ShellRoute>
             }
           />
@@ -431,7 +467,9 @@ export function App() {
             path="/admin/series/:seriesId"
             element={
               <ShellRoute>
-                <AdminSeriesPage />
+                <LazyRoute>
+                  <AdminSeriesPage />
+                </LazyRoute>
               </ShellRoute>
             }
           />
@@ -439,7 +477,9 @@ export function App() {
             path="/admin/rounds/:roundId"
             element={
               <ShellRoute>
-                <AdminRoundPage />
+                <LazyRoute>
+                  <AdminRoundPage />
+                </LazyRoute>
               </ShellRoute>
             }
           />

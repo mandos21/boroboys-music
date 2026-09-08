@@ -1,5 +1,6 @@
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm, useWatch } from "react-hook-form";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { api, patch, post, put } from "../../api/client";
@@ -31,11 +32,14 @@ export function SubmissionPage() {
   const [searchParams] = useSearchParams();
   const replaceId = searchParams.get("replace");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Track | null>(null);
-  const [note, setNote] = useState("");
   const [confirmWarnings, setConfirmWarnings] = useState(false);
   const submittedRef = useRef(false);
   const draftPayloadRef = useRef<{ track: Track | null; note: string }>({ track: null, note: "" });
+  const form = useForm<{ selected: Track | null; note: string }>({
+    defaultValues: { selected: null, note: "" },
+  });
+  const selected = useWatch({ control: form.control, name: "selected" });
+  const note = useWatch({ control: form.control, name: "note" });
   const deferredQuery = useDeferredValue(query.trim());
   const round = useQuery({
     queryKey: queryKeys.round(roundId),
@@ -125,30 +129,29 @@ export function SubmissionPage() {
       }),
   });
 
-  function chooseTrack(track: Track) {
-    setSelected(track);
-    setConfirmWarnings(false);
-    evaluation.reset();
-    submission.reset();
-    evaluation.mutate(track);
-  }
+  const chooseTrack = useCallback(
+    (track: Track) => {
+      form.setValue("selected", track);
+      setConfirmWarnings(false);
+      evaluation.reset();
+      submission.reset();
+      evaluation.mutate(track);
+    },
+    [evaluation, form, submission],
+  );
 
-  // Seeds the form from the saved draft once it loads. Both rules below object
-  // to the shape of this effect rather than to a detail of it: a guard does not
-  // remove the synchronous setState, and adding the missing dependencies makes
-  // it re-run and re-evaluate the track. Its position before the autosave
-  // effect is also load-bearing, because the re-render it causes clears that
-  // effect's pending timer and stops an empty payload overwriting the draft.
-  // Cleanup plan item 6 replaces this with React Hook Form's `reset`, which is
-  // the supported way to seed a form from async data; these disables go with it.
-  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+  // Defer hydration one task so React sees it as a response to the query result,
+  // rather than a synchronous state change while committing this render.
   useEffect(() => {
-    if (!selected && draft.data?.track) {
-      chooseTrack(trackFromInput(draft.data.track));
-      setNote(draft.data.note ?? "");
-    }
-  }, [draft.data]);
-  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+    if (selected || !draft.data?.track) return;
+    const track = trackFromInput(draft.data.track);
+    const noteFromDraft = draft.data.note ?? "";
+    const timer = window.setTimeout(() => {
+      chooseTrack(track);
+      form.setValue("note", noteFromDraft);
+    });
+    return () => window.clearTimeout(timer);
+  }, [chooseTrack, draft.data, form, selected]);
 
   useEffect(() => {
     draftPayloadRef.current = { track: selected, note };
@@ -259,7 +262,7 @@ export function SubmissionPage() {
           onConfirmWarningsChange={setConfirmWarnings}
           isReplacing={Boolean(replaceId)}
           note={note}
-          onNoteChange={setNote}
+          onNoteChange={(value) => form.setValue("note", value)}
           submissionError={submission.isError ? submission.error : null}
           submissionResult={submission.data}
           isSubmitting={submission.isPending}
