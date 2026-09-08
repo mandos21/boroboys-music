@@ -24,23 +24,23 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
-class PlatformRole(str, enum.Enum):
+class PlatformRole(enum.StrEnum):
     MEMBER = "member"
     ADMIN = "admin"
 
 
-class ExternalProvider(str, enum.Enum):
+class ExternalProvider(enum.StrEnum):
     SPOTIFY = "spotify"
     LASTFM = "lastfm"
 
 
-class EvidenceVisibility(str, enum.Enum):
+class EvidenceVisibility(enum.StrEnum):
     ROUND_MEMBERS = "round_members"
     SERIES_ADMINS = "series_admins"
     PRIVATE = "private"
 
 
-class RoundStatus(str, enum.Enum):
+class RoundStatus(enum.StrEnum):
     DRAFT = "draft"
     SCHEDULED = "scheduled"
     OPEN = "open"
@@ -52,18 +52,18 @@ class RoundStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class SubmissionStatus(str, enum.Enum):
+class SubmissionStatus(enum.StrEnum):
     ACCEPTED = "accepted"
     WITHDRAWN = "withdrawn"
 
 
-class EvaluationDecision(str, enum.Enum):
+class EvaluationDecision(enum.StrEnum):
     ACCEPT = "accept"
     WARN = "warn"
     REJECT = "reject"
 
 
-class PublicationState(str, enum.Enum):
+class PublicationState(enum.StrEnum):
     PENDING = "pending"
     PUBLISHING = "publishing"
     PUBLISHED = "published"

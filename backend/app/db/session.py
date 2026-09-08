@@ -17,7 +17,7 @@ def get_session_factory() -> sessionmaker[Session]:
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
-def get_db_session() -> Generator[Session, None, None]:
+def get_db_session() -> Generator[Session]:
     session = get_session_factory()()
     try:
         yield session

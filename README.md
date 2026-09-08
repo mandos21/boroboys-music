@@ -32,7 +32,7 @@ implementation contract remains the authoritative checklist.
 `make setup` (also available as `make dev-setup` or the backwards-compatible
 `make bootstrap`) installs Poetry automatically when it is missing, installs
 the backend development environment, installs the locked frontend dependencies,
-and creates `.env` from `.env.example` if needed. It requires Python 3.12+,
+and creates `.env` from `.env.example` if needed. It requires Python 3.14+,
 `curl` for automatic Poetry installation, and Node.js/npm for the Vite frontend.
 
 ```text

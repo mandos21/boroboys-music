@@ -7,7 +7,7 @@ package-mode = true
 packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.14"
 fastapi = "^0.115.0"
 uvicorn = { extras = ["standard"], version = "^0.30.0" }
 sqlalchemy = "^2.0.0"
@@ -22,7 +22,7 @@ httpx = "^0.28.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
-ruff = "^0.8.0"
+ruff = "^0.16"
 mypy = "^1.13.0"
 
 [build-system]
@@ -31,7 +31,13 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+# The runtime is 3.14; this stays a version back on purpose. At py314 the
+# formatter adopts PEP 758 and strips the parentheses from multi-type `except`
+# clauses - but only those without an `as` binding, which still require them.
+# That leaves both forms side by side in one file, and the unparenthesised one
+# reads exactly like Python 2's `except E, name:`. Raise this to py314 if that
+# syntax becomes familiar enough to be worth the churn.
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -45,6 +51,6 @@ select = ["E", "F", "I", "B", "UP"]
 testpaths = ["tests"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict = true
 packages = ["app"]
