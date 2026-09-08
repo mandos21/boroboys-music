@@ -54,6 +54,19 @@ def test_tracks_by_id_returns_only_track_objects(monkeypatch: pytest.MonkeyPatch
     assert observed["params"] == {"ids": "first,second"}
 
 
+def test_artists_by_id_returns_only_artist_objects(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_get(*_: object, **kwargs: object) -> FakeResponse:
+        observed.update(kwargs)
+        return FakeResponse({"artists": [{"id": "first"}, None, "not-an-artist"]})
+
+    monkeypatch.setattr(spotify.httpx, "get", fake_get)
+
+    assert spotify.artists_by_id("token", ["first", "second"]) == [{"id": "first"}]
+    assert observed["params"] == {"ids": "first,second"}
+
+
 def test_add_items_batches_at_spotify_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     batches: list[list[str]] = []
 

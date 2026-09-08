@@ -28,9 +28,12 @@ const SubmissionPage = lazy(() =>
     default: module.SubmissionPage,
   })),
 );
-const ConnectionsPage = lazy(() =>
-  import("../features/connections/ConnectionsPage").then((module) => ({
-    default: module.ConnectionsPage,
+const ProfilePage = lazy(() =>
+  import("../features/profiles/ProfilePage").then((module) => ({ default: module.ProfilePage })),
+);
+const ContributorProfilePage = lazy(() =>
+  import("../features/profiles/ProfilePage").then((module) => ({
+    default: module.ContributorProfilePage,
   })),
 );
 const AdminSeriesPage = lazy(() =>
@@ -456,7 +459,17 @@ export function App() {
             element={
               <ShellRoute>
                 <LazyRoute>
-                  <ConnectionsPage />
+                  <ProfilePage />
+                </LazyRoute>
+              </ShellRoute>
+            }
+          />
+          <Route
+            path="/people/:userId"
+            element={
+              <ShellRoute>
+                <LazyRoute>
+                  <ContributorProfilePage />
                 </LazyRoute>
               </ShellRoute>
             }

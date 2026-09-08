@@ -7,6 +7,7 @@
 export const queryKeys = {
   session: () => ["session"] as const,
   connections: () => ["connections"] as const,
+  profile: (userId?: string) => ["profile", userId ?? "me"] as const,
 
   series: () => ["series"] as const,
   seriesDetail: (seriesId: string | undefined) => ["series", seriesId] as const,

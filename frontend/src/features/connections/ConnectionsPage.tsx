@@ -38,6 +38,27 @@ const linkErrors: Record<string, string> = {
 };
 
 export function ConnectionsPage() {
+  return (
+    <main className="shell settings-shell">
+      <Link className="back" to="/">
+        ← Your series
+      </Link>
+      <header className="page-heading settings-heading">
+        <div>
+          <p className="eyebrow">Your profile</p>
+          <h1>Profile &amp; connected services</h1>
+          <p>
+            Bring the services you already use into your series. You stay in control of what is
+            connected and what listening evidence is shared.
+          </p>
+        </div>
+      </header>
+      <ConnectionsPanel />
+    </main>
+  );
+}
+
+export function ConnectionsPanel() {
   const [searchParams] = useSearchParams();
   const linkError = searchParams.get("linkError");
   const linkErrorProvider = searchParams.get("provider");
@@ -90,20 +111,7 @@ export function ConnectionsPage() {
     active.filter((connection) => connection.provider === provider);
 
   return (
-    <main className="shell settings-shell">
-      <Link className="back" to="/">
-        ← Your series
-      </Link>
-      <header className="page-heading settings-heading">
-        <div>
-          <p className="eyebrow">Your profile</p>
-          <h1>Profile &amp; connected services</h1>
-          <p>
-            Bring the services you already use into your series. You stay in control of what is
-            connected and what listening evidence is shared.
-          </p>
-        </div>
-      </header>
+    <>
       {linkError && (
         <StatePanel
           kind="error"
@@ -206,6 +214,6 @@ export function ConnectionsPage() {
           if (connectionToDisconnect) disconnect.mutate(connectionToDisconnect.id);
         }}
       />
-    </main>
+    </>
   );
 }

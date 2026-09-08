@@ -531,6 +531,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Profile */
+        get: operations["get_my_profile_api_v1_profiles_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["get_profile_api_v1_profiles__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rounds": {
         parameters: {
             query?: never;
@@ -1193,6 +1227,80 @@ export interface components {
             };
             /** Version */
             version: string;
+        };
+        /** ProfileActivityResponse */
+        ProfileActivityResponse: {
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+            /** Month */
+            month: string;
+        };
+        /** ProfileResponse */
+        ProfileResponse: {
+            /** Displayname */
+            displayName: string;
+            /** Historycount */
+            historyCount: number;
+            /** Id */
+            id: string;
+            /** Isme */
+            isMe: boolean;
+            /** Spotifyprofileimageurl */
+            spotifyProfileImageUrl: string | null;
+            stats: components["schemas"]["ProfileStatsResponse"];
+            /** Submissions */
+            submissions: components["schemas"]["ProfileSubmissionResponse"][];
+        };
+        /** ProfileStatItemResponse */
+        ProfileStatItemResponse: {
+            /** Count */
+            count: number;
+            /** Name */
+            name: string;
+        };
+        /** ProfileStatsResponse */
+        ProfileStatsResponse: {
+            /** Activity */
+            activity: components["schemas"]["ProfileActivityResponse"][];
+            /** Diversityscore */
+            diversityScore: number;
+            /** Genrespread */
+            genreSpread: components["schemas"]["ProfileStatItemResponse"][];
+            /** Submissioncount */
+            submissionCount: number;
+            /** Topartists */
+            topArtists: components["schemas"]["ProfileStatItemResponse"][];
+            /** Uniquealbumcount */
+            uniqueAlbumCount: number;
+            /** Uniqueartistcount */
+            uniqueArtistCount: number;
+            /** Uniquegenrecount */
+            uniqueGenreCount: number;
+            /** Uniquetrackcount */
+            uniqueTrackCount: number;
+        };
+        /** ProfileSubmissionResponse */
+        ProfileSubmissionResponse: {
+            /** Id */
+            id: string;
+            /** Note */
+            note: string | null;
+            /** Roundid */
+            roundId: string;
+            /** Roundtitle */
+            roundTitle: string;
+            /** Seriesid */
+            seriesId: string;
+            /** Seriesname */
+            seriesName: string;
+            /**
+             * Submittedat
+             * Format: date-time
+             */
+            submittedAt: string;
+            track: components["schemas"]["TrackResponse"];
         };
         /** PublishRequest */
         PublishRequest: {
@@ -2738,6 +2846,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_my_profile_api_v1_profiles_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+        };
+    };
+    get_profile_api_v1_profiles__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

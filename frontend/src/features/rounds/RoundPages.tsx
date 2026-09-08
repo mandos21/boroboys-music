@@ -346,7 +346,11 @@ function RoundSubmissions({
                   {entry.track.album ? ` · ${entry.track.album}` : ""}
                 </span>
               </div>
-              <span className="submission-contributor">
+              <Link
+                className="submission-contributor"
+                to={`/people/${entry.contributor.id}`}
+                aria-label={`Open ${entry.contributor.displayName ?? "this listener"}'s profile`}
+              >
                 <small>
                   Submitted by {entry.contributor.displayName ?? "Unknown listener"}
                   {entry.isMine ? " (you)" : ""}
@@ -366,7 +370,7 @@ function RoundSubmissions({
                     {(entry.contributor.displayName ?? "?").slice(0, 1).toUpperCase()}
                   </span>
                 )}
-              </span>
+              </Link>
               {entry.note && <p>{entry.note}</p>}
               {entry.isMine && entry.status === "accepted" && roundIsOpen && (
                 <details>
@@ -552,21 +556,26 @@ function SeriesContributors({
         {contributors.length ? (
           contributors.map((contributor) =>
             contributor.spotifyProfileImageUrl ? (
-              <img
+              <Link
                 key={contributor.id}
-                src={contributor.spotifyProfileImageUrl}
+                className="contributor-profile-link"
+                to={`/people/${contributor.id}`}
                 title={contributor.displayName}
-                alt={contributor.displayName}
-              />
+                aria-label={`Open ${contributor.displayName}'s profile`}
+              >
+                <img src={contributor.spotifyProfileImageUrl} alt="" />
+              </Link>
             ) : (
-              <span
+              <Link
                 key={contributor.id}
+                className="contributor-profile-link"
+                to={`/people/${contributor.id}`}
                 title={contributor.displayName}
                 style={avatarStyle(contributor.displayName)}
                 aria-label={contributor.displayName}
               >
                 {contributor.displayName.slice(0, 1).toUpperCase()}
-              </span>
+              </Link>
             ),
           )
         ) : (

@@ -105,6 +105,50 @@ class SubmissionResponse(ApiResponse):
     track: TrackResponse
 
 
+class ProfileStatItemResponse(ApiResponse):
+    name: str
+    count: int
+
+
+class ProfileActivityResponse(ApiResponse):
+    month: str
+    label: str
+    count: int
+
+
+class ProfileSubmissionResponse(ApiResponse):
+    id: str
+    submitted_at: datetime
+    note: str | None
+    track: TrackResponse
+    series_id: str
+    series_name: str
+    round_id: str
+    round_title: str
+
+
+class ProfileStatsResponse(ApiResponse):
+    submission_count: int
+    unique_track_count: int
+    unique_artist_count: int
+    unique_album_count: int
+    unique_genre_count: int
+    diversity_score: int
+    top_artists: list[ProfileStatItemResponse]
+    genre_spread: list[ProfileStatItemResponse]
+    activity: list[ProfileActivityResponse]
+
+
+class ProfileResponse(ApiResponse):
+    id: str
+    display_name: str
+    spotify_profile_image_url: str | None
+    is_me: bool
+    stats: ProfileStatsResponse
+    submissions: list[ProfileSubmissionResponse]
+    history_count: int
+
+
 class SubmissionDraftResponse(ApiResponse):
     # Drafts are intentionally stored in the same provider-shaped form that
     # the submission input accepts. Track metadata becomes trusted only when

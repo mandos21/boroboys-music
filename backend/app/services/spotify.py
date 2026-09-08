@@ -132,6 +132,22 @@ def tracks_by_id(access_token: str, track_ids: list[str]) -> list[dict[str, Any]
     return [item for item in items if isinstance(item, dict)]
 
 
+def artists_by_id(access_token: str, artist_ids: list[str]) -> list[dict[str, Any]]:
+    """Retrieve Spotify artist metadata used for optional profile genre signals."""
+    if not artist_ids:
+        return []
+    response = httpx.get(
+        f"{SPOTIFY_API}/artists",
+        headers=_headers(access_token),
+        params={"ids": ",".join(artist_ids[:50])},
+        timeout=15.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    items = payload.get("artists", []) if isinstance(payload, dict) else []
+    return [item for item in items if isinstance(item, dict)]
+
+
 def playlist_snapshot(access_token: str, playlist_id: str) -> dict[str, Any]:
     """Read playlist metadata and ordered track snapshots for historical import."""
     playlist_response = httpx.get(

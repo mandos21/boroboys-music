@@ -132,6 +132,60 @@ def test_canonical_track_lookup_uses_spotify_not_browser_metadata(
     assert canonical.provider_metadata == {"explicit": True, "isPlayable": True}
 
 
+def test_canonical_track_collects_artist_genres_without_trusting_the_browser(
+    db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.undo()
+    suffix = uuid.uuid4().hex[:12]
+    user = User(oidc_issuer="https://issuer.test", oidc_subject=f"genre-{suffix}")
+    db.add(user)
+    db.flush()
+    account = ExternalAccount(
+        user_id=user.id,
+        provider=ExternalProvider.SPOTIFY,
+        provider_subject=f"genre-{suffix}",
+    )
+    db.add(account)
+    db.flush()
+    db.add(
+        ExternalCredential(
+            external_account_id=account.id,
+            ciphertext=encrypt(
+                '{"access_token": "spotify-access-token"}',
+                get_settings().credential_encryption_key.get_secret_value(),
+            ),
+            key_version="v1",
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(
+        spotify,
+        "tracks_by_id",
+        lambda _token, track_ids: [
+            {
+                "id": track_ids[0],
+                "name": "Trusted title",
+                "uri": f"spotify:track:{track_ids[0]}",
+                "artists": [{"id": "artist-1", "name": "Trusted artist"}],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        spotify,
+        "artists_by_id",
+        lambda _token, artist_ids: [{"id": artist_ids[0], "genres": ["dream pop", "indie"]}],
+    )
+
+    canonical = submission_routes._canonical_track_input(
+        db,
+        user,
+        TrackInput(spotify_track_id=f"genre-track-{suffix}", name="Browser", artist="Browser"),
+    )
+
+    assert canonical.provider_metadata["genres"] == ["dream pop", "indie"]
+
+
 def test_warning_requires_confirmation_and_persists_an_audit_record(
     db: Session, opened_task_app: None
 ) -> None:

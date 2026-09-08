@@ -1176,6 +1176,216 @@
         "title": "PolicyResultResponse",
         "type": "object"
       },
+      "ProfileActivityResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "label",
+          "count"
+        ],
+        "title": "ProfileActivityResponse",
+        "type": "object"
+      },
+      "ProfileResponse": {
+        "properties": {
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "historyCount": {
+            "title": "Historycount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isMe": {
+            "title": "Isme",
+            "type": "boolean"
+          },
+          "spotifyProfileImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotifyprofileimageurl"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/ProfileStatsResponse"
+          },
+          "submissions": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileSubmissionResponse"
+            },
+            "title": "Submissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "spotifyProfileImageUrl",
+          "isMe",
+          "stats",
+          "submissions",
+          "historyCount"
+        ],
+        "title": "ProfileResponse",
+        "type": "object"
+      },
+      "ProfileStatItemResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "ProfileStatItemResponse",
+        "type": "object"
+      },
+      "ProfileStatsResponse": {
+        "properties": {
+          "activity": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileActivityResponse"
+            },
+            "title": "Activity",
+            "type": "array"
+          },
+          "diversityScore": {
+            "title": "Diversityscore",
+            "type": "integer"
+          },
+          "genreSpread": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileStatItemResponse"
+            },
+            "title": "Genrespread",
+            "type": "array"
+          },
+          "submissionCount": {
+            "title": "Submissioncount",
+            "type": "integer"
+          },
+          "topArtists": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileStatItemResponse"
+            },
+            "title": "Topartists",
+            "type": "array"
+          },
+          "uniqueAlbumCount": {
+            "title": "Uniquealbumcount",
+            "type": "integer"
+          },
+          "uniqueArtistCount": {
+            "title": "Uniqueartistcount",
+            "type": "integer"
+          },
+          "uniqueGenreCount": {
+            "title": "Uniquegenrecount",
+            "type": "integer"
+          },
+          "uniqueTrackCount": {
+            "title": "Uniquetrackcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "submissionCount",
+          "uniqueTrackCount",
+          "uniqueArtistCount",
+          "uniqueAlbumCount",
+          "uniqueGenreCount",
+          "diversityScore",
+          "topArtists",
+          "genreSpread",
+          "activity"
+        ],
+        "title": "ProfileStatsResponse",
+        "type": "object"
+      },
+      "ProfileSubmissionResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "roundId": {
+            "title": "Roundid",
+            "type": "string"
+          },
+          "roundTitle": {
+            "title": "Roundtitle",
+            "type": "string"
+          },
+          "seriesId": {
+            "title": "Seriesid",
+            "type": "string"
+          },
+          "seriesName": {
+            "title": "Seriesname",
+            "type": "string"
+          },
+          "submittedAt": {
+            "format": "date-time",
+            "title": "Submittedat",
+            "type": "string"
+          },
+          "track": {
+            "$ref": "#/components/schemas/TrackResponse"
+          }
+        },
+        "required": [
+          "id",
+          "submittedAt",
+          "note",
+          "track",
+          "seriesId",
+          "seriesName",
+          "roundId",
+          "roundTitle"
+        ],
+        "title": "ProfileSubmissionResponse",
+        "type": "object"
+      },
       "PublishRequest": {
         "properties": {
           "publisher_account_id": {
@@ -4269,6 +4479,70 @@
         "summary": "Worker Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/profiles/me": {
+      "get": {
+        "operationId": "get_my_profile_api_v1_profiles_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get My Profile",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/api/v1/profiles/{user_id}": {
+      "get": {
+        "operationId": "get_profile_api_v1_profiles__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Profile",
+        "tags": [
+          "profiles"
         ]
       }
     },

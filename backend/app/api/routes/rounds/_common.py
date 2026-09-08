@@ -210,6 +210,22 @@ def _canonical_track_input(db: DbSession, user: User, input_track: TrackInput) -
             if isinstance(image, dict) and isinstance(image.get("url"), str):
                 artwork_url = image["url"]
                 break
+    artist_ids = (
+        [
+            item["id"]
+            for item in artists
+            if isinstance(item, dict) and isinstance(item.get("id"), str)
+        ]
+        if isinstance(artists, list)
+        else []
+    )
+    genres = _spotify_artist_genres(access_token, artist_ids)
+    metadata: dict[str, Any] = {
+        "explicit": track.get("explicit") is True,
+        "isPlayable": track.get("is_playable") is not False,
+    }
+    if genres:
+        metadata["genres"] = genres
     return TrackInput(
         spotify_track_id=input_track.spotify_track_id,
         name=name,
@@ -217,11 +233,23 @@ def _canonical_track_input(db: DbSession, user: User, input_track: TrackInput) -
         album=album if isinstance(album, str) else None,
         spotify_uri=uri,
         artwork_url=artwork_url,
-        provider_metadata={
-            "explicit": track.get("explicit") is True,
-            "isPlayable": track.get("is_playable") is not False,
-        },
+        provider_metadata=metadata,
     )
+
+
+def _spotify_artist_genres(access_token: str, artist_ids: list[str]) -> list[str]:
+    """Best-effort enrichment: a genre outage must never reject a valid track."""
+    try:
+        artists = spotify.artists_by_id(access_token, artist_ids)
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError):
+        return []
+    genres = {
+        genre.strip()
+        for artist in artists
+        for genre in (artist.get("genres") or [])
+        if isinstance(genre, str) and genre.strip()
+    }
+    return sorted(genres, key=str.casefold)
 
 
 def _find_or_create_track(db: DbSession, input_track: TrackInput) -> Track:
