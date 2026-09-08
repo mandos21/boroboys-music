@@ -11,7 +11,6 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.routes import rounds as round_routes
 from app.api.routes.rounds import (
     SubmissionCreate,
     SubmissionDraftUpdate,
@@ -24,6 +23,7 @@ from app.api.routes.rounds import (
     save_submission_draft,
     update_submission,
 )
+from app.api.routes.rounds import submissions as submission_routes
 from app.core.config import get_settings
 from app.core.security import encrypt
 from app.db.models import (
@@ -60,7 +60,9 @@ def opened_task_app() -> None:
 @pytest.fixture(autouse=True)
 def canonical_track_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep policy-flow tests independent from Spotify's transport adapter."""
-    monkeypatch.setattr(round_routes, "_canonical_track_input", lambda _db, _user, track: track)
+    monkeypatch.setattr(
+        submission_routes, "_canonical_track_input", lambda _db, _user, track: track
+    )
 
 
 def test_canonical_track_lookup_uses_spotify_not_browser_metadata(
@@ -110,7 +112,7 @@ def test_canonical_track_lookup_uses_spotify_not_browser_metadata(
             }
         ],
     )
-    canonical = round_routes._canonical_track_input(
+    canonical = submission_routes._canonical_track_input(
         db,
         user,
         TrackInput(
