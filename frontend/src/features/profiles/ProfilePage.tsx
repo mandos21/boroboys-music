@@ -158,7 +158,7 @@ function ProfileContent({
       {item.stats.submissionCount > 0 ? (
         <>
           <section className="profile-insights-grid" aria-label="Listening profile insights">
-            <ActivityChart activity={item.stats.activity} />
+            <TasteAffinity affinity={item.stats.affinity} isMe={item.isMe} />
             <TopArtists artists={item.stats.topArtists} />
             <GenreSpread
               genres={item.stats.genreSpread}
@@ -257,48 +257,61 @@ function ProfileStat({
   );
 }
 
-/* The count rides on top of its bar and takes height of its own, so bars are
-   drawn into the part of the track left over. Scaling every bar by the same
-   factor keeps them comparable; letting the tallest fill the track instead
-   pushed it and its label through the baseline. */
-const BAR_TRACK_PERCENT = 86;
-
-function ActivityChart({ activity }: { activity: Profile["stats"]["activity"] }) {
-  const maximum = Math.max(...activity.map((item) => item.count), 1);
+function TasteAffinity({
+  affinity,
+  isMe,
+}: {
+  affinity: Profile["stats"]["affinity"];
+  isMe: boolean;
+}) {
   return (
-    <section className="panel profile-chart activity-chart">
+    <section className="panel profile-chart profile-affinity">
       <div className="profile-chart-heading">
         <div>
-          <p className="eyebrow">Pacing</p>
-          <h2>When the picks landed</h2>
+          <p className="eyebrow">Closest ears</p>
+          <h2>{isMe ? "Who shares your taste" : "Who shares their taste"}</h2>
         </div>
-        <span>Latest year of activity</span>
+        <span>Genre overlap</span>
       </div>
-      <ol className="activity-bars" aria-label="Submissions by month">
-        {activity.map((item) => (
-          <li className="activity-bar" key={item.month}>
-            <div
-              className="activity-column"
-              style={
-                {
-                  "--height": `${Math.max((item.count / maximum) * BAR_TRACK_PERCENT, item.count ? 8 : 2)}%`,
-                } as CSSProperties
-              }
-            >
-              <span className="activity-count" aria-hidden="true">
-                {item.count || ""}
+      {affinity.length === 0 ? (
+        <p className="profile-chart-empty">
+          Once a few rounds are shared with other listeners, the people with the most overlapping
+          taste will appear here.
+        </p>
+      ) : (
+        <ol className="affinity-list">
+          {affinity.map((listener) => (
+            <li key={listener.id}>
+              {listener.spotifyProfileImageUrl ? (
+                <img src={listener.spotifyProfileImageUrl} alt="" />
+              ) : (
+                <span
+                  className="affinity-avatar"
+                  style={avatarStyle(listener.displayName)}
+                  aria-hidden="true"
+                >
+                  {listener.displayName.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <div className="affinity-detail">
+                <Link to={`/profiles/${listener.id}`}>{listener.displayName}</Link>
+                <small>
+                  {listener.sharedGenres.length
+                    ? listener.sharedGenres.join(" · ")
+                    : `${listener.sharedRoundCount} shared round${listener.sharedRoundCount === 1 ? "" : "s"}`}
+                </small>
+              </div>
+              <div className="affinity-meter" aria-hidden="true">
+                <i style={{ "--width": `${listener.affinity}%` } as CSSProperties} />
+              </div>
+              <strong>{listener.affinity}%</strong>
+              <span className="profile-sr-only">
+                {`${listener.affinity}% genre overlap across ${listener.sharedRoundCount} shared rounds`}
               </span>
-              <i aria-hidden="true" />
-            </div>
-            <small aria-hidden="true">
-              {item.month.endsWith("-01")
-                ? `${item.label.slice(0, 3)} ’${item.month.slice(2, 4)}`
-                : item.label.slice(0, 3)}
-            </small>
-            <span className="profile-sr-only">{`${item.label}: ${item.count} picks`}</span>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   );
 }

@@ -5,8 +5,9 @@ from __future__ import annotations
 import base64
 import binascii
 import uuid
+from collections import Counter, defaultdict
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -40,6 +41,9 @@ _MAX_HISTORY_LIMIT = 60
 # Enough tags to show the long tail, few enough that the cloud stays the same
 # height as the artists panel beside it.
 _GENRE_SPREAD_LIMIT = 12
+# Five is what fits the panel beside the artists list without scrolling.
+_AFFINITY_LIMIT = 5
+_SHARED_GENRE_LIMIT = 2
 
 
 @router.get("/me", response_model=ProfileResponse)
@@ -136,16 +140,7 @@ def _profile_payload(
             ).all()
         )
     ]
-    activity = _calendar_activity(
-        db.execute(
-            select(
-                func.date_trunc("month", visible.c.submitted_at).label("month"),
-                func.count(visible.c.submission_id).label("count"),
-            )
-            .group_by("month")
-            .order_by("month")
-        ).all()
-    )
+    affinity = _taste_affinity(db, profile_user, viewer)
 
     history_statement = (
         select(Submission, Track, Round, Series)
@@ -196,7 +191,7 @@ def _profile_payload(
             else 0,
             "topArtists": top_artists,
             "genreSpread": genre_spread,
-            "activity": activity,
+            "affinity": affinity,
         },
         "historyCount": submission_count,
         "nextCursor": next_cursor,
@@ -261,28 +256,6 @@ def _stat_items(rows: Sequence[Row[tuple[str, int]]]) -> list[dict[str, object]]
     return [{"name": name, "count": int(count)} for name, count in rows]
 
 
-def _calendar_activity(rows: Sequence[Row[tuple[datetime, int]]]) -> list[dict[str, object]]:
-    """Show a contiguous final year, including quiet months, not sparse months."""
-    if not rows:
-        return []
-    counts = {month.strftime("%Y-%m"): int(count) for month, count in rows}
-    latest = max(month for month, _ in rows).astimezone(UTC)
-    months = [_month_before(latest, offset) for offset in range(11, -1, -1)]
-    return [
-        {
-            "month": month.strftime("%Y-%m"),
-            "label": month.strftime("%b %Y"),
-            "count": counts.get(month.strftime("%Y-%m"), 0),
-        }
-        for month in months
-    ]
-
-
-def _month_before(month: datetime, offset: int) -> datetime:
-    index = month.year * 12 + month.month - 1 - offset
-    return datetime(index // 12, index % 12 + 1, 1, tzinfo=UTC)
-
-
 def _encode_cursor(submission: Submission) -> str:
     value = f"{submission.submitted_at.isoformat()}|{submission.id}"
     return base64.urlsafe_b64encode(value.encode()).decode().rstrip("=")
@@ -300,3 +273,100 @@ def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid cursor"
         ) from None
+
+
+def _taste_affinity(db: DbSession, profile_user: User, viewer: User) -> list[dict[str, object]]:
+    """Rank the listeners whose genre mix most resembles this profile's.
+
+    Similarity is histogram intersection over the genre groups: for each group,
+    the smaller of the two shares, summed. That is symmetric, lands in 0-1
+    without normalising twice, and is not distorted by one person simply
+    submitting more than another.
+
+    Only people who have actually shared a round with this profile are
+    considered, and only rounds the viewer may see - so the panel cannot become
+    a way to learn who is in a private round.
+    """
+    rows = db.execute(
+        select(
+            Submission.contributor_id,
+            Submission.round_id,
+            TrackGenre.name,
+        )
+        .join(Round, Round.id == Submission.round_id)
+        .join(TrackGenre, TrackGenre.track_id == Submission.track_id)
+        .where(
+            Submission.status == SubmissionStatus.ACCEPTED,
+            _visible_round_predicate(profile_user, viewer),
+        )
+    ).all()
+    if not rows:
+        return []
+
+    genres_by_user: dict[uuid.UUID, Counter[str]] = defaultdict(Counter)
+    rounds_by_user: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
+    for contributor_id, round_id, genre in rows:
+        genres_by_user[contributor_id][genre] += 1
+        rounds_by_user[contributor_id].add(round_id)
+
+    mine = genres_by_user.get(profile_user.id)
+    if not mine:
+        return []
+    my_shares = _group_shares(mine)
+    my_rounds = rounds_by_user[profile_user.id]
+
+    scored: list[tuple[int, str, list[str], int]] = []
+    for user_id, genres in genres_by_user.items():
+        shared_rounds = my_rounds & rounds_by_user[user_id]
+        if user_id == profile_user.id or not shared_rounds:
+            continue
+        theirs = _group_shares(genres)
+        overlap = sum(min(my_shares.get(group, 0.0), theirs.get(group, 0.0)) for group in my_shares)
+        shared = [name for name, _ in (mine & genres).most_common(_SHARED_GENRE_LIMIT)]
+        scored.append((round(overlap * 100), str(user_id), shared, len(shared_rounds)))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return _with_identities(
+        db,
+        [
+            {
+                "id": user_id,
+                "affinity": affinity,
+                "sharedGenres": shared,
+                "sharedRoundCount": rounds,
+            }
+            for affinity, user_id, shared, rounds in scored[:_AFFINITY_LIMIT]
+        ],
+    )
+
+
+def _group_shares(genres: Counter[str]) -> dict[str, float]:
+    """Turn a genre tally into the share of each group, so totals do not skew it."""
+    groups: Counter[str] = Counter()
+    for genre, count in genres.items():
+        groups[group_for(genre)] += count
+    total = sum(groups.values())
+    return {group: count / total for group, count in groups.items()} if total else {}
+
+
+def _with_identities(db: DbSession, items: list[dict[str, object]]) -> list[dict[str, object]]:
+    if not items:
+        return []
+    ids = [uuid.UUID(str(item["id"])) for item in items]
+    spotify_image = spotify_profile_image_subquery(User.id)
+    identities = {
+        str(user_id): (display_name, email, image)
+        for user_id, display_name, email, image in db.execute(
+            select(User.id, User.display_name, User.email, spotify_image).where(User.id.in_(ids))
+        )
+    }
+    resolved = []
+    for item in items:
+        display_name, email, image = identities.get(str(item["id"]), (None, None, None))
+        resolved.append(
+            {
+                **item,
+                "displayName": contributor_display_name(display_name, email),
+                "spotifyProfileImageUrl": image,
+            }
+        )
+    return resolved

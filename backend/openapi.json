@@ -1176,27 +1176,53 @@
         "title": "PolicyResultResponse",
         "type": "object"
       },
-      "ProfileActivityResponse": {
+      "ProfileAffinityResponse": {
+        "description": "One other listener, and how much of this profile's taste they share.",
         "properties": {
-          "count": {
-            "title": "Count",
+          "affinity": {
+            "title": "Affinity",
             "type": "integer"
           },
-          "label": {
-            "title": "Label",
+          "displayName": {
+            "title": "Displayname",
             "type": "string"
           },
-          "month": {
-            "title": "Month",
+          "id": {
+            "title": "Id",
             "type": "string"
+          },
+          "sharedGenres": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sharedgenres",
+            "type": "array"
+          },
+          "sharedRoundCount": {
+            "title": "Sharedroundcount",
+            "type": "integer"
+          },
+          "spotifyProfileImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotifyprofileimageurl"
           }
         },
         "required": [
-          "month",
-          "label",
-          "count"
+          "id",
+          "displayName",
+          "spotifyProfileImageUrl",
+          "affinity",
+          "sharedGenres",
+          "sharedRoundCount"
         ],
-        "title": "ProfileActivityResponse",
+        "title": "ProfileAffinityResponse",
         "type": "object"
       },
       "ProfileGenreItemResponse": {
@@ -1307,11 +1333,11 @@
       },
       "ProfileStatsResponse": {
         "properties": {
-          "activity": {
+          "affinity": {
             "items": {
-              "$ref": "#/components/schemas/ProfileActivityResponse"
+              "$ref": "#/components/schemas/ProfileAffinityResponse"
             },
-            "title": "Activity",
+            "title": "Affinity",
             "type": "array"
           },
           "diversityScore": {
@@ -1367,7 +1393,7 @@
           "diversityScore",
           "topArtists",
           "genreSpread",
-          "activity"
+          "affinity"
         ],
         "title": "ProfileStatsResponse",
         "type": "object"
@@ -1945,6 +1971,50 @@
         "title": "RoundUpdate",
         "type": "object"
       },
+      "SeriesContributorResponse": {
+        "description": "A contributor plus the genre mix they bring to the series.",
+        "properties": {
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesGroupShareResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "spotifyProfileImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotifyprofileimageurl"
+          },
+          "trackCount": {
+            "title": "Trackcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "spotifyProfileImageUrl",
+          "trackCount",
+          "groups"
+        ],
+        "title": "SeriesContributorResponse",
+        "type": "object"
+      },
       "SeriesCreate": {
         "properties": {
           "accent_color": {
@@ -2043,6 +2113,24 @@
           "slug"
         ],
         "title": "SeriesCreate",
+        "type": "object"
+      },
+      "SeriesGroupShareResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group",
+          "count"
+        ],
+        "title": "SeriesGroupShareResponse",
         "type": "object"
       },
       "SeriesHistoryResponse": {
@@ -2289,10 +2377,21 @@
           },
           "contributors": {
             "items": {
-              "$ref": "#/components/schemas/ContributorResponse"
+              "$ref": "#/components/schemas/SeriesContributorResponse"
             },
             "title": "Contributors",
             "type": "array"
+          },
+          "genreSpread": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileGenreItemResponse"
+            },
+            "title": "Genrespread",
+            "type": "array"
+          },
+          "genreTaggedTrackCount": {
+            "title": "Genretaggedtrackcount",
+            "type": "integer"
           },
           "roundCount": {
             "title": "Roundcount",
@@ -2301,12 +2400,19 @@
           "songCount": {
             "title": "Songcount",
             "type": "integer"
+          },
+          "uniqueTrackCount": {
+            "title": "Uniquetrackcount",
+            "type": "integer"
           }
         },
         "required": [
           "roundCount",
           "songCount",
           "artistCount",
+          "genreTaggedTrackCount",
+          "uniqueTrackCount",
+          "genreSpread",
           "contributors"
         ],
         "title": "SeriesStatsResponse",

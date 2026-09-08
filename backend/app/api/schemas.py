@@ -117,10 +117,15 @@ class ProfileGenreItemResponse(ProfileStatItemResponse):
     group: str
 
 
-class ProfileActivityResponse(ApiResponse):
-    month: str
-    label: str
-    count: int
+class ProfileAffinityResponse(ApiResponse):
+    """One other listener, and how much of this profile's taste they share."""
+
+    id: str
+    display_name: str
+    spotify_profile_image_url: str | None
+    affinity: int
+    shared_genres: list[str]
+    shared_round_count: int
 
 
 class ProfileSubmissionResponse(ApiResponse):
@@ -144,7 +149,7 @@ class ProfileStatsResponse(ApiResponse):
     diversity_score: int
     top_artists: list[ProfileStatItemResponse]
     genre_spread: list[ProfileGenreItemResponse]
-    activity: list[ProfileActivityResponse]
+    affinity: list[ProfileAffinityResponse]
 
 
 class ProfileResponse(ApiResponse):
@@ -207,11 +212,26 @@ class EvidenceResponse(ApiResponse):
     evidence: list[EvidenceItemResponse]
 
 
+class SeriesGroupShareResponse(ApiResponse):
+    group: str
+    count: int
+
+
+class SeriesContributorResponse(ContributorResponse):
+    """A contributor plus the genre mix they bring to the series."""
+
+    track_count: int
+    groups: list[SeriesGroupShareResponse]
+
+
 class SeriesStatsResponse(ApiResponse):
     round_count: int
     song_count: int
     artist_count: int
-    contributors: list[ContributorResponse]
+    genre_tagged_track_count: int
+    unique_track_count: int
+    genre_spread: list[ProfileGenreItemResponse]
+    contributors: list[SeriesContributorResponse]
 
 
 class SeriesHistoryRoundResponse(ApiResponse):

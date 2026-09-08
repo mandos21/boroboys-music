@@ -23,7 +23,16 @@ const profile = {
     diversityScore: 67,
     topArtists: [{ name: "The Testers", count: 2 }],
     genreSpread: [{ name: "dream pop", count: 2, group: "rock" }],
-    activity: [{ month: "2026-09", label: "Sep 2026", count: 3 }],
+    affinity: [
+      {
+        id: "user-2",
+        displayName: "A Close Listener",
+        spotifyProfileImageUrl: null,
+        affinity: 72,
+        sharedGenres: ["shoegaze", "midwest emo"],
+        sharedRoundCount: 4,
+      },
+    ],
   },
   historyCount: 3,
   nextCursor: null,

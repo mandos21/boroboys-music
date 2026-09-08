@@ -22,25 +22,22 @@
 .profile-stat svg { grid-row: span 2; align-self: center; color: #15803d; }
 .profile-stat strong { color: #1e293b; font-size: 1.2rem; line-height: 1; }
 .profile-stat span { color: #64748b; font-size: .73rem; font-weight: 700; }
-/* Twelve month labels cannot fit in a third of the row, so the series takes
-   a full-width row of its own and the two summaries sit beneath it. */
-.profile-insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-.profile-insights-grid .activity-chart { grid-column: 1 / -1; }
+.profile-insights-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
 .profile-chart { min-width: 0; }
 .profile-chart-heading { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }
 .profile-chart-heading .eyebrow { margin-bottom: .35rem; }
 .profile-chart-heading h2 { font-size: 1.08rem; }
 .profile-chart-heading > span { color: #64748b; font-size: .72rem; font-weight: 700; text-align: right; }
-/* `align-items: end` here left each column sized to its own content, so the
-   1fr bar row had no definite height and the bars' percentage heights resolved
-   to zero - the counts and labels rendered, the bars did not. Stretching the
-   columns to the track height is what gives that row something to resolve against. */
-.activity-bars { display: flex; height: 10.25rem; align-items: stretch; gap: .35rem; padding: 1.25rem 0 0; margin: .4rem 0 0; border-bottom: 1px solid #d7eadc; list-style: none; }
-.activity-bar { display: grid; min-width: 0; flex: 1; grid-template-rows: minmax(0, 1fr) 1.2rem; align-items: end; gap: .25rem; text-align: center; }
-.activity-column { display: flex; height: 100%; flex-direction: column; justify-content: end; gap: .2rem; }
-.activity-count { color: #166534; font-size: .65rem; font-weight: 800; }
-.activity-bar i { display: block; width: 100%; height: var(--height); flex: none; border-radius: .28rem .28rem 0 0; background: linear-gradient(#4ade80, #15803d); box-shadow: 0 -4px 12px rgb(22 163 74 / 14%); }
-.activity-bar small { overflow: hidden; color: #475569; font-size: .62rem; line-height: 1; text-overflow: clip; white-space: nowrap; }
+.affinity-list { display: grid; gap: .7rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
+.affinity-list li { display: grid; grid-template-columns: 2rem minmax(6rem, 1fr) minmax(4rem, .9fr) auto; align-items: center; gap: .6rem; }
+.affinity-list img, .affinity-avatar { width: 2rem; height: 2rem; border-radius: 50%; object-fit: cover; }
+.affinity-avatar { display: grid; place-items: center; background: var(--avatar-background, #dcfce7); color: var(--avatar-color, #166534); font-size: .8rem; font-weight: 850; }
+.affinity-detail { display: grid; min-width: 0; gap: .1rem; }
+.affinity-detail a { overflow: hidden; color: #1e293b; font-size: .82rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.affinity-detail small { overflow: hidden; color: #64748b; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+.affinity-meter { height: .42rem; overflow: hidden; border-radius: 99px; background: #dcefe1; }
+.affinity-meter i { display: block; width: var(--width); height: 100%; border-radius: inherit; background: #15803d; }
+.affinity-list strong { color: #166534; font-size: .78rem; }
 .profile-top-artists ol { display: grid; gap: .65rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
 .profile-top-artists li { display: grid; grid-template-columns: minmax(4rem, 1fr) minmax(3rem, 1.15fr) auto; align-items: center; gap: .5rem; }
 .profile-top-artists li > span { overflow: hidden; color: #475569; font-size: .76rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
@@ -88,7 +85,8 @@
 .profile-connections { margin-top: 2.5rem; }
 .profile-connections .connection-grid { margin-top: 1rem; }
 
-@media (max-width: 44rem) { .profile-overview { align-items: start; flex-direction: column; gap: 1.2rem; }.profile-variety { width: 100%; grid-template-columns: auto 1fr; }.profile-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.profile-insights-grid { grid-template-columns: 1fr; }.profile-insights-grid .activity-chart { grid-column: auto; }.profile-submission { grid-template-columns: 3rem minmax(0, 1fr); align-items: start; }.profile-submission > img, .profile-track-placeholder { width: 3rem; height: 3rem; }.profile-submission-round { grid-column: 2; justify-items: start; text-align: left; }.profile-submission-round a { max-width: 100%; }.activity-bars { gap: .22rem; } }
+@media (max-width: 62rem) { .profile-insights-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 44rem) { .profile-overview { align-items: start; flex-direction: column; gap: 1.2rem; }.profile-variety { width: 100%; grid-template-columns: auto 1fr; }.profile-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.profile-insights-grid { grid-template-columns: 1fr; }.profile-submission { grid-template-columns: 3rem minmax(0, 1fr); align-items: start; }.profile-submission > img, .profile-track-placeholder { width: 3rem; height: 3rem; }.profile-submission-round { grid-column: 2; justify-items: start; text-align: left; }.profile-submission-round a { max-width: 100%; }}
 
 html[data-theme="dark"] .profile-overview { background: linear-gradient(135deg, #173525, #17231c); border-color: #396344; }
 html[data-theme="dark"] .profile-overview::after { background: #265e3b; opacity: .28; }
@@ -98,11 +96,8 @@ html[data-theme="dark"] .profile-identity p:not(.eyebrow), html[data-theme="dark
 html[data-theme="dark"] .variety-orbit { background: radial-gradient(closest-side, #172a20 62%, transparent 63%), conic-gradient(#4ade80 var(--variety), #31483a 0); }
 html[data-theme="dark"] .variety-orbit strong { color: #86efac; }
 html[data-theme="dark"] .variety-orbit span { color: #a7bbae; }
-html[data-theme="dark"] .activity-bar small { color: #a7bbae; }
 html[data-theme="dark"] .profile-stat { border-color: #31483a; background: #172a20; }
 html[data-theme="dark"] .profile-stat svg { color: #86efac; }
-html[data-theme="dark"] .activity-bars { border-color: #31483a; }
-html[data-theme="dark"] .activity-bar i { background: linear-gradient(#86efac, #15803d); }
 html[data-theme="dark"] .profile-top-artists li > span { color: #dce8e0; }
 html[data-theme="dark"] .profile-top-artists li > div { background: #27402e; }
 html[data-theme="dark"] .profile-top-artists li i { background: #4ade80; }
@@ -125,3 +120,20 @@ html[data-theme="dark"] .profile-submission { border-color: #31483a; }
 html[data-theme="dark"] .profile-track-placeholder { background: #1b3825; color: #86efac; }
 html[data-theme="dark"] .profile-submission-round a { color: #86efac; }
 html[data-theme="dark"] .profile-submission-round a + a { color: #bed0c3; }
+
+/* Shared with the series page, which shows the same fingerprint for everyone. */
+.series-insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.genre-mix-list { display: grid; gap: .6rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
+.genre-mix-list li { display: grid; grid-template-columns: minmax(5rem, 1fr) minmax(6rem, 1.6fr) auto; align-items: center; gap: .6rem; }
+.genre-mix-list a { overflow: hidden; color: #1e293b; font-size: .8rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.genre-mix-list small { color: #64748b; font-size: .72rem; font-weight: 700; }
+/* One row per person, stacked in the shared group order, so a glance down the
+   column compares like with like. A hairline keeps touching fills apart. */
+.genre-mix-bar { display: flex; height: .55rem; overflow: hidden; border-radius: 99px; background: #eef2f7; gap: 1px; }
+.genre-mix-bar i { width: var(--share); min-width: 2px; background: var(--genre-color, #64748b); }
+
+@media (max-width: 62rem) { .series-insights-grid { grid-template-columns: 1fr; } }
+
+html[data-theme="dark"] .genre-mix-list a { color: #eef8f0; }
+html[data-theme="dark"] .genre-mix-list small { color: #a7bbae; }
+html[data-theme="dark"] .genre-mix-bar { background: #1d2b23; }

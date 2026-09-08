@@ -11,6 +11,7 @@ import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { avatarStyle } from "../../lib/avatar";
 import { formatDate } from "../../lib/format";
+import "../profiles/profiles.css";
 
 type Round = components["schemas"]["RoundDetailResponse"];
 type Submission = components["schemas"]["SubmissionResponse"];
@@ -495,6 +496,12 @@ export function SeriesPage() {
           When this series starts a round, it will appear here.
         </StatePanel>
       )}
+      {item.stats.genreSpread.length > 0 && (
+        <section className="series-insights-grid" aria-label="What this series listens to">
+          <SeriesGenres stats={item.stats} />
+          <SeriesGenreMix contributors={item.stats.contributors} />
+        </section>
+      )}
       {featuredRound && <FeaturedRound round={featuredRound} />}
       {(publishedRounds.length > 0 || upcomingRounds.length > 0) && (
         <section className="panel series-release-list">
@@ -541,6 +548,80 @@ export function SeriesPage() {
         </section>
       )}
     </main>
+  );
+}
+
+function SeriesGenres({ stats }: { stats: SeriesHistory["stats"] }) {
+  return (
+    <section className="panel profile-chart profile-genres">
+      <div className="profile-chart-heading">
+        <div>
+          <p className="eyebrow">Genre fingerprint</p>
+          <h2>What this series leans on</h2>
+        </div>
+        <span>{`${stats.genreTaggedTrackCount} of ${stats.uniqueTrackCount} tracks tagged`}</span>
+      </div>
+      <div className="genre-cloud">
+        {stats.genreSpread.map((genre) => (
+          <span
+            className={`genre-token genre-token-${genre.group.replace(" ", "-")}`}
+            key={genre.name}
+          >
+            <i aria-hidden="true" />
+            {genre.name} <small>{genre.count}</small>
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SeriesGenreMix({
+  contributors,
+}: {
+  contributors: SeriesHistory["stats"]["contributors"];
+}) {
+  const tagged = contributors.filter((contributor) => contributor.groups.length > 0);
+  return (
+    <section className="panel profile-chart series-genre-mix">
+      <div className="profile-chart-heading">
+        <div>
+          <p className="eyebrow">The group</p>
+          <h2>Who brings what</h2>
+        </div>
+        <span>Share of each person&apos;s tagged picks</span>
+      </div>
+      {tagged.length === 0 ? (
+        <p className="profile-chart-empty">
+          No genre tags have been cached for this series&apos; picks yet.
+        </p>
+      ) : (
+        <ol className="genre-mix-list">
+          {tagged.map((contributor) => {
+            const total = contributor.groups.reduce((sum, group) => sum + group.count, 0);
+            return (
+              <li key={contributor.id}>
+                <Link to={`/profiles/${contributor.id}`}>{contributor.displayName}</Link>
+                <div className="genre-mix-bar" aria-hidden="true">
+                  {contributor.groups.map((group) => (
+                    <i
+                      key={group.group}
+                      className={`genre-token-${group.group.replace(" ", "-")}`}
+                      style={{ "--share": `${(group.count / total) * 100}%` } as CSSProperties}
+                      title={`${group.group}: ${group.count}`}
+                    />
+                  ))}
+                </div>
+                <small>{contributor.trackCount}</small>
+                <span className="profile-sr-only">
+                  {contributor.groups.map((g) => `${g.group} ${g.count}`).join(", ")}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
   );
 }
 

@@ -30,7 +30,7 @@ const publishedRound = {
   artworkUrls: [],
 };
 
-function renderSeries(rounds: unknown[]) {
+function renderSeries(rounds: unknown[], stats?: Record<string, unknown>) {
   vi.stubGlobal(
     "fetch",
     vi.fn(() =>
@@ -45,7 +45,16 @@ function renderSeries(rounds: unknown[]) {
             accentColor: null,
             fallbackArtworkUrl: null,
             isAdmin: false,
-            stats: { roundCount: rounds.length, songCount: 0, artistCount: 0, contributors: [] },
+            stats: {
+              roundCount: rounds.length,
+              songCount: 0,
+              artistCount: 0,
+              genreTaggedTrackCount: 0,
+              uniqueTrackCount: 0,
+              genreSpread: [],
+              contributors: [],
+              ...stats,
+            },
             rounds,
           }),
           { status: 200 },
@@ -93,5 +102,34 @@ describe("SeriesPage", () => {
 
     const featured = await screen.findByRole("link", { name: /Latest release/ });
     expect(within(featured).getByRole("heading", { name: "August picks" })).toBeTruthy();
+  });
+  it("shows the series fingerprint and each contributor's mix", async () => {
+    renderSeries([publishedRound], {
+      genreTaggedTrackCount: 8,
+      uniqueTrackCount: 12,
+      genreSpread: [
+        { name: "midwest emo", count: 6, group: "punk" },
+        { name: "shoegaze", count: 3, group: "alternative" },
+      ],
+      contributors: [
+        {
+          id: "user-1",
+          displayName: "A Listener",
+          spotifyProfileImageUrl: null,
+          trackCount: 7,
+          groups: [
+            { group: "punk", count: 5 },
+            { group: "alternative", count: 2 },
+          ],
+        },
+      ],
+    });
+
+    expect(await screen.findByText("What this series leans on")).toBeTruthy();
+    expect(screen.getByText("8 of 12 tracks tagged")).toBeTruthy();
+    expect(screen.getByText("midwest emo")).toBeTruthy();
+    expect(screen.getByText("Who brings what")).toBeTruthy();
+    // The mix is announced for screen readers rather than left to colour alone.
+    expect(screen.getByText("punk 5, alternative 2")).toBeTruthy();
   });
 });

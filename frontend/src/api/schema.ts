@@ -1228,14 +1228,23 @@ export interface components {
             /** Version */
             version: string;
         };
-        /** ProfileActivityResponse */
-        ProfileActivityResponse: {
-            /** Count */
-            count: number;
-            /** Label */
-            label: string;
-            /** Month */
-            month: string;
+        /**
+         * ProfileAffinityResponse
+         * @description One other listener, and how much of this profile's taste they share.
+         */
+        ProfileAffinityResponse: {
+            /** Affinity */
+            affinity: number;
+            /** Displayname */
+            displayName: string;
+            /** Id */
+            id: string;
+            /** Sharedgenres */
+            sharedGenres: string[];
+            /** Sharedroundcount */
+            sharedRoundCount: number;
+            /** Spotifyprofileimageurl */
+            spotifyProfileImageUrl: string | null;
         };
         /**
          * ProfileGenreItemResponse
@@ -1277,8 +1286,8 @@ export interface components {
         };
         /** ProfileStatsResponse */
         ProfileStatsResponse: {
-            /** Activity */
-            activity: components["schemas"]["ProfileActivityResponse"][];
+            /** Affinity */
+            affinity: components["schemas"]["ProfileAffinityResponse"][];
             /** Diversityscore */
             diversityScore: number;
             /** Genrespread */
@@ -1514,6 +1523,22 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /**
+         * SeriesContributorResponse
+         * @description A contributor plus the genre mix they bring to the series.
+         */
+        SeriesContributorResponse: {
+            /** Displayname */
+            displayName: string;
+            /** Groups */
+            groups: components["schemas"]["SeriesGroupShareResponse"][];
+            /** Id */
+            id: string;
+            /** Spotifyprofileimageurl */
+            spotifyProfileImageUrl: string | null;
+            /** Trackcount */
+            trackCount: number;
+        };
         /** SeriesCreate */
         SeriesCreate: {
             /** Accent Color */
@@ -1542,6 +1567,13 @@ export interface components {
              * @default UTC
              */
             timezone: string;
+        };
+        /** SeriesGroupShareResponse */
+        SeriesGroupShareResponse: {
+            /** Count */
+            count: number;
+            /** Group */
+            group: string;
         };
         /** SeriesHistoryResponse */
         SeriesHistoryResponse: {
@@ -1618,11 +1650,17 @@ export interface components {
             /** Artistcount */
             artistCount: number;
             /** Contributors */
-            contributors: components["schemas"]["ContributorResponse"][];
+            contributors: components["schemas"]["SeriesContributorResponse"][];
+            /** Genrespread */
+            genreSpread: components["schemas"]["ProfileGenreItemResponse"][];
+            /** Genretaggedtrackcount */
+            genreTaggedTrackCount: number;
             /** Roundcount */
             roundCount: number;
             /** Songcount */
             songCount: number;
+            /** Uniquetrackcount */
+            uniqueTrackCount: number;
         };
         /**
          * SeriesUpdate
