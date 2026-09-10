@@ -3,7 +3,7 @@
 POETRY_VERSION ?= 2.1.1
 POETRY ?= $(shell command -v poetry 2>/dev/null || printf '%s/.local/bin/poetry' "$(HOME)")
 
-.PHONY: help setup dev-setup bootstrap db-up db-down test-db migrate task-schema api worker web api-contract test lint typecheck verify history-dry-run history-import history-artwork history-genres docker-env docker-build docker-up docker-down docker-logs
+.PHONY: help setup dev-setup bootstrap db-up db-down test-db migrate task-schema api worker web api-contract test e2e visual a11y lint typecheck verify history-dry-run history-import history-artwork history-genres docker-env docker-build docker-up docker-down docker-logs
 
 TEST_DATABASE_URL ?= postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds_test
 
@@ -59,6 +59,15 @@ test: test-db ## Run tests against the isolated test database
 	cd backend && DATABASE_URL="$(TEST_DATABASE_URL)" "$(POETRY)" run alembic upgrade head
 	cd backend && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" "$(POETRY)" run pytest
 	cd frontend && npm run test -- --run
+
+e2e: ## Run deterministic browser integration and visual-regression coverage
+	cd frontend && npm run test:e2e
+
+visual: ## Run screenshot comparisons across supported viewport and theme combinations
+	cd frontend && npm run test:visual
+
+a11y: ## Run accessibility smoke checks against representative application pages
+	cd frontend && npm run test:a11y
 
 lint: ## Run linters
 	cd backend && "$(POETRY)" run ruff check . && "$(POETRY)" run ruff format --check app tests

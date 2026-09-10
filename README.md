@@ -120,11 +120,34 @@ make test
 make lint
 make typecheck
 make verify
+make visual
+make a11y
 ```
 
 `make test` and `make verify` create and use `music_rounds_test`, never the
 database configured for the running API. Backend pytest also refuses to start
 unless `TEST_DATABASE_URL` names a database ending in `_test`; point that value
 at a disposable PostgreSQL database when not using the local Compose stack.
+
+## Browser quality checks
+
+The frontend includes deterministic Playwright coverage for the dashboard, series,
+round, submission, profile, and administration workspace. It intercepts API requests
+with committed fixture data, so it neither requires OIDC nor touches a local database.
+Visual comparisons cover phone, tablet, and desktop viewports in light and dark themes; the
+same pages also receive a focused axe accessibility smoke check. The first install on
+a development machine needs the browser binary once:
+
+```text
+cd frontend
+npx playwright install chromium
+cd ..
+make visual
+make a11y
+```
+
+Review screenshot changes intentionally. To update an approved visual baseline, run
+`cd frontend && npm run test:visual -- --update-snapshots` and commit the resulting
+`e2e/*.spec.ts-snapshots/` files with the UI change.
 
 Copy `.env.example` to `.env` before starting local services. Never commit secrets.

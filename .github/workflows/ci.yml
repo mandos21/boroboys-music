@@ -59,6 +59,9 @@ jobs:
       - run: npm run typecheck
       - run: npm run test -- --run
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:visual
+      - run: npm run test:a11y
 
   images:
     # The API image was unbuildable for some time because nothing here ever
