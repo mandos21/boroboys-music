@@ -11,14 +11,15 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import Select, and_, exists, func, or_, select, true
 from sqlalchemy.engine import Row
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.api.deps import DbSession, get_current_user
+from app.api.deps import DbSession, get_current_user, require_csrf
 from app.api.payloads import contributor_display_name, spotify_profile_image_subquery
 from app.api.routes.rounds._common import _track_payload
-from app.api.schemas import ProfileResponse
+from app.api.schemas import NotificationSettingsResponse, ProfileResponse
 from app.db.models import (
     PlatformRole,
     Round,
@@ -65,6 +66,43 @@ def get_profile(
     if profile_user is None or not profile_user.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="profile not found")
     return _profile_payload(db, profile_user, viewer, cursor=cursor, limit=limit)
+
+
+@router.get("/me/notification-settings", response_model=NotificationSettingsResponse)
+def get_notification_settings(
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    return _notification_settings_payload(user)
+
+
+class NotificationSettingsUpdate(BaseModel):
+    notify_reminder_emails: bool | None = None
+    notify_round_published_emails: bool | None = None
+
+
+@router.patch(
+    "/me/notification-settings",
+    response_model=NotificationSettingsResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def update_notification_settings(
+    payload: NotificationSettingsUpdate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    if payload.notify_reminder_emails is not None:
+        user.notify_reminder_emails = payload.notify_reminder_emails
+    if payload.notify_round_published_emails is not None:
+        user.notify_round_published_emails = payload.notify_round_published_emails
+    db.commit()
+    return _notification_settings_payload(user)
+
+
+def _notification_settings_payload(user: User) -> dict[str, object]:
+    return {
+        "notifyReminderEmails": user.notify_reminder_emails,
+        "notifyRoundPublishedEmails": user.notify_round_published_emails,
+    }
 
 
 def _profile_payload(

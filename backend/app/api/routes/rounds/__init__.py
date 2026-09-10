@@ -13,11 +13,13 @@ from app.api.routes.rounds.discovery import (
     search_tracks,
 )
 from app.api.routes.rounds.rounds import (
+    RoundParticipationUpdate,
     SubmissionDraftUpdate,
     get_round,
     get_submission_draft,
     list_my_rounds,
     save_submission_draft,
+    update_round_participation,
 )
 from app.api.routes.rounds.submissions import (
     SubmissionCreate,
@@ -30,6 +32,7 @@ from app.api.routes.rounds.submissions import (
 )
 
 __all__ = [
+    "RoundParticipationUpdate",
     "SubmissionCreate",
     "SubmissionDraftUpdate",
     "SubmissionUpdate",
@@ -47,6 +50,7 @@ __all__ = [
     "router",
     "save_submission_draft",
     "search_tracks",
+    "update_round_participation",
     "update_submission",
     "withdraw_submission",
 ]

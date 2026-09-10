@@ -1090,6 +1090,52 @@
         "title": "InviteCreate",
         "type": "object"
       },
+      "NotificationSettingsResponse": {
+        "properties": {
+          "notifyReminderEmails": {
+            "title": "Notifyreminderemails",
+            "type": "boolean"
+          },
+          "notifyRoundPublishedEmails": {
+            "title": "Notifyroundpublishedemails",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "notifyReminderEmails",
+          "notifyRoundPublishedEmails"
+        ],
+        "title": "NotificationSettingsResponse",
+        "type": "object"
+      },
+      "NotificationSettingsUpdate": {
+        "properties": {
+          "notify_reminder_emails": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Reminder Emails"
+          },
+          "notify_round_published_emails": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Round Published Emails"
+          }
+        },
+        "title": "NotificationSettingsUpdate",
+        "type": "object"
+      },
       "PlaylistImportRequest": {
         "properties": {
           "closes_at": {
@@ -1671,6 +1717,10 @@
             "title": "Contributorcount",
             "type": "integer"
           },
+          "declinedFurtherSubmissions": {
+            "title": "Declinedfurthersubmissions",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -1743,7 +1793,8 @@
           "spotifyPlaylistUrl",
           "canManage",
           "backgroundArtworkUrl",
-          "artworkUrls"
+          "artworkUrls",
+          "declinedFurtherSubmissions"
         ],
         "title": "RoundDetailResponse",
         "type": "object"
@@ -1815,6 +1866,32 @@
           }
         },
         "title": "RoundMemberUpdate",
+        "type": "object"
+      },
+      "RoundParticipationResponse": {
+        "properties": {
+          "declinedFurtherSubmissions": {
+            "title": "Declinedfurthersubmissions",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "declinedFurtherSubmissions"
+        ],
+        "title": "RoundParticipationResponse",
+        "type": "object"
+      },
+      "RoundParticipationUpdate": {
+        "properties": {
+          "declined_further_submissions": {
+            "title": "Declined Further Submissions",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "declined_further_submissions"
+        ],
+        "title": "RoundParticipationUpdate",
         "type": "object"
       },
       "RoundPreviewResponse": {
@@ -4737,6 +4814,66 @@
         ]
       }
     },
+    "/api/v1/profiles/me/notification-settings": {
+      "get": {
+        "operationId": "get_notification_settings_api_v1_profiles_me_notification_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Notification Settings",
+        "tags": [
+          "profiles"
+        ]
+      },
+      "patch": {
+        "operationId": "update_notification_settings_api_v1_profiles_me_notification_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Notification Settings",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
     "/api/v1/profiles/{user_id}": {
       "get": {
         "operationId": "get_profile_api_v1_profiles__user_id__get",
@@ -5166,6 +5303,60 @@
           }
         },
         "summary": "Get Listening Suggestions",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
+    "/api/v1/rounds/{round_id}/participation": {
+      "patch": {
+        "description": "Let a member declare they're deliberately done submitting for this round.\n\nDistinct from having hit the submission limit - this is what keeps deadline\nreminders from nagging someone who has already decided to sit a round out.",
+        "operationId": "update_round_participation_api_v1_rounds__round_id__participation_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoundParticipationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoundParticipationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Round Participation",
         "tags": [
           "rounds"
         ]

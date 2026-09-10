@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends
@@ -25,6 +26,7 @@ from app.api.routes.rounds._common import (
 from app.api.schemas import (
     RoundDetailResponse,
     RoundListResponse,
+    RoundParticipationResponse,
     SubmissionDraftResponse,
 )
 from app.db.models import (
@@ -146,7 +148,43 @@ def get_round(
         "canManage": can_manage,
         "backgroundArtworkUrl": background_artwork_url,
         "artworkUrls": balanced_artwork,
+        "declinedFurtherSubmissions": (
+            membership is not None and membership.declined_further_submissions_at is not None
+        ),
     }
+
+
+class RoundParticipationUpdate(BaseModel):
+    declined_further_submissions: bool
+
+
+@router.patch(
+    "/{round_id}/participation",
+    response_model=RoundParticipationResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def update_round_participation(
+    round_id: uuid.UUID,
+    payload: RoundParticipationUpdate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    """Let a member declare they're deliberately done submitting for this round.
+
+    Distinct from having hit the submission limit - this is what keeps deadline
+    reminders from nagging someone who has already decided to sit a round out.
+    """
+    round_, membership = _member_round(db, round_id, user.id)
+    if reconcile_round_status(round_):
+        db.commit()
+    if payload.declined_further_submissions:
+        membership.declined_further_submissions_at = (
+            membership.declined_further_submissions_at or datetime.now(UTC)
+        )
+    else:
+        membership.declined_further_submissions_at = None
+    db.commit()
+    return {"declinedFurtherSubmissions": membership.declined_further_submissions_at is not None}
 
 
 @router.get("/{round_id}/draft", response_model=SubmissionDraftResponse)

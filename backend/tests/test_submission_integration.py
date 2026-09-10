@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 
@@ -12,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.routes.rounds import (
+    RoundParticipationUpdate,
     SubmissionCreate,
     SubmissionDraftUpdate,
     SubmissionUpdate,
@@ -19,8 +21,10 @@ from app.api.routes.rounds import (
     TrackInput,
     create_submission,
     evaluate_track,
+    get_round,
     get_submission_draft,
     save_submission_draft,
+    update_round_participation,
     update_submission,
 )
 from app.api.routes.rounds import submissions as submission_routes
@@ -588,3 +592,48 @@ def test_concurrent_submissions_cannot_exceed_a_member_limit() -> None:
             )
             == 1
         )
+
+
+def test_a_member_can_decline_and_later_resume_further_submissions(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+) -> None:
+    member = make_user(name="Member")
+    series = make_series()
+    round_ = make_round(series, members=[member])
+    db.commit()
+
+    detail = get_round(round_.id, db, member)
+    assert detail["declinedFurtherSubmissions"] is False
+
+    declined = update_round_participation(
+        round_.id, RoundParticipationUpdate(declined_further_submissions=True), db, member
+    )
+    assert declined["declinedFurtherSubmissions"] is True
+    assert get_round(round_.id, db, member)["declinedFurtherSubmissions"] is True
+
+    resumed = update_round_participation(
+        round_.id, RoundParticipationUpdate(declined_further_submissions=False), db, member
+    )
+    assert resumed["declinedFurtherSubmissions"] is False
+    assert get_round(round_.id, db, member)["declinedFurtherSubmissions"] is False
+
+
+def test_declining_further_submissions_requires_round_membership(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+) -> None:
+    outsider = make_user(name="Outsider")
+    series = make_series()
+    round_ = make_round(series)
+    db.commit()
+
+    with pytest.raises(HTTPException) as error:
+        update_round_participation(
+            round_.id, RoundParticipationUpdate(declined_further_submissions=True), db, outsider
+        )
+    assert error.value.status_code == 403

@@ -9,7 +9,13 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.routes.profiles import get_my_profile, get_profile
+from app.api.routes.profiles import (
+    NotificationSettingsUpdate,
+    get_my_profile,
+    get_notification_settings,
+    get_profile,
+    update_notification_settings,
+)
 from app.db.models import (
     PlatformRole,
     Round,
@@ -245,3 +251,24 @@ def test_profile_does_not_reveal_unshared_contributor(
     with pytest.raises(HTTPException, match="profile not found") as error:
         get_profile(contributor.id, db, listener)
     assert error.value.status_code == 404
+
+
+def test_notification_settings_default_to_enabled_and_can_be_toggled_independently(
+    db: Session, make_user: Callable[..., User]
+) -> None:
+    user = make_user(name="Settings")
+    db.commit()
+
+    defaults = get_notification_settings(user)
+    assert defaults == {"notifyReminderEmails": True, "notifyRoundPublishedEmails": True}
+
+    updated = update_notification_settings(
+        NotificationSettingsUpdate(notify_reminder_emails=False), db, user
+    )
+    assert updated == {"notifyReminderEmails": False, "notifyRoundPublishedEmails": True}
+    assert get_notification_settings(user) == updated
+
+    restored = update_notification_settings(
+        NotificationSettingsUpdate(notify_reminder_emails=True), db, user
+    )
+    assert restored == {"notifyReminderEmails": True, "notifyRoundPublishedEmails": True}

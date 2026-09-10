@@ -548,6 +548,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/me/notification-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Notification Settings */
+        get: operations["get_notification_settings_api_v1_profiles_me_notification_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Notification Settings */
+        patch: operations["update_notification_settings_api_v1_profiles_me_notification_settings_patch"];
+        trace?: never;
+    };
     "/api/v1/profiles/{user_id}": {
         parameters: {
             query?: never;
@@ -689,6 +707,29 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rounds/{round_id}/participation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Round Participation
+         * @description Let a member declare they're deliberately done submitting for this round.
+         *
+         *     Distinct from having hit the submission limit - this is what keeps deadline
+         *     reminders from nagging someone who has already decided to sit a round out.
+         */
+        patch: operations["update_round_participation_api_v1_rounds__round_id__participation_patch"];
         trace?: never;
     };
     "/api/v1/rounds/{round_id}/submissions": {
@@ -1206,6 +1247,20 @@ export interface components {
              */
             role: "contributor" | "admin";
         };
+        /** NotificationSettingsResponse */
+        NotificationSettingsResponse: {
+            /** Notifyreminderemails */
+            notifyReminderEmails: boolean;
+            /** Notifyroundpublishedemails */
+            notifyRoundPublishedEmails: boolean;
+        };
+        /** NotificationSettingsUpdate */
+        NotificationSettingsUpdate: {
+            /** Notify Reminder Emails */
+            notify_reminder_emails?: boolean | null;
+            /** Notify Round Published Emails */
+            notify_round_published_emails?: boolean | null;
+        };
         /** PlaylistImportRequest */
         PlaylistImportRequest: {
             /**
@@ -1436,6 +1491,8 @@ export interface components {
             closesAt: string;
             /** Contributorcount */
             contributorCount: number;
+            /** Declinedfurthersubmissions */
+            declinedFurtherSubmissions: boolean;
             /** Id */
             id: string;
             /**
@@ -1495,6 +1552,16 @@ export interface components {
         RoundMemberUpdate: {
             /** Submission Limit Override */
             submission_limit_override?: number | null;
+        };
+        /** RoundParticipationResponse */
+        RoundParticipationResponse: {
+            /** Declinedfurthersubmissions */
+            declinedFurtherSubmissions: boolean;
+        };
+        /** RoundParticipationUpdate */
+        RoundParticipationUpdate: {
+            /** Declined Further Submissions */
+            declined_further_submissions: boolean;
         };
         /** RoundPreviewResponse */
         RoundPreviewResponse: {
@@ -2974,6 +3041,59 @@ export interface operations {
             };
         };
     };
+    get_notification_settings_api_v1_profiles_me_notification_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsResponse"];
+                };
+            };
+        };
+    };
+    update_notification_settings_api_v1_profiles_me_notification_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_profile_api_v1_profiles__user_id__get: {
         parameters: {
             query?: {
@@ -3244,6 +3364,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: string | null;
                     }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_round_participation_api_v1_rounds__round_id__participation_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoundParticipationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundParticipationResponse"];
                 };
             };
             /** @description Validation Error */
