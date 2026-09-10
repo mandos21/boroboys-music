@@ -22,6 +22,7 @@ from app.db.models import (
 from app.services.lifecycle import (
     create_calendar_successor,
     create_rolling_successor,
+    reconcile_rounds,
     status_for_timeline,
 )
 
@@ -33,6 +34,60 @@ def test_status_for_timeline_opens_a_round_that_is_currently_in_its_window(db: S
         status_for_timeline(now - timedelta(minutes=1), now + timedelta(minutes=1), now)
         is RoundStatus.OPEN
     )
+
+
+def test_reconcile_rounds_reports_only_the_rounds_that_just_opened(db: Session) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    series = Series(
+        name=f"Reconcile {suffix}",
+        slug=f"reconcile-{suffix}",
+        timezone="UTC",
+        default_policies=[],
+    )
+    db.add(series)
+    db.flush()
+    opening = Round(
+        series_id=series.id,
+        title="Opening now",
+        timezone="UTC",
+        submission_limit=1,
+        opens_at=now - timedelta(minutes=1),
+        closes_at=now + timedelta(days=1),
+        publish_at=now + timedelta(days=2),
+        status=RoundStatus.SCHEDULED,
+        policy_snapshot=[],
+    )
+    already_open = Round(
+        series_id=series.id,
+        title="Already open",
+        timezone="UTC",
+        submission_limit=1,
+        opens_at=now - timedelta(days=1),
+        closes_at=now + timedelta(days=1),
+        publish_at=now + timedelta(days=2),
+        status=RoundStatus.OPEN,
+        policy_snapshot=[],
+    )
+    skips_straight_to_closed = Round(
+        series_id=series.id,
+        title="Opens and closes before we notice",
+        timezone="UTC",
+        submission_limit=1,
+        opens_at=now - timedelta(days=2),
+        closes_at=now - timedelta(days=1),
+        publish_at=now,
+        status=RoundStatus.SCHEDULED,
+        policy_snapshot=[],
+    )
+    db.add_all((opening, already_open, skips_straight_to_closed))
+    db.commit()
+
+    opened = reconcile_rounds(db, now=now)
+
+    assert opened == [opening.id]
+    db.commit()
+    assert reconcile_rounds(db, now=now + timedelta(minutes=1)) == []
 
 
 def test_published_rolling_round_creates_one_open_successor_with_member_snapshot(

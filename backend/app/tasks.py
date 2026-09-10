@@ -13,13 +13,20 @@ from typing import Any
 
 from procrastinate import App, PsycopgConnector
 from procrastinate.exceptions import AlreadyEnqueued
+from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.db.models import Publication, Round
+from app.db.models import Publication, PublicationState, Round
 from app.db.session import get_session_factory
 from app.services.auth_cleanup import purge_expired_auth_state
 from app.services.evidence import refresh_round_evidence
 from app.services.lifecycle import reconcile_rounds
+from app.services.notifications import (
+    notify_round_opened,
+    notify_round_published,
+    send_round_reminder,
+    start_due_reminders,
+)
 from app.services.publications import (
     defer_or_fail,
     execute_publication,
@@ -45,8 +52,13 @@ async def reconcile_schedules(timestamp: int) -> None:
 
     del timestamp
     with get_session_factory()() as db:
-        reconcile_rounds(db)
+        opened_round_ids = reconcile_rounds(db)
+        due_reminders = start_due_reminders(db)
         db.commit()
+        for round_id in opened_round_ids:
+            defer_round_opened_notification(str(round_id))
+        for round_id, window in due_reminders:
+            defer_reminder(str(round_id), window)
         for publication_id in start_due_publications(db):
             publication = db.get(Publication, publication_id)
             round_ = db.get(Round, publication.round_id) if publication else None
@@ -80,7 +92,18 @@ async def purge_auth_state(timestamp: int) -> None:
 @app.task(queue="publishing")
 async def publish_round(publication_id: str) -> None:
     with get_session_factory()() as db:
+        was_published = (
+            db.scalar(select(Publication.state).where(Publication.id == uuid.UUID(publication_id)))
+            is PublicationState.PUBLISHED
+        )
         execute_publication(db, uuid.UUID(publication_id))
+        publication = db.get(Publication, uuid.UUID(publication_id))
+        if (
+            not was_published
+            and publication is not None
+            and publication.state is PublicationState.PUBLISHED
+        ):
+            defer_round_published_notification(str(publication.round_id))
 
 
 @app.task(queue="publishing")
@@ -101,6 +124,24 @@ async def enrich_track_genres(track_id: str) -> None:
         refresh_track_genres(db, uuid.UUID(track_id))
 
 
+@app.task(queue="notifications")
+async def send_reminder(round_id: str, window: str) -> None:
+    with get_session_factory()() as db:
+        send_round_reminder(db, uuid.UUID(round_id), window)
+
+
+@app.task(queue="notifications")
+async def notify_published(round_id: str) -> None:
+    with get_session_factory()() as db:
+        notify_round_published(db, uuid.UUID(round_id))
+
+
+@app.task(queue="notifications")
+async def notify_opened(round_id: str) -> None:
+    with get_session_factory()() as db:
+        notify_round_opened(db, uuid.UUID(round_id))
+
+
 def defer_publication(publication_id: str) -> None:
     _defer_coalesced(
         publish_round, f"publication:{publication_id}", {"publication_id": publication_id}
@@ -119,6 +160,20 @@ def defer_evidence_refresh(round_id: str, track_id: str) -> None:
         f"evidence:{round_id}:{track_id}",
         {"round_id": round_id, "track_id": track_id},
     )
+
+
+def defer_reminder(round_id: str, window: str) -> None:
+    _defer_coalesced(
+        send_reminder, f"reminder:{round_id}:{window}", {"round_id": round_id, "window": window}
+    )
+
+
+def defer_round_published_notification(round_id: str) -> None:
+    _defer_coalesced(notify_published, f"round-published:{round_id}", {"round_id": round_id})
+
+
+def defer_round_opened_notification(round_id: str) -> None:
+    _defer_coalesced(notify_opened, f"round-opened:{round_id}", {"round_id": round_id})
 
 
 def defer_track_genre_enrichment(track_id: str) -> None:

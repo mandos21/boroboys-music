@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -12,10 +13,15 @@ from sqlalchemy.orm import Session
 from app.db.models import Round, RoundMember, RoundStatus, Series
 
 
-def reconcile_rounds(db: Session, now: datetime | None = None) -> int:
-    """Move due scheduled/open rounds forward; safe to call repeatedly from workers."""
+def reconcile_rounds(db: Session, now: datetime | None = None) -> list[uuid.UUID]:
+    """Move due scheduled/open rounds forward; safe to call repeatedly from workers.
+
+    Returns the rounds that just became open, so a caller can announce them
+    exactly once - a round only ever leaves `scheduled` here, so it can only
+    appear in this list on the one pass that moves it.
+    """
     instant = now or datetime.now(UTC)
-    changed = 0
+    opened: list[uuid.UUID] = []
     for round_ in db.scalars(
         select(Round)
         .where(Round.status == RoundStatus.SCHEDULED, Round.opens_at <= instant)
@@ -23,17 +29,16 @@ def reconcile_rounds(db: Session, now: datetime | None = None) -> int:
     ):
         if instant < round_.closes_at:
             round_.status = RoundStatus.OPEN
+            opened.append(round_.id)
         else:
             round_.status = RoundStatus.CLOSED
-        changed += 1
     for round_ in db.scalars(
         select(Round)
         .where(Round.status == RoundStatus.OPEN, Round.closes_at <= instant)
         .with_for_update(skip_locked=True)
     ):
         round_.status = RoundStatus.CLOSED
-        changed += 1
-    return changed
+    return opened
 
 
 def reconcile_round_status(round_: Round, now: datetime | None = None) -> bool:
