@@ -4,8 +4,11 @@ import { Link, useParams } from "react-router";
 
 import { api, del, patch, put } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
+import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { StatePanel } from "../../components/ui/StatePanel";
+import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { HistoricalImportPanel } from "./HistoricalImportPanel";
@@ -14,6 +17,7 @@ import { RoundScheduleForm } from "./RoundScheduleForm";
 import { SuccessorPlanEditor } from "./SuccessorPlanEditor";
 import { errorMessage } from "./adminUtils";
 import type { Connection, SeriesDetail, User } from "./types";
+import "./admin.css";
 
 export function AdminSeriesPage() {
   const { seriesId } = useParams();
@@ -110,13 +114,7 @@ export function AdminSeriesPage() {
   });
 
   if (detail.isLoading)
-    return (
-      <main className="shell narrow-page-shell">
-        <StatePanel kind="loading" title="Loading series workspace">
-          Gathering its rounds, members, and automation settings.
-        </StatePanel>
-      </main>
-    );
+    return <PageSkeleton label="Loading series workspace" variant="workspace" />;
   if (detail.isError || !detail.data)
     return (
       <main className="shell narrow-page-shell">
@@ -180,8 +178,11 @@ export function AdminSeriesPage() {
           onSaved={invalidate}
         />
       </section>
-      <details className="panel series-identity">
-        <summary>Series details and look</summary>
+      <Disclosure
+        className="panel series-identity"
+        title="Series details and look"
+        description="Describe the series and set an optional cover or accent."
+      >
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -219,11 +220,11 @@ export function AdminSeriesPage() {
               pattern="#[0-9a-fA-F]{6}"
             />
           </label>
-          <button className="button button-secondary" disabled={saveIdentity.isPending}>
+          <Button disabled={saveIdentity.isPending} type="submit" variant="secondary">
             {saveIdentity.isPending ? "Saving…" : "Save series details"}
-          </button>
+          </Button>
         </form>
-      </details>
+      </Disclosure>
       <div className="admin-columns">
         <section className="panel" id="members">
           <h2>Series members</h2>

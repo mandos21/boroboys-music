@@ -5,12 +5,15 @@ import { Link, useParams } from "react-router";
 import { api, del, put } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { Disclosure } from "../../components/ui/Disclosure";
+import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { PublicationPanel } from "./PublicationPanel";
 import { RoundSettingsForm } from "./RoundSettingsForm";
 import { errorMessage } from "./adminUtils";
 import type { AdminRound, Connection, User } from "./types";
+import "./admin.css";
 
 export function AdminRoundPage() {
   const { roundId } = useParams();
@@ -79,11 +82,7 @@ export function AdminRoundPage() {
       }),
   });
   if (detail.isLoading)
-    return (
-      <main className="shell">
-        <p>Loading round contributors…</p>
-      </main>
-    );
+    return <PageSkeleton label="Loading round contributors" variant="workspace" />;
   if (detail.isError || !detail.data)
     return (
       <main className="shell">
@@ -117,8 +116,11 @@ export function AdminRoundPage() {
           attributable to the original group.
         </p>
       )}
-      <details className="panel round-settings">
-        <summary>Round settings</summary>
+      <Disclosure
+        className="panel round-settings"
+        title="Round settings"
+        description="Change the schedule, prompt, limit, or publishing account."
+      >
         {membershipEditable ? (
           <RoundSettingsForm round={round} spotifyAccounts={spotifyAccounts} onSaved={invalidate} />
         ) : (
@@ -126,7 +128,7 @@ export function AdminRoundPage() {
             The schedule and default limit are frozen once a round has closed.
           </p>
         )}
-      </details>
+      </Disclosure>
       <div className="admin-columns">
         <section className="panel">
           <h2>Add or restore a contributor</h2>
