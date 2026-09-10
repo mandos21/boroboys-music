@@ -95,6 +95,10 @@ class User(UUIDTimestampMixin, Base):
     display_name: Mapped[str | None] = mapped_column(String(200))
     platform_role: Mapped[PlatformRole] = mapped_column(default=PlatformRole.MEMBER, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notify_reminder_emails: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notify_round_published_emails: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
 
 
 class ServerSession(UUIDTimestampMixin, Base):
@@ -278,6 +282,8 @@ class Round(UUIDTimestampMixin, Base):
     )
     published_sequence: Mapped[int | None] = mapped_column(Integer)
     prompt: Mapped[str | None] = mapped_column(Text)
+    reminder_48h_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reminder_24h_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class RoundMember(UUIDTimestampMixin, Base):
@@ -295,6 +301,12 @@ class RoundMember(UUIDTimestampMixin, Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set by the member themselves: "I'm deliberately not submitting any more
+    # this round." Distinct from having hit the submission limit, and the
+    # reason deadline reminders can target only people who still might submit.
+    declined_further_submissions_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
 
 
 class Track(UUIDTimestampMixin, Base):

@@ -29,6 +29,11 @@ class SessionUserResponse(ApiResponse):
     platform_role: str
 
 
+class NotificationSettingsResponse(ApiResponse):
+    notify_reminder_emails: bool
+    notify_round_published_emails: bool
+
+
 class SessionResponse(ApiResponse):
     user: SessionUserResponse
     expires_at: datetime
@@ -75,6 +80,11 @@ class RoundDetailResponse(RoundPreviewResponse):
     can_manage: bool
     background_artwork_url: str | None
     artwork_urls: list[str]
+    declined_further_submissions: bool
+
+
+class RoundParticipationResponse(ApiResponse):
+    declined_further_submissions: bool
 
 
 class TrackResponse(ApiResponse):
