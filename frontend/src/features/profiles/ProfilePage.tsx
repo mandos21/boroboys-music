@@ -17,6 +17,7 @@ import { GenreGroupBar } from "../genres/GenreGroupBar";
 import { GenrePill } from "../genres/GenrePill";
 import { genreGroupTotals } from "../genres/genre";
 import "../genres/genres.css";
+import { NotificationSettingsPanel } from "./NotificationSettingsPanel";
 import "./profiles.css";
 
 type Profile = components["schemas"]["ProfileResponse"];
@@ -238,15 +239,26 @@ function ProfileContent({
 
 function ProfileConnections() {
   return (
-    <section className="profile-connections" aria-labelledby="connections-title">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Your setup</p>
-          <h2 id="connections-title">Connected services</h2>
+    <>
+      <section className="profile-connections" aria-labelledby="connections-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Your setup</p>
+            <h2 id="connections-title">Connected services</h2>
+          </div>
         </div>
-      </div>
-      <ConnectionsPanel />
-    </section>
+        <ConnectionsPanel />
+      </section>
+      <section className="profile-connections" aria-labelledby="notifications-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Your setup</p>
+            <h2 id="notifications-title">Email notifications</h2>
+          </div>
+        </div>
+        <NotificationSettingsPanel />
+      </section>
+    </>
   );
 }
 

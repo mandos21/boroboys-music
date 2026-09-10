@@ -12,6 +12,7 @@ import { Disclosure } from "../../components/ui/Disclosure";
 import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
+import { Switch } from "../../components/ui/switch";
 import { avatarStyle } from "../../lib/avatar";
 import { formatDate, formatDateOnly, formatDeadline } from "../../lib/format";
 import { markPerformance } from "../../lib/performance";
@@ -74,6 +75,19 @@ export function RoundPage() {
         tone: "error",
       }),
   });
+  const updateParticipation = useMutation({
+    mutationFn: (declined: boolean) =>
+      patch<{ declinedFurtherSubmissions: boolean }>(`/rounds/${roundId}/participation`, {
+        declined_further_submissions: declined,
+      }),
+    onSuccess: () => invalidate(),
+    onError: () =>
+      showToast({
+        title: "Couldn’t save that",
+        description: "Try again in a moment.",
+        tone: "error",
+      }),
+  });
 
   if (round.isLoading) return <PageSkeleton label="Loading this round" />;
   if (round.isError || !round.data) return <UnavailableRound />;
@@ -87,7 +101,12 @@ export function RoundPage() {
       <Link className="back" to={item.seriesId ? `/series/${item.seriesId}` : "/"}>
         ← Back to series
       </Link>
-      <RoundOverview round={item} mySubmissionCount={mySubmissionCount} />
+      <RoundOverview
+        round={item}
+        mySubmissionCount={mySubmissionCount}
+        onDeclineChange={(declined) => updateParticipation.mutate(declined)}
+        isSavingParticipation={updateParticipation.isPending}
+      />
       {item.status === "published" && submissions.data && (
         <ReleaseRecap round={item} submissions={submissions.data} />
       )}
@@ -133,9 +152,13 @@ function UnavailableRound() {
 function RoundOverview({
   round,
   mySubmissionCount,
+  onDeclineChange,
+  isSavingParticipation,
 }: {
   round: Round;
   mySubmissionCount: number | undefined;
+  onDeclineChange: (declined: boolean) => void;
+  isSavingParticipation: boolean;
 }) {
   const hasCapacity = mySubmissionCount === undefined || mySubmissionCount < round.submissionLimit;
   return (
@@ -212,6 +235,20 @@ function RoundOverview({
           </p>
         ) : (
           <p className="muted">Submissions are currently closed.</p>
+        )}
+        {round.status === "open" && hasCapacity && (
+          <label className="round-decline-toggle">
+            <Switch
+              size="sm"
+              checked={round.declinedFurtherSubmissions}
+              onCheckedChange={onDeclineChange}
+              disabled={isSavingParticipation}
+            />
+            <span>
+              I&apos;m not submitting any more this round
+              {round.declinedFurtherSubmissions && " — you won’t get deadline reminders for it"}
+            </span>
+          </label>
         )}
         <div className="round-secondary-actions">
           {round.spotifyPlaylistUrl && (

@@ -285,6 +285,7 @@ img { display: block; max-width: 100%; }
 .muted, .field-hint { color: #64748b; font-size: .9rem; line-height: 1.55; }
 .round-overview-actions { display: grid; gap: .85rem; margin-top: 1.25rem; }
 .round-overview-actions > [data-slot="button"], .round-overview-actions > .round-capacity-note, .round-overview-actions > .muted { width: fit-content; margin: 0; }
+.round-decline-toggle { display: inline-flex; align-items: center; gap: .55rem; width: fit-content; color: #64748b; font-size: .82rem; cursor: pointer; }
 .round-deadline { display: inline-flex; width: fit-content; align-items: center; gap: .4rem; padding: .35rem .55rem; border: 1px solid #bbf7d0; border-radius: 999px; background: rgb(240 253 244 / 76%); color: #166534; font-size: .75rem; font-weight: 800; }
 .round-deadline small { color: #526179; font-size: .7rem; font-weight: 650; }
 .round-secondary-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
@@ -518,7 +519,7 @@ html[data-theme="dark"] {
 html[data-theme="dark"] body { background: radial-gradient(circle at 14% -12%, #173525 0, transparent 29rem), #101714; color: #dce8e0; }
 html[data-theme="dark"] .app-header { border-color: rgb(58 81 67 / 82%); background: rgb(16 23 20 / 84%); }
 html[data-theme="dark"] .brand strong, html[data-theme="dark"] .page-heading h1, html[data-theme="dark"] .submission-heading h1, html[data-theme="dark"] .hero h1, html[data-theme="dark"] .panel > h1, html[data-theme="dark"] .landing-copy h1 { color: #f1f8f3; }
-html[data-theme="dark"] .brand small, html[data-theme="dark"] .page-heading p:not(.eyebrow), html[data-theme="dark"] .submission-heading p, html[data-theme="dark"] .hero > p, html[data-theme="dark"] .panel > p, html[data-theme="dark"] .landing-copy > p, html[data-theme="dark"] .muted, html[data-theme="dark"] .field-hint { color: #a7bbae; }
+html[data-theme="dark"] .brand small, html[data-theme="dark"] .page-heading p:not(.eyebrow), html[data-theme="dark"] .submission-heading p, html[data-theme="dark"] .hero > p, html[data-theme="dark"] .panel > p, html[data-theme="dark"] .landing-copy > p, html[data-theme="dark"] .muted, html[data-theme="dark"] .field-hint, html[data-theme="dark"] .round-decline-toggle { color: #a7bbae; }
 html[data-theme="dark"] .back, html[data-theme="dark"] .account-copy strong, html[data-theme="dark"] .mobile-profile-link { color: #bed0c3; }
 html[data-theme="dark"] .account-profile-link:hover, html[data-theme="dark"] .mobile-profile-link:hover { background: #173525; color: #86efac; }
 html[data-theme="dark"] .icon-button, html[data-theme="dark"] .mobile-menu-trigger { color: #bed0c3; }

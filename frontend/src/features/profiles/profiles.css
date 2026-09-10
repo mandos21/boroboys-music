@@ -75,6 +75,11 @@
 .profile-load-more { display: flex; margin: 1.1rem auto 0; }
 .profile-connections { margin-top: 2.5rem; }
 .profile-connections .connection-grid { margin-top: 1rem; }
+.notification-settings { display: grid; gap: .1rem; margin-top: 1rem; }
+.notification-toggle { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: .9rem 0; border-top: 1px solid #e2e8f0; cursor: pointer; }
+.notification-toggle:first-child { border-top: none; }
+.notification-toggle-label { display: block; color: #1e293b; font-size: .92rem; font-weight: 700; }
+.notification-toggle-description { display: block; margin-top: .15rem; color: #64748b; font-size: .8rem; }
 
 @media (max-width: 62rem) { .profile-insights-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 44rem) { .profile-overview { align-items: start; flex-direction: column; gap: 1.2rem; }.profile-variety { width: 100%; grid-template-columns: auto 1fr; }.profile-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.profile-insights-grid { grid-template-columns: 1fr; }.profile-submission { grid-template-columns: 3rem minmax(0, 1fr); align-items: start; }.profile-submission > img, .profile-track-placeholder { width: 3rem; height: 3rem; }.profile-submission-round { grid-column: 2; justify-items: start; text-align: left; }.profile-submission-round a { max-width: 100%; }}
@@ -86,6 +91,9 @@ html[data-theme="dark"] .profile-avatar-fallback, html[data-theme="dark"] .affin
 html[data-theme="dark"] .profile-identity h1, html[data-theme="dark"] .profile-stat strong, html[data-theme="dark"] .profile-submission-track strong { color: #eef8f0; }
 html[data-theme="dark"] .profile-identity p:not(.eyebrow), html[data-theme="dark"] .profile-variety-copy > p, html[data-theme="dark"] .profile-stat span, html[data-theme="dark"] .profile-submission-track span, html[data-theme="dark"] .profile-submission-track em { color: #a7bbae; }
 html[data-theme="dark"] .profile-chart-heading > span, html[data-theme="dark"] .profile-genre-guidance { color: #a7bbae; }
+html[data-theme="dark"] .notification-toggle { border-color: #2c3d33; }
+html[data-theme="dark"] .notification-toggle-label { color: #eef8f0; }
+html[data-theme="dark"] .notification-toggle-description { color: #a7bbae; }
 html[data-theme="dark"] .variety-orbit { background: radial-gradient(closest-side, #172a20 62%, transparent 63%), conic-gradient(#4ade80 var(--variety), #31483a 0); }
 html[data-theme="dark"] .variety-orbit strong { color: #86efac; }
 html[data-theme="dark"] .variety-orbit span { color: #a7bbae; }
