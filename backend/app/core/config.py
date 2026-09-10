@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     spotify_redirect_uri: HttpUrl = HttpUrl(
         "http://127.0.0.1:8000/api/v1/connections/spotify/callback"
     )
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from_address: str | None = None
+    smtp_use_tls: bool = True
+    mattermost_webhook_url: SecretStr | None = None
 
     @property
     def spotify_is_configured(self) -> bool:
@@ -56,6 +63,14 @@ class Settings(BaseSettings):
     @property
     def lastfm_is_configured(self) -> bool:
         return all((self.lastfm_api_key, self.lastfm_shared_secret))
+
+    @property
+    def smtp_is_configured(self) -> bool:
+        return all((self.smtp_host, self.smtp_from_address))
+
+    @property
+    def mattermost_is_configured(self) -> bool:
+        return self.mattermost_webhook_url is not None
 
     @property
     def oidc_is_configured(self) -> bool:
