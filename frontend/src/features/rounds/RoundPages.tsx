@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Clock3, Disc3, ListMusic, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
@@ -7,11 +7,15 @@ import { api, patch, post } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { Button } from "../../components/ui/button";
+import { Disclosure } from "../../components/ui/Disclosure";
+import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { avatarStyle } from "../../lib/avatar";
-import { formatDate } from "../../lib/format";
-import "../profiles/profiles.css";
+import { formatDate, formatDateOnly, formatDeadline } from "../../lib/format";
+import { markPerformance } from "../../lib/performance";
+import { DeferredSeriesInsights } from "./DeferredSeriesInsights";
 
 type Round = components["schemas"]["RoundDetailResponse"];
 type Submission = components["schemas"]["SubmissionResponse"];
@@ -71,14 +75,7 @@ export function RoundPage() {
       }),
   });
 
-  if (round.isLoading)
-    return (
-      <main className="shell narrow-page-shell">
-        <StatePanel kind="loading" title="Loading this round">
-          Gathering its schedule and submissions.
-        </StatePanel>
-      </main>
-    );
+  if (round.isLoading) return <PageSkeleton label="Loading this round" />;
   if (round.isError || !round.data) return <UnavailableRound />;
 
   const item = round.data;
@@ -159,6 +156,12 @@ function RoundOverview({
         group before the release date.
       </p>
       {round.prompt && <p className="round-prompt">Prompt: {round.prompt}</p>}
+      {round.status === "open" && (
+        <p className="round-deadline">
+          {formatDeadline(round.closesAt)}
+          <small>{formatDate(round.closesAt)}</small>
+        </p>
+      )}
       <div className="round-summary" aria-label="Round summary">
         <div>
           <ListMusic aria-hidden="true" size={18} />
@@ -201,9 +204,7 @@ function RoundOverview({
       </div>
       <div className="round-overview-actions">
         {round.status === "open" && hasCapacity ? (
-          <Link className="button" to={`/rounds/${round.id}/submit`}>
-            Choose a track
-          </Link>
+          <Button render={<Link to={`/rounds/${round.id}/submit`} />}>Choose a track</Button>
         ) : round.status === "open" ? (
           <p className="round-capacity-note">
             You&apos;re all set! You can still change your mind before the end of the round by
@@ -374,8 +375,11 @@ function RoundSubmissions({
               </Link>
               {entry.note && <p>{entry.note}</p>}
               {entry.isMine && entry.status === "accepted" && roundIsOpen && (
-                <details>
-                  <summary>Manage your submission</summary>
+                <Disclosure
+                  className="submission-management"
+                  title="Manage your submission"
+                  description="Edit its note, replace the track, or withdraw it."
+                >
                   <form
                     onSubmit={(event) => {
                       event.preventDefault();
@@ -400,7 +404,7 @@ function RoundSubmissions({
                       </button>
                     </div>
                   </form>
-                </details>
+                </Disclosure>
               )}
             </li>
           ))}
@@ -418,14 +422,13 @@ export function SeriesPage() {
     enabled: Boolean(seriesId),
     retry: false,
   });
-  if (series.isLoading)
-    return (
-      <main className="shell narrow-page-shell">
-        <StatePanel kind="loading" title="Loading series history">
-          Collecting the rounds you can revisit.
-        </StatePanel>
-      </main>
-    );
+  useEffect(() => {
+    if (seriesId) markPerformance("series-route-start");
+  }, [seriesId]);
+  useEffect(() => {
+    if (series.isSuccess) markPerformance("series-core-ready", "series-route-start");
+  }, [series.isSuccess]);
+  if (series.isLoading) return <PageSkeleton label="Loading series history" variant="detail" />;
   if (series.isError || !series.data)
     return (
       <main className="shell narrow-page-shell">
@@ -469,9 +472,9 @@ export function SeriesPage() {
             {item.description && <p>{item.description}</p>}
           </div>
           {item.isAdmin && (
-            <Link className="button button-secondary" to={`/admin/series/${item.id}`}>
+            <Button variant="secondary" render={<Link to={`/admin/series/${item.id}`} />}>
               Manage series
-            </Link>
+            </Button>
           )}
         </div>
         <p className="muted">A record of the rounds and releases your group has made together.</p>
@@ -493,15 +496,17 @@ export function SeriesPage() {
       </section>
       {item.rounds.length === 0 && (
         <StatePanel title="No rounds yet">
-          When this series starts a round, it will appear here.
+          {item.isAdmin ? (
+            <>
+              Set up the first round when you are ready.{" "}
+              <Link to={`/admin/series/${item.id}`}>Open the series workspace</Link>
+            </>
+          ) : (
+            "When this series starts a round, it will appear here."
+          )}
         </StatePanel>
       )}
-      {item.stats.genreSpread.length > 0 && (
-        <section className="series-insights-grid" aria-label="What this series listens to">
-          <SeriesGenres stats={item.stats} />
-          <SeriesGenreMix contributors={item.stats.contributors} />
-        </section>
-      )}
+      {item.stats.songCount > 0 && <DeferredSeriesInsights seriesId={item.id} />}
       {featuredRound && <FeaturedRound round={featuredRound} />}
       {(publishedRounds.length > 0 || upcomingRounds.length > 0) && (
         <section className="panel series-release-list">
@@ -535,11 +540,11 @@ export function SeriesPage() {
                     label={`Album art from ${round.title}`}
                   />
                 )}
-                <span className={`status ${round.status}`}>{round.status}</span>
                 <div>
                   <h2>{round.title}</h2>
                   <p>
-                    Opened {formatDate(round.opensAt)} · Published {formatDate(round.publishAt)}
+                    Opened {formatDateOnly(round.opensAt)} · Published{" "}
+                    {formatDateOnly(round.publishAt)}
                   </p>
                 </div>
               </Link>
@@ -548,80 +553,6 @@ export function SeriesPage() {
         </section>
       )}
     </main>
-  );
-}
-
-function SeriesGenres({ stats }: { stats: SeriesHistory["stats"] }) {
-  return (
-    <section className="panel profile-chart profile-genres">
-      <div className="profile-chart-heading">
-        <div>
-          <p className="eyebrow">Genre fingerprint</p>
-          <h2>What this series leans on</h2>
-        </div>
-        <span>{`${stats.genreTaggedTrackCount} of ${stats.uniqueTrackCount} tracks tagged`}</span>
-      </div>
-      <div className="genre-cloud">
-        {stats.genreSpread.map((genre) => (
-          <span
-            className={`genre-token genre-token-${genre.group.replace(" ", "-")}`}
-            key={genre.name}
-          >
-            <i aria-hidden="true" />
-            {genre.name} <small>{genre.count}</small>
-          </span>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function SeriesGenreMix({
-  contributors,
-}: {
-  contributors: SeriesHistory["stats"]["contributors"];
-}) {
-  const tagged = contributors.filter((contributor) => contributor.groups.length > 0);
-  return (
-    <section className="panel profile-chart series-genre-mix">
-      <div className="profile-chart-heading">
-        <div>
-          <p className="eyebrow">The group</p>
-          <h2>Who brings what</h2>
-        </div>
-        <span>Share of each person&apos;s tagged picks</span>
-      </div>
-      {tagged.length === 0 ? (
-        <p className="profile-chart-empty">
-          No genre tags have been cached for this series&apos; picks yet.
-        </p>
-      ) : (
-        <ol className="genre-mix-list">
-          {tagged.map((contributor) => {
-            const total = contributor.groups.reduce((sum, group) => sum + group.count, 0);
-            return (
-              <li key={contributor.id}>
-                <Link to={`/profiles/${contributor.id}`}>{contributor.displayName}</Link>
-                <div className="genre-mix-bar" aria-hidden="true">
-                  {contributor.groups.map((group) => (
-                    <i
-                      key={group.group}
-                      className={`genre-token-${group.group.replace(" ", "-")}`}
-                      style={{ "--share": `${(group.count / total) * 100}%` } as CSSProperties}
-                      title={`${group.group}: ${group.count}`}
-                    />
-                  ))}
-                </div>
-                <small>{contributor.trackCount}</small>
-                <span className="profile-sr-only">
-                  {contributor.groups.map((g) => `${g.group} ${g.count}`).join(", ")}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </section>
   );
 }
 
@@ -670,23 +601,32 @@ function SeriesContributors({
 function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
   const active = round.status !== "published";
   return (
-    <Link className="series-featured-round" to={`/rounds/${round.id}`}>
-      <div>
+    <Link
+      className="series-featured-round"
+      to={`/rounds/${round.id}`}
+      style={
+        {
+          "--featured-round-artwork": round.artworkUrls[0]
+            ? `url(${round.artworkUrls[0]})`
+            : "none",
+        } as CSSProperties
+      }
+    >
+      <div className="featured-round-copy">
         <p className="eyebrow">{active ? "Current round" : "Latest release"}</p>
         <h2>{round.title}</h2>
         <p>
           {active
-            ? `Closes ${formatDate(round.closesAt)}`
+            ? `${formatDeadline(round.closesAt)} · ${formatDate(round.closesAt)}`
             : `Released ${formatDate(round.publishAt)}`}
         </p>
         {round.prompt && <p className="featured-prompt">Prompt: {round.prompt}</p>}
       </div>
       {round.artworkUrls.length > 0 && (
-        <ArtworkMosaic artworkUrls={round.artworkUrls} label={`Album art from ${round.title}`} />
+        <div className="featured-round-artwork">
+          <ArtworkMosaic artworkUrls={round.artworkUrls} label={`Album art from ${round.title}`} />
+        </div>
       )}
-      <div>
-        <span className={`status ${round.status}`}>{round.status}</span>
-      </div>
     </Link>
   );
 }

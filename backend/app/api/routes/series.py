@@ -19,7 +19,7 @@ from app.api.payloads import (
     spotify_profile_image_subquery,
     stable_pick,
 )
-from app.api.schemas import SeriesHistoryResponse, SeriesListResponse
+from app.api.schemas import SeriesGenreInsightsResponse, SeriesHistoryResponse, SeriesListResponse
 from app.core.security import hash_secret
 from app.db.models import (
     ContributorGroup,
@@ -43,9 +43,6 @@ from app.services.lifecycle import reconcile_round_status
 from app.services.membership import ensure_default_series_membership
 
 router = APIRouter(prefix="/series", tags=["series"])
-
-# Matches the profile cloud, which sits at the same width.
-_SERIES_GENRE_LIMIT = 12
 
 
 @router.post("/invites/{token}/accept", dependencies=[Depends(require_csrf)])
@@ -127,6 +124,17 @@ def list_my_series(
     return sorted(payloads, key=_series_sort_key)
 
 
+@router.get("/{series_id}/insights", response_model=SeriesGenreInsightsResponse)
+def get_series_genre_insights(
+    series_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    """Return the optional, heavier genre detail after the history shell is usable."""
+    _, _, rounds = _series_view(db, series_id, user)
+    return _series_genre_insights(db, rounds)
+
+
 @router.get("/{series_id}", response_model=SeriesHistoryResponse)
 def get_series_history(
     series_id: uuid.UUID,
@@ -139,14 +147,8 @@ def get_series_history(
     only their active materialized memberships; platform and series admins can
     inspect the complete series history.
     """
-    series = db.get(Series, series_id)
-    if series is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="series not found")
-    is_admin = is_series_admin(db, series_id, user)
-    rounds = _visible_rounds(db, series_id, user, is_admin)
-    if not is_admin and not rounds and not _has_series_membership(db, series_id, user.id):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="series access required")
-    stats = _series_stats(db, rounds)
+    series, is_admin, rounds = _series_view(db, series_id, user)
+    stats = _series_summary_stats(db, rounds)
     artwork_by_round = round_artwork_urls_by_round(db, [round_.id for round_ in rounds])
     fallback_artwork_url = (
         _fallback_artwork_url(rounds, artwork_by_round)
@@ -171,6 +173,20 @@ def get_series_history(
             for round_ in rounds
         ],
     }
+
+
+def _series_view(
+    db: DbSession, series_id: uuid.UUID, user: User
+) -> tuple[Series, bool, list[Round]]:
+    """Resolve one viewer's visible series once for either detail endpoint."""
+    series = db.get(Series, series_id)
+    if series is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="series not found")
+    is_admin = is_series_admin(db, series_id, user)
+    rounds = _visible_rounds(db, series_id, user, is_admin)
+    if not is_admin and not rounds and not _has_series_membership(db, series_id, user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="series access required")
+    return series, is_admin, rounds
 
 
 def _series_payloads(
@@ -353,20 +369,118 @@ def _fallback_artwork_url(
     return None
 
 
-def _series_stats(db: DbSession, rounds: list[Round]) -> dict[str, object]:
+def _sorted_genres(spread: Counter[str]) -> list[tuple[str, int]]:
+    """Order the fingerprint by taxonomy family, then its strongest labels."""
+    group_order = {group: index for index, group in enumerate(GROUPS)}
+    return sorted(
+        spread.items(),
+        key=lambda item: (
+            group_order.get(group_for(item[0]), len(GROUPS)),
+            -item[1],
+            item[0].casefold(),
+        ),
+    )
+
+
+def _series_summary_stats(db: DbSession, rounds: list[Round]) -> dict[str, object]:
     if not rounds:
         return {
             "roundCount": 0,
             "songCount": 0,
             "artistCount": 0,
+            "contributors": [],
+        }
+    round_ids = [round_.id for round_ in rounds]
+    rows = _series_submission_rows(db, round_ids)
+    contributors: dict[uuid.UUID, dict[str, object]] = {}
+    track_ids: set[uuid.UUID] = set()
+    artists: set[str] = set()
+    for user_id, display_name, email, profile_image_url, artist, track_id in rows:
+        track_ids.add(track_id)
+        contributors[user_id] = {
+            "id": str(user_id),
+            "displayName": contributor_display_name(display_name, email),
+            "spotifyProfileImageUrl": profile_image_url,
+        }
+        artists.add(artist.casefold())
+
+    return {
+        "roundCount": len(rounds),
+        "songCount": len(rows),
+        "artistCount": len(artists),
+        "contributors": sorted(
+            contributors.values(),
+            key=lambda contributor: str(contributor["displayName"]).casefold(),
+        ),
+    }
+
+
+def _series_genre_insights(db: DbSession, rounds: list[Round]) -> dict[str, object]:
+    if not rounds:
+        return {
             "genreTaggedTrackCount": 0,
             "uniqueTrackCount": 0,
             "genreSpread": [],
             "contributors": [],
         }
     round_ids = [round_.id for round_ in rounds]
+    rows = _series_submission_rows(db, round_ids)
+    contributors: dict[uuid.UUID, dict[str, object]] = {}
+    tracks_by_contributor: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
+    track_ids: set[uuid.UUID] = set()
+    for user_id, display_name, email, profile_image_url, _, track_id in rows:
+        tracks_by_contributor[user_id].add(track_id)
+        track_ids.add(track_id)
+        contributors[user_id] = {
+            "id": str(user_id),
+            "displayName": contributor_display_name(display_name, email),
+            "spotifyProfileImageUrl": profile_image_url,
+        }
+
+    spread: Counter[str] = Counter()
+    genres_by_contributor: dict[uuid.UUID, Counter[str]] = defaultdict(Counter)
+    tagged_tracks: set[uuid.UUID] = set()
+    for contributor_id, genre, track_id in db.execute(
+        select(Submission.contributor_id, TrackGenre.name, Submission.track_id)
+        .join(TrackGenre, TrackGenre.track_id == Submission.track_id)
+        .where(
+            Submission.round_id.in_(round_ids),
+            Submission.status == SubmissionStatus.ACCEPTED,
+        )
+    ):
+        spread[genre] += 1
+        genres_by_contributor[contributor_id][genre] += 1
+        tagged_tracks.add(track_id)
+
+    return {
+        "genreTaggedTrackCount": len(tagged_tracks),
+        "uniqueTrackCount": len(track_ids),
+        "genreSpread": [
+            {"name": name, "count": count, "group": group_for(name)}
+            for name, count in _sorted_genres(spread)
+        ],
+        "contributors": sorted(
+            (
+                {
+                    **contributor,
+                    "trackCount": len(tracks_by_contributor[user_id]),
+                    "genres": [
+                        {"name": name, "count": count, "group": group_for(name)}
+                        for name, count in _sorted_genres(genres_by_contributor[user_id])
+                    ],
+                }
+                for user_id, contributor in contributors.items()
+            ),
+            key=lambda contributor: str(contributor["displayName"]).casefold(),
+        ),
+    }
+
+
+def _series_submission_rows(
+    db: DbSession, round_ids: list[uuid.UUID]
+) -> Sequence[tuple[uuid.UUID, str | None, str | None, str | None, str, uuid.UUID]]:
     spotify_profile_image = spotify_profile_image_subquery(User.id)
-    rows = list(
+    return (
         db.execute(
             select(
                 User.id,
@@ -384,61 +498,6 @@ def _series_stats(db: DbSession, rounds: list[Round]) -> dict[str, object]:
             )
             .order_by(User.display_name, User.email)
         )
+        .tuples()
+        .all()
     )
-    contributors: dict[uuid.UUID, dict[str, object]] = {}
-    tracks_by_contributor: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
-    track_ids: set[uuid.UUID] = set()
-    artists: set[str] = set()
-    for user_id, display_name, email, profile_image_url, artist, track_id in rows:
-        tracks_by_contributor[user_id].add(track_id)
-        track_ids.add(track_id)
-        contributors[user_id] = {
-            "id": str(user_id),
-            "displayName": contributor_display_name(display_name, email),
-            "spotifyProfileImageUrl": profile_image_url,
-        }
-        artists.add(artist.casefold())
-
-    spread: Counter[str] = Counter()
-    groups_by_contributor: dict[uuid.UUID, Counter[str]] = defaultdict(Counter)
-    tagged_tracks: set[uuid.UUID] = set()
-    for contributor_id, genre, track_id in db.execute(
-        select(Submission.contributor_id, TrackGenre.name, Submission.track_id)
-        .join(TrackGenre, TrackGenre.track_id == Submission.track_id)
-        .where(
-            Submission.round_id.in_(round_ids),
-            Submission.status == SubmissionStatus.ACCEPTED,
-        )
-    ):
-        spread[genre] += 1
-        groups_by_contributor[contributor_id][group_for(genre)] += 1
-        tagged_tracks.add(track_id)
-
-    return {
-        "roundCount": len(rounds),
-        "songCount": len(rows),
-        "artistCount": len(artists),
-        "genreTaggedTrackCount": len(tagged_tracks),
-        "uniqueTrackCount": len(track_ids),
-        "genreSpread": [
-            {"name": name, "count": count, "group": group_for(name)}
-            for name, count in spread.most_common(_SERIES_GENRE_LIMIT)
-        ],
-        "contributors": sorted(
-            (
-                {
-                    **contributor,
-                    "trackCount": len(tracks_by_contributor[user_id]),
-                    # Stacked in the shared group order so one person's mix can
-                    # be read against another's rather than each finding its own.
-                    "groups": [
-                        {"group": group, "count": groups_by_contributor[user_id][group]}
-                        for group in GROUPS
-                        if groups_by_contributor[user_id][group]
-                    ],
-                }
-                for user_id, contributor in contributors.items()
-            ),
-            key=lambda contributor: str(contributor["displayName"]).casefold(),
-        ),
-    }

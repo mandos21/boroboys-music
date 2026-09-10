@@ -155,6 +155,39 @@ def test_profile_paginates_history_and_keeps_removed_members_out(
         get_profile(contributor.id, db, viewer)
 
 
+def test_profile_keeps_ten_artists_and_every_cached_genre(
+    db: Session,
+    make_round: Callable[..., Round],
+    make_series: Callable[..., Series],
+    make_track: Callable[..., Track],
+    make_user: Callable[..., User],
+) -> None:
+    viewer = make_user(name="Viewer")
+    contributor = make_user(name="Contributor")
+    series = make_series()
+    round_ = make_round(series, members=[viewer, contributor])
+    for index in range(31):
+        track = make_track(name=f"Track {index}", artist=f"Artist {index}")
+        db.add_all(
+            (
+                TrackArtist(
+                    track_id=track.id,
+                    spotify_artist_id=f"artist-{index}",
+                    name=f"Artist {index}",
+                    position=0,
+                ),
+                TrackGenre(track_id=track.id, genre_key=f"genre-{index}", name=f"Genre {index}"),
+                Submission(round_id=round_.id, contributor_id=contributor.id, track_id=track.id),
+            )
+        )
+    db.commit()
+
+    profile = get_profile(contributor.id, db, viewer)
+
+    assert len(profile["stats"]["topArtists"]) == 10
+    assert len(profile["stats"]["genreSpread"]) == 31
+
+
 def test_profile_is_visible_to_series_and_platform_administrators(
     db: Session,
     make_round: Callable[..., Round],

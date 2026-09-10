@@ -212,22 +212,25 @@ class EvidenceResponse(ApiResponse):
     evidence: list[EvidenceItemResponse]
 
 
-class SeriesGroupShareResponse(ApiResponse):
-    group: str
-    count: int
-
-
 class SeriesContributorResponse(ContributorResponse):
     """A contributor plus the genre mix they bring to the series."""
 
     track_count: int
-    groups: list[SeriesGroupShareResponse]
+    genres: list[ProfileGenreItemResponse]
 
 
-class SeriesStatsResponse(ApiResponse):
+class SeriesSummaryStatsResponse(ApiResponse):
+    """The small, immediately useful portion of a series overview."""
+
     round_count: int
     song_count: int
     artist_count: int
+    contributors: list[ContributorResponse]
+
+
+class SeriesGenreInsightsResponse(ApiResponse):
+    """Genre detail fetched independently of the series history shell."""
+
     genre_tagged_track_count: int
     unique_track_count: int
     genre_spread: list[ProfileGenreItemResponse]
@@ -254,7 +257,7 @@ class SeriesHistoryResponse(ApiResponse):
     accent_color: str | None
     fallback_artwork_url: str | None
     is_admin: bool
-    stats: SeriesStatsResponse
+    stats: SeriesSummaryStatsResponse
     rounds: list[SeriesHistoryRoundResponse]
 
 

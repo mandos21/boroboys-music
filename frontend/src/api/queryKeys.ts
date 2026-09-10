@@ -11,6 +11,7 @@ export const queryKeys = {
 
   series: () => ["series"] as const,
   seriesDetail: (seriesId: string | undefined) => ["series", seriesId] as const,
+  seriesInsights: (seriesId: string | undefined) => ["series", seriesId, "insights"] as const,
   seriesMembers: (seriesId: string | undefined) => ["series-members", seriesId] as const,
   seriesUsers: (seriesId: string | undefined, query: string) =>
     ["series-users", seriesId, query] as const,

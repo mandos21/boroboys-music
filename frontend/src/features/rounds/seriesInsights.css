@@ -1,0 +1,50 @@
+.series-insights { margin: 1rem 0; }
+.series-insights.has-more { margin-bottom: 1.75rem; }
+.series-genre-split { display: grid; grid-template-columns: auto minmax(6rem, 1fr) auto; align-items: center; gap: .7rem; padding: .55rem .8rem; margin-bottom: 1rem; }
+.series-genre-split strong { color: #1e293b; font-size: .86rem; }
+.series-genre-split-heading { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; }
+.series-genre-split .series-genre-split-bar { height: 2.15rem; }
+.series-genre-split-count { display: grid; min-width: 3.8rem; padding: .28rem .42rem; border: 1px solid #d7eadc; border-radius: .5rem; background: #f8fcf9; text-align: center; }
+.series-genre-split-count strong { color: #166534; font-size: .78rem; line-height: 1; }
+.series-genre-split-count small { color: #64748b; font-size: .6rem; font-weight: 800; line-height: 1.35; white-space: nowrap; text-transform: uppercase; }
+.series-insight-stat { display: inline-flex; align-items: center; justify-content: end; gap: .3rem; }
+.series-insights-grid { display: grid; position: relative; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.series-insight-panel { display: flex; height: 22rem; flex-direction: column; }
+.series-insight-panel.is-expanded { height: min(34rem, 70vh); }
+.series-insight-content { display: flex; min-height: 0; flex: 1; flex-direction: column; margin-top: 1rem; }
+.series-insight-items { position: relative; min-height: 0; flex: 1; overflow: hidden; }
+.series-insight-panel:not(.is-expanded) .series-insight-content.has-more .series-insight-items::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2rem; background: linear-gradient(transparent, var(--panel-background, #fff)); content: ""; pointer-events: none; }
+.series-insight-panel.is-expanded .series-insight-items { overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #9fc9aa transparent; scrollbar-width: thin; }
+.series-insight-toggle { display: inline-flex; position: absolute; z-index: 2; bottom: -.9rem; left: 50%; align-items: center; gap: .25rem; padding: .4rem .7rem; border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; box-shadow: 0 .2rem .55rem rgb(22 101 52 / 12%); color: #166534; font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; transform: translateX(-50%); }
+.series-insights.is-expanded .series-insight-toggle svg { transform: rotate(180deg); }
+.series-insight-toggle:hover, .series-insight-toggle:focus-visible { color: #14532d; text-decoration: underline; }
+.series-genre-cloud { height: 100%; min-height: 0; box-sizing: border-box; align-content: start; padding: .15rem; }
+.genre-mix-key { display: flex; flex-wrap: wrap; gap: .35rem .7rem; padding: 0; margin: .8rem 0 0; list-style: none; }
+.genre-mix-key button { display: inline-flex; align-items: center; gap: .3rem; padding: 0; border: 0; background: transparent; color: #526179; font: inherit; font-size: .68rem; font-weight: 750; text-transform: capitalize; cursor: pointer; }
+.genre-mix-key button:hover, .genre-mix-key button:focus-visible, .genre-mix-key button[aria-pressed="true"] { color: #166534; text-decoration: underline; }
+.genre-mix-key i { width: .5rem; height: .5rem; border-radius: 50%; background: var(--genre-color, #64748b); }
+.genre-mix-list { display: grid; gap: .6rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
+.genre-mix-list li { display: grid; grid-template-columns: minmax(0, 9.3rem) minmax(8rem, 2.2fr) auto; align-items: center; gap: .6rem; transition: opacity .16s ease; }
+.genre-mix-list li.is-muted { opacity: .32; }
+.genre-mix-contributor { overflow: hidden; padding: 0; border: 0; background: transparent; color: #1e293b; font: inherit; font-size: .8rem; font-weight: 750; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.genre-mix-contributor:hover, .genre-mix-contributor:focus-visible, .genre-mix-contributor[aria-pressed="true"] { color: #166534; text-decoration: underline; }
+.genre-mix-list small { color: #64748b; font-size: .72rem; font-weight: 700; }
+.genre-mix-bar { display: flex; height: .55rem; overflow: hidden; border-radius: 99px; background: #eef2f7; gap: 1px; }
+.genre-mix-bar i { width: var(--share); min-width: 2px; background: var(--genre-color, #64748b); }
+.genre-mix-bar i.is-muted { background: #cbd5e1; }
+
+@media (max-width: 62rem) { .series-insights-grid { grid-template-columns: 1fr; } .series-insight-panel.is-expanded { height: min(32rem, 70vh); } }
+@media (max-width: 34rem) { .series-genre-split { grid-template-columns: 1fr auto; }.series-genre-split-heading { grid-column: 1 / -1; }.series-genre-split .series-genre-split-bar { height: 2.75rem; } }
+
+html[data-theme="dark"] .series-genre-split strong, html[data-theme="dark"] .genre-mix-contributor { color: #eef8f0; }
+html[data-theme="dark"] .series-genre-split small, html[data-theme="dark"] .genre-mix-list small { color: #a7bbae; }
+html[data-theme="dark"] .series-genre-split-count { border-color: #42684d; background: #172a20; }
+html[data-theme="dark"] .series-genre-split-count strong { color: #86efac; }
+html[data-theme="dark"] .genre-mix-contributor:hover, html[data-theme="dark"] .genre-mix-contributor:focus-visible, html[data-theme="dark"] .genre-mix-contributor[aria-pressed="true"], html[data-theme="dark"] .genre-mix-key button:hover, html[data-theme="dark"] .genre-mix-key button:focus-visible, html[data-theme="dark"] .genre-mix-key button[aria-pressed="true"] { color: #86efac; }
+html[data-theme="dark"] .genre-mix-key button { color: #bed0c3; }
+html[data-theme="dark"] .genre-mix-bar { background: #1d2b23; }
+html[data-theme="dark"] .genre-mix-bar i.is-muted { background: #405a49; }
+html[data-theme="dark"] .series-insight-panel:not(.is-expanded) .series-insight-content.has-more .series-insight-items::after { background: linear-gradient(transparent, #17231c); }
+html[data-theme="dark"] .series-insight-panel.is-expanded .series-insight-items { scrollbar-color: #4b8a60 transparent; }
+html[data-theme="dark"] .series-insight-toggle { border-color: #42684d; background: #172a20; color: #86efac; }
+html[data-theme="dark"] .series-insight-toggle:hover, html[data-theme="dark"] .series-insight-toggle:focus-visible { color: #dcfce7; }

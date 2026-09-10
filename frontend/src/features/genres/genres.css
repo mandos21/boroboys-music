@@ -1,0 +1,48 @@
+/* Genre identity is carried by a stable taxonomy-colour dot rather than label
+   ink, which keeps every label legible in either theme. */
+.genre-cloud { display: flex; flex-wrap: wrap; align-content: center; gap: .5rem; min-height: 8.7rem; padding-top: 1rem; }
+.genre-token { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .6rem; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; color: #1e293b; font: inherit; font-size: .75rem; font-weight: 750; line-height: 1.15; text-align: left; }
+button.genre-token { cursor: pointer; transition: opacity .16s ease, border-color .16s ease, background-color .16s ease, transform .16s ease; }
+.genre-token i { width: .5rem; height: .5rem; flex: none; border-radius: 50%; background: var(--genre-color, #64748b); }
+.genre-token small { color: #64748b; font-size: .67rem; font-weight: 700; }
+.genre-token.is-muted { border-color: #d9e0e7; background: #f8fafc; color: #64748b; opacity: 1; }
+.genre-token.is-muted i { background: #94a3b8; }
+.genre-token.is-muted small { color: #94a3b8; }
+.genre-token.is-highlighted { border-color: var(--genre-color, #64748b); background: #f8fcf9; }
+button.genre-token:not(.is-muted):hover { transform: translateY(-1px); }
+button.genre-token:not(.is-muted):focus-visible { outline: 2px solid var(--genre-color, #64748b); outline-offset: 2px; }
+.genre-token-rock { --genre-color: #166534; }
+.genre-token-alternative { --genre-color: #0d9488; }
+.genre-token-punk { --genre-color: #dc2626; }
+.genre-token-metal { --genre-color: #4338ca; }
+.genre-token-electronic { --genre-color: #0284c7; }
+.genre-token-hip-hop { --genre-color: #a855f7; }
+.genre-token-pop { --genre-color: #db2777; }
+.genre-token-jazz { --genre-color: #b45309; }
+.genre-token-roots { --genre-color: #65a30d; }
+.genre-token-global { --genre-color: #0891b2; }
+.genre-token-other { --genre-color: #64748b; }
+
+.genre-group-bar { display: flex; height: 2.75rem; align-items: center; overflow: hidden; border-radius: .7rem; background: transparent; gap: 1px; }
+.genre-group-bar > button, .genre-group-bar > i { display: block; width: var(--share); min-width: 2px; padding: 0; border: 0; }
+.genre-group-bar > button { display: grid; height: 100%; place-items: center; background: transparent; cursor: pointer; }
+.genre-group-bar > button > i, .genre-group-bar > i { width: 100%; height: .6rem; border-radius: 99px; background: var(--genre-color, #64748b); }
+.genre-group-bar > button:hover > i, .genre-group-bar > button:focus-visible > i, .genre-group-bar > button[aria-pressed="true"] > i { position: relative; z-index: 1; box-shadow: 0 0 0 2px #fff; }
+
+html[data-theme="dark"] .genre-token { border-color: #31483a; background: #172a20; color: #eef8f0; }
+html[data-theme="dark"] .genre-token small { color: #a7bbae; }
+html[data-theme="dark"] .genre-token-rock { --genre-color: #4ade80; }
+html[data-theme="dark"] .genre-token-alternative { --genre-color: #2dd4bf; }
+html[data-theme="dark"] .genre-token-punk { --genre-color: #f87171; }
+html[data-theme="dark"] .genre-token-metal { --genre-color: #818cf8; }
+html[data-theme="dark"] .genre-token-electronic { --genre-color: #38bdf8; }
+html[data-theme="dark"] .genre-token-hip-hop { --genre-color: #c084fc; }
+html[data-theme="dark"] .genre-token-pop { --genre-color: #f472b6; }
+html[data-theme="dark"] .genre-token-jazz { --genre-color: #fbbf24; }
+html[data-theme="dark"] .genre-token-roots { --genre-color: #a3e635; }
+html[data-theme="dark"] .genre-token-global { --genre-color: #22d3ee; }
+html[data-theme="dark"] .genre-token-other { --genre-color: #94a3b8; }
+html[data-theme="dark"] .genre-token.is-muted { border-color: #31483a; background: #17231c; color: #789080; }
+html[data-theme="dark"] .genre-token.is-muted i { background: #526b5a; }
+html[data-theme="dark"] .genre-token.is-muted small { color: #526b5a; }
+html[data-theme="dark"] .genre-group-bar > button:hover > i, html[data-theme="dark"] .genre-group-bar > button:focus-visible > i, html[data-theme="dark"] .genre-group-bar > button[aria-pressed="true"] > i { box-shadow: 0 0 0 2px #17231c; }

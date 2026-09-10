@@ -10,7 +10,13 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.routes.rounds import get_round, list_round_submissions
-from app.api.routes.series import accept_series_invite, get_series_history, list_my_series
+from app.api.routes.series import (
+    _series_genre_insights,
+    accept_series_invite,
+    get_series_genre_insights,
+    get_series_history,
+    list_my_series,
+)
 from app.core.security import hash_secret
 from app.db.models import (
     ContributorGroup,
@@ -24,6 +30,7 @@ from app.db.models import (
     Submission,
     SubmissionStatus,
     Track,
+    TrackGenre,
     User,
 )
 
@@ -103,6 +110,109 @@ def test_series_history_does_not_leak_another_group_round(db: Session) -> None:
     assert list_round_submissions(one.id, db, administrator) == []
     with pytest.raises(HTTPException, match="series access required") as error:
         get_series_history(series.id, db, outsider)
+    assert error.value.status_code == 403
+
+
+def test_series_genre_insights_does_not_leak_another_group_round(db: Session) -> None:
+    """The deferred insights endpoint must mirror the history endpoint's access rules."""
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    member_one = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"insights-member-one-{suffix}",
+        platform_role=PlatformRole.MEMBER,
+    )
+    member_two = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"insights-member-two-{suffix}",
+        platform_role=PlatformRole.MEMBER,
+    )
+    outsider = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"insights-outsider-{suffix}",
+        platform_role=PlatformRole.MEMBER,
+    )
+    administrator = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"insights-admin-{suffix}",
+        platform_role=PlatformRole.ADMIN,
+    )
+    series = Series(
+        name=f"Private insights {suffix}",
+        slug=f"private-insights-{suffix}",
+        timezone="UTC",
+        default_policies=[],
+    )
+    db.add_all((member_one, member_two, outsider, administrator, series))
+    db.flush()
+    one = Round(
+        series_id=series.id,
+        title="First group round",
+        timezone="UTC",
+        submission_limit=1,
+        opens_at=now - timedelta(days=2),
+        closes_at=now - timedelta(days=1),
+        publish_at=now,
+        status=RoundStatus.CLOSED,
+        policy_snapshot=[],
+    )
+    two = Round(
+        series_id=series.id,
+        title="Second group round",
+        timezone="UTC",
+        submission_limit=1,
+        opens_at=now - timedelta(days=2),
+        closes_at=now - timedelta(days=1),
+        publish_at=now,
+        status=RoundStatus.CLOSED,
+        policy_snapshot=[],
+    )
+    db.add_all((one, two))
+    db.flush()
+    db.add_all(
+        (
+            RoundMember(round_id=one.id, user_id=member_one.id),
+            RoundMember(round_id=two.id, user_id=member_two.id),
+        )
+    )
+    track_one = Track(
+        spotify_track_id=f"insights-track-one-{suffix}", name="Track One", artist="Artist One"
+    )
+    track_two = Track(
+        spotify_track_id=f"insights-track-two-{suffix}", name="Track Two", artist="Artist Two"
+    )
+    db.add_all((track_one, track_two))
+    db.flush()
+    db.add_all(
+        (
+            Submission(
+                round_id=one.id,
+                contributor_id=member_one.id,
+                track_id=track_one.id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+            Submission(
+                round_id=two.id,
+                contributor_id=member_two.id,
+                track_id=track_two.id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+        )
+    )
+    db.add_all(
+        (
+            TrackGenre(track_id=track_one.id, genre_key="rock", name="rock"),
+            TrackGenre(track_id=track_two.id, genre_key="pop", name="pop"),
+        )
+    )
+    db.commit()
+
+    visible_to_one = get_series_genre_insights(series.id, db, member_one)
+    assert {genre["name"] for genre in visible_to_one["genreSpread"]} == {"rock"}
+    visible_to_admin = get_series_genre_insights(series.id, db, administrator)
+    assert {genre["name"] for genre in visible_to_admin["genreSpread"]} == {"rock", "pop"}
+    with pytest.raises(HTTPException, match="series access required") as error:
+        get_series_genre_insights(series.id, db, outsider)
     assert error.value.status_code == 403
 
 
@@ -280,6 +390,86 @@ def test_round_submissions_fall_back_to_email_for_unnamed_contributors(db: Sessi
     entries = list_round_submissions(round_.id, db, contributor)
 
     assert entries[0]["contributor"]["displayName"] == contributor.email
+
+
+def test_series_stats_returns_every_cached_genre_for_the_expandable_fingerprint(
+    db: Session,
+) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    contributor = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"genre-fingerprint-{suffix}",
+        platform_role=PlatformRole.MEMBER,
+    )
+    series = Series(
+        name=f"Genre fingerprint {suffix}",
+        slug=f"genre-fingerprint-{suffix}",
+        timezone="UTC",
+        default_policies=[],
+    )
+    db.add_all((contributor, series))
+    db.flush()
+    round_ = Round(
+        series_id=series.id,
+        title="Every cached genre",
+        timezone="UTC",
+        submission_limit=20,
+        opens_at=now - timedelta(days=2),
+        closes_at=now - timedelta(days=1),
+        publish_at=now,
+        status=RoundStatus.PUBLISHED,
+        policy_snapshot=[],
+    )
+    genre_names = [
+        *(f"other genre {index}" for index in range(11)),
+        "garage rock",
+        "rock",
+        "rock",
+        "pop",
+    ]
+    tracks = [
+        Track(
+            spotify_track_id=f"genre-track-{index}-{suffix}",
+            name=f"Track {index}",
+            artist="Artist",
+        )
+        for index in range(len(genre_names))
+    ]
+    db.add(round_)
+    db.add_all(tracks)
+    db.flush()
+    db.add_all(
+        Submission(
+            round_id=round_.id,
+            contributor_id=contributor.id,
+            track_id=track.id,
+            status=SubmissionStatus.ACCEPTED,
+        )
+        for track in tracks
+    )
+    db.add_all(
+        TrackGenre(track_id=track.id, genre_key=f"genre-{index}", name=genre)
+        for index, (track, genre) in enumerate(zip(tracks, genre_names, strict=True))
+    )
+    db.commit()
+
+    stats = _series_genre_insights(db, [round_])
+
+    assert len(stats["genreSpread"]) == len(set(genre_names))
+    assert {genre["name"] for genre in stats["genreSpread"]} == set(genre_names)
+    # Taxonomy family determines the cloud's reading order, then frequency
+    # makes the most representative labels lead within that family.
+    assert [genre["name"] for genre in stats["genreSpread"][:3]] == [
+        "rock",
+        "garage rock",
+        "pop",
+    ]
+    contributor = stats["contributors"][0]
+    assert {genre["name"] for genre in contributor["genres"]} == set(genre_names)
+    # Exact tags are the one contributor-level genre representation. The client
+    # derives family totals from them, so independent aggregates cannot drift.
+    assert "groups" not in contributor
 
 
 def test_series_invite_adds_a_member_once_and_respects_its_use_limit(db: Session) -> None:

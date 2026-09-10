@@ -1,0 +1,10 @@
+.series-insights-skeleton { min-height: 11rem; margin: 1rem 0; }
+.series-insights-skeleton h2 { font-size: 1.08rem; }
+.series-insights-skeleton-lines { display: grid; gap: .65rem; margin-top: 1.15rem; }
+.series-insights-skeleton-lines i { display: block; height: .7rem; border-radius: 99px; background: #e8f2ea; }
+.series-insights-skeleton-lines i:nth-child(2) { width: 76%; }
+.series-insights-skeleton-lines i:nth-child(3) { width: 58%; }
+.series-insights-error { margin: 1rem 0; color: #64748b; font-size: .84rem; }
+
+html[data-theme="dark"] .series-insights-skeleton-lines i { background: #27402e; }
+html[data-theme="dark"] .series-insights-error { color: #a7bbae; }

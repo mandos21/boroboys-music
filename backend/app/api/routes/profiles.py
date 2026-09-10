@@ -38,10 +38,7 @@ router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 _DEFAULT_HISTORY_LIMIT = 30
 _MAX_HISTORY_LIMIT = 60
-# Enough tags to show the long tail, few enough that the cloud stays the same
-# height as the artists panel beside it.
-_GENRE_SPREAD_LIMIT = 12
-# Five is what fits the panel beside the artists list without scrolling.
+_TOP_ARTIST_LIMIT = 10
 _AFFINITY_LIMIT = 5
 _SHARED_GENRE_LIMIT = 2
 
@@ -118,7 +115,7 @@ def _profile_payload(
             .join(visible, TrackArtist.track_id == visible.c.track_id)
             .group_by(TrackArtist.spotify_artist_id, TrackArtist.name)
             .order_by(func.count(visible.c.submission_id).desc(), func.lower(TrackArtist.name))
-            .limit(5)
+            .limit(_TOP_ARTIST_LIMIT)
         ).all()
     )
     genre_counts = db.execute(
@@ -136,7 +133,6 @@ def _profile_payload(
                 .join(visible, TrackGenre.track_id == visible.c.track_id)
                 .group_by(TrackGenre.genre_key, TrackGenre.name)
                 .order_by(func.count(visible.c.submission_id).desc(), func.lower(TrackGenre.name))
-                .limit(_GENRE_SPREAD_LIMIT)
             ).all()
         )
     ]

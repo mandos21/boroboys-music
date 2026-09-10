@@ -811,6 +811,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{series_id}/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Series Genre Insights
+         * @description Return the optional, heavier genre detail after the history shell is usable.
+         */
+        get: operations["get_series_genre_insights_api_v1_series__series_id__insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1530,8 +1550,8 @@ export interface components {
         SeriesContributorResponse: {
             /** Displayname */
             displayName: string;
-            /** Groups */
-            groups: components["schemas"]["SeriesGroupShareResponse"][];
+            /** Genres */
+            genres: components["schemas"]["ProfileGenreItemResponse"][];
             /** Id */
             id: string;
             /** Spotifyprofileimageurl */
@@ -1568,12 +1588,19 @@ export interface components {
              */
             timezone: string;
         };
-        /** SeriesGroupShareResponse */
-        SeriesGroupShareResponse: {
-            /** Count */
-            count: number;
-            /** Group */
-            group: string;
+        /**
+         * SeriesGenreInsightsResponse
+         * @description Genre detail fetched independently of the series history shell.
+         */
+        SeriesGenreInsightsResponse: {
+            /** Contributors */
+            contributors: components["schemas"]["SeriesContributorResponse"][];
+            /** Genrespread */
+            genreSpread: components["schemas"]["ProfileGenreItemResponse"][];
+            /** Genretaggedtrackcount */
+            genreTaggedTrackCount: number;
+            /** Uniquetrackcount */
+            uniqueTrackCount: number;
         };
         /** SeriesHistoryResponse */
         SeriesHistoryResponse: {
@@ -1593,7 +1620,7 @@ export interface components {
             name: string;
             /** Rounds */
             rounds: components["schemas"]["SeriesHistoryRoundResponse"][];
-            stats: components["schemas"]["SeriesStatsResponse"];
+            stats: components["schemas"]["SeriesSummaryStatsResponse"];
             /** Timezone */
             timezone: string;
         };
@@ -1645,22 +1672,19 @@ export interface components {
             /** Timezone */
             timezone: string;
         };
-        /** SeriesStatsResponse */
-        SeriesStatsResponse: {
+        /**
+         * SeriesSummaryStatsResponse
+         * @description The small, immediately useful portion of a series overview.
+         */
+        SeriesSummaryStatsResponse: {
             /** Artistcount */
             artistCount: number;
             /** Contributors */
-            contributors: components["schemas"]["SeriesContributorResponse"][];
-            /** Genrespread */
-            genreSpread: components["schemas"]["ProfileGenreItemResponse"][];
-            /** Genretaggedtrackcount */
-            genreTaggedTrackCount: number;
+            contributors: components["schemas"]["ContributorResponse"][];
             /** Roundcount */
             roundCount: number;
             /** Songcount */
             songCount: number;
-            /** Uniquetrackcount */
-            uniqueTrackCount: number;
         };
         /**
          * SeriesUpdate
@@ -3435,6 +3459,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeriesHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_series_genre_insights_api_v1_series__series_id__insights_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesGenreInsightsResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1978,11 +1978,11 @@
             "title": "Displayname",
             "type": "string"
           },
-          "groups": {
+          "genres": {
             "items": {
-              "$ref": "#/components/schemas/SeriesGroupShareResponse"
+              "$ref": "#/components/schemas/ProfileGenreItemResponse"
             },
-            "title": "Groups",
+            "title": "Genres",
             "type": "array"
           },
           "id": {
@@ -2010,7 +2010,7 @@
           "displayName",
           "spotifyProfileImageUrl",
           "trackCount",
-          "groups"
+          "genres"
         ],
         "title": "SeriesContributorResponse",
         "type": "object"
@@ -2115,22 +2115,39 @@
         "title": "SeriesCreate",
         "type": "object"
       },
-      "SeriesGroupShareResponse": {
+      "SeriesGenreInsightsResponse": {
+        "description": "Genre detail fetched independently of the series history shell.",
         "properties": {
-          "count": {
-            "title": "Count",
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesContributorResponse"
+            },
+            "title": "Contributors",
+            "type": "array"
+          },
+          "genreSpread": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileGenreItemResponse"
+            },
+            "title": "Genrespread",
+            "type": "array"
+          },
+          "genreTaggedTrackCount": {
+            "title": "Genretaggedtrackcount",
             "type": "integer"
           },
-          "group": {
-            "title": "Group",
-            "type": "string"
+          "uniqueTrackCount": {
+            "title": "Uniquetrackcount",
+            "type": "integer"
           }
         },
         "required": [
-          "group",
-          "count"
+          "genreTaggedTrackCount",
+          "uniqueTrackCount",
+          "genreSpread",
+          "contributors"
         ],
-        "title": "SeriesGroupShareResponse",
+        "title": "SeriesGenreInsightsResponse",
         "type": "object"
       },
       "SeriesHistoryResponse": {
@@ -2199,7 +2216,7 @@
             "type": "array"
           },
           "stats": {
-            "$ref": "#/components/schemas/SeriesStatsResponse"
+            "$ref": "#/components/schemas/SeriesSummaryStatsResponse"
           },
           "timezone": {
             "title": "Timezone",
@@ -2369,7 +2386,8 @@
         "title": "SeriesListResponse",
         "type": "object"
       },
-      "SeriesStatsResponse": {
+      "SeriesSummaryStatsResponse": {
+        "description": "The small, immediately useful portion of a series overview.",
         "properties": {
           "artistCount": {
             "title": "Artistcount",
@@ -2377,21 +2395,10 @@
           },
           "contributors": {
             "items": {
-              "$ref": "#/components/schemas/SeriesContributorResponse"
+              "$ref": "#/components/schemas/ContributorResponse"
             },
             "title": "Contributors",
             "type": "array"
-          },
-          "genreSpread": {
-            "items": {
-              "$ref": "#/components/schemas/ProfileGenreItemResponse"
-            },
-            "title": "Genrespread",
-            "type": "array"
-          },
-          "genreTaggedTrackCount": {
-            "title": "Genretaggedtrackcount",
-            "type": "integer"
           },
           "roundCount": {
             "title": "Roundcount",
@@ -2400,22 +2407,15 @@
           "songCount": {
             "title": "Songcount",
             "type": "integer"
-          },
-          "uniqueTrackCount": {
-            "title": "Uniquetrackcount",
-            "type": "integer"
           }
         },
         "required": [
           "roundCount",
           "songCount",
           "artistCount",
-          "genreTaggedTrackCount",
-          "uniqueTrackCount",
-          "genreSpread",
           "contributors"
         ],
-        "title": "SeriesStatsResponse",
+        "title": "SeriesSummaryStatsResponse",
         "type": "object"
       },
       "SeriesUpdate": {
@@ -5490,6 +5490,50 @@
           }
         },
         "summary": "Get Series History",
+        "tags": [
+          "series"
+        ]
+      }
+    },
+    "/api/v1/series/{series_id}/insights": {
+      "get": {
+        "description": "Return the optional, heavier genre detail after the history shell is usable.",
+        "operationId": "get_series_genre_insights_api_v1_series__series_id__insights_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesGenreInsightsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Series Genre Insights",
         "tags": [
           "series"
         ]
