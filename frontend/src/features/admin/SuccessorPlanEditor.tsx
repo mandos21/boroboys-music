@@ -4,6 +4,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { patch } from "../../api/client";
+import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 import type { Series } from "./types";
@@ -144,9 +145,9 @@ export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSav
           <input type="checkbox" disabled={kind === "none"} {...register("autoStart")} />
           Create the next round automatically when this one is published
         </label>
-        <button className="button" disabled={save.isPending}>
+        <Button disabled={save.isPending} type="submit">
           {save.isPending ? "Saving…" : "Save plan"}
-        </button>
+        </Button>
         {errorMessage(save.error) && (
           <p className="error-message" role="alert">
             {errorMessage(save.error)}

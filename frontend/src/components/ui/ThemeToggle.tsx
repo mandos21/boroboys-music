@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 
+import { Button } from "./button";
+
 type Theme = "light" | "dark";
 
 function initialTheme(): Theme {
@@ -20,14 +22,16 @@ export function ThemeToggle() {
   }, [theme]);
 
   return (
-    <button
+    <Button
       aria-label={isDark ? "Use light theme" : "Use dark theme"}
       className="icon-button theme-toggle"
       onClick={() => setTheme(isDark ? "light" : "dark")}
+      size="icon"
       title={isDark ? "Use light theme" : "Use dark theme"}
       type="button"
+      variant="ghost"
     >
       {isDark ? <Sun aria-hidden="true" size={18} /> : <Moon aria-hidden="true" size={18} />}
-    </button>
+    </Button>
   );
 }

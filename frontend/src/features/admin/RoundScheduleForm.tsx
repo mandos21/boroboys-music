@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { post } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
+import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/ToastProvider";
 import {
   endOfWallMonth,
@@ -248,9 +249,9 @@ export function RoundScheduleForm({
           name="policies"
           render={({ field }) => <PolicyEditor value={field.value} onChange={field.onChange} />}
         />
-        <button className="button" disabled={createRound.isPending || members.length === 0}>
+        <Button disabled={createRound.isPending || members.length === 0} type="submit">
           {createRound.isPending ? "Scheduling…" : "Schedule round"}
-        </button>
+        </Button>
         {errorMessage(createRound.error) && (
           <p className="error-message" role="alert">
             {errorMessage(createRound.error)}

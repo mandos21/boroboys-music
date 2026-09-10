@@ -4,6 +4,7 @@ import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
+import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
@@ -151,14 +152,13 @@ export function PublicationPanel({
                   ))}
                 </select>
               </label>
-              <button
-                className="button"
+              <Button
                 type="button"
                 disabled={!publisherId || publish.isPending}
                 onClick={() => publish.mutate()}
               >
                 {publish.isPending ? "Queueing…" : current ? "Publish again" : "Publish to Spotify"}
-              </button>
+              </Button>
             </>
           )}
         </>
@@ -211,9 +211,8 @@ export function PublicationPanel({
             </p>
           )}
           {current.state === "failed" && (
-            <button
+            <Button
               type="button"
-              className="button"
               disabled={retry.isPending}
               onClick={() => retry.mutate(current.id)}
             >
@@ -222,17 +221,17 @@ export function PublicationPanel({
                 : current.retirementRequested
                   ? "Retry playlist retirement"
                   : "Retry publication"}
-            </button>
+            </Button>
           )}
           {round.status === "published" && !current.isImported && (
-            <button
+            <Button
               type="button"
-              className="danger-button"
+              variant="destructive"
               disabled={unpublish.isPending}
               onClick={() => setUnpublishRequested(true)}
             >
               {unpublish.isPending ? "Queueing reversal…" : "Unpublish latest round"}
-            </button>
+            </Button>
           )}
           {round.status === "published" && current.isImported && (
             <p className="muted">

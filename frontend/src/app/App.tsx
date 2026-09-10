@@ -7,10 +7,11 @@ import { api, post } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
 import type { components } from "../api/schema";
 import { AppShell } from "../components/layout/AppShell";
+import { Button } from "../components/ui/button";
+import { PageSkeleton } from "../components/ui/PageSkeleton";
 import { StatePanel } from "../components/ui/StatePanel";
 import { ToastProvider } from "../components/ui/ToastProvider";
-import { SeriesCreatePanel } from "../features/admin/AdminPages";
-import { formatDate } from "../lib/format";
+import { formatDate, formatDeadline } from "../lib/format";
 
 type Session = components["schemas"]["SessionResponse"];
 type SeriesPreview = components["schemas"]["SeriesListResponse"];
@@ -49,6 +50,11 @@ const AdminSeriesPage = lazy(() =>
 const AdminRoundPage = lazy(() =>
   import("../features/admin/AdminRoundPage").then((module) => ({ default: module.AdminRoundPage })),
 );
+const SeriesCreatePanel = lazy(() =>
+  import("../features/admin/SeriesCreatePanel").then((module) => ({
+    default: module.SeriesCreatePanel,
+  })),
+);
 
 function seriesAccent(series: SeriesPreview) {
   if (series.accentColor) return series.accentColor;
@@ -72,7 +78,8 @@ function HomePage() {
     queryFn: () => api<SeriesPreview[]>("/series"),
     enabled: session.isSuccess,
   });
-  if (session.isLoading) return <LoadingPage message="Getting your music space ready…" />;
+  if (session.isLoading)
+    return <PageSkeleton label="Getting your music space ready" variant="dashboard" />;
   if (session.isError || !session.data) return <LandingPage />;
 
   const currentUser = session.data.user;
@@ -106,9 +113,15 @@ function HomePage() {
           </div>
         </div>
         {series.isLoading && (
-          <StatePanel kind="loading" title="Finding your series">
-            This usually takes just a moment.
-          </StatePanel>
+          <section
+            className="dashboard-loading-grid"
+            aria-label="Finding your series"
+            aria-busy="true"
+          >
+            {Array.from({ length: 3 }, (_, index) => (
+              <div className="dashboard-loading-card" key={index} />
+            ))}
+          </section>
         )}
         {series.isError && (
           <StatePanel kind="error" title="We couldn’t load your series">
@@ -117,7 +130,14 @@ function HomePage() {
         )}
         {series.data?.length === 0 && (
           <StatePanel title="No series yet">
-            Once you are added to a series, its active round and listening history will appear here.
+            {currentUser.platformRole === "admin" ? (
+              <>
+                Start a space for a monthly check-in or a themed challenge below, then invite the
+                people you want to hear from. <a href="#create-series-heading">Create a series</a>
+              </>
+            ) : (
+              "Once you are added to a series, its active round and listening history will appear here."
+            )}
           </StatePanel>
         )}
         <div className="series-card-grid">
@@ -126,8 +146,25 @@ function HomePage() {
           ))}
         </div>
       </section>
-      {currentUser.platformRole === "admin" && <SeriesCreatePanel />}
+      {currentUser.platformRole === "admin" && (
+        <Suspense fallback={<SeriesCreatePanelFallback />}>
+          <SeriesCreatePanel />
+        </Suspense>
+      )}
     </main>
+  );
+}
+
+function SeriesCreatePanelFallback() {
+  return (
+    <section
+      aria-busy="true"
+      aria-label="Loading series creation tools"
+      className="series-create-panel"
+    >
+      <p className="eyebrow">Start something new</p>
+      <h2>Create a series</h2>
+    </section>
   );
 }
 
@@ -170,7 +207,9 @@ function FeaturedOpenSeries({ series }: { series: SeriesPreview }) {
           max={Math.max(round.contributorCount, 1)}
           value={round.submittedCount}
         />
-        <small>Closes {formatDate(round.closesAt)}</small>
+        <small>
+          {formatDeadline(round.closesAt)} · {formatDate(round.closesAt)}
+        </small>
         {round.prompt && <small className="featured-prompt">Prompt: {round.prompt}</small>}
       </Link>
     </article>
@@ -179,7 +218,7 @@ function FeaturedOpenSeries({ series }: { series: SeriesPreview }) {
 
 function RoundPulse() {
   return (
-    <span className="round-pulse" aria-label="Round is open">
+    <span className="round-pulse" role="img" aria-label="Round is open">
       <i />
       <i />
       <i />
@@ -224,8 +263,8 @@ function SeriesCard({ series }: { series: SeriesPreview }) {
           <small>
             {isOpen ? (
               <>
-                {round.submittedCount} of {round.contributorCount} people have submitted · closes{" "}
-                {formatDate(round.closesAt)}
+                {round.submittedCount} of {round.contributorCount} people have submitted ·{" "}
+                {formatDeadline(round.closesAt).toLowerCase()}
               </>
             ) : isActive ? (
               <>Opens {formatDate(round.opensAt)}</>
@@ -273,9 +312,9 @@ function LandingPage() {
             BoroCrew Music is for passing songs around with friends—monthly favorites, a strange
             theme somebody picked, or whatever has been stuck in your head lately.
           </p>
-          <a className="button" href="/api/v1/auth/login">
+          <Button render={<a href="/api/v1/auth/login" />}>
             Sign in to BoroCrew Music <ChevronRight aria-hidden="true" size={18} />
-          </a>
+          </Button>
         </div>
         <aside className="landing-card" aria-label="How BoroCrew Music works">
           <span className="landing-card-icon">
@@ -337,12 +376,13 @@ function InviteAcceptPage() {
     return (
       <main className="shell narrow-page-shell">
         <StatePanel title="Sign in to join this series">
-          <a
-            className="button"
-            href={`/api/v1/auth/login?return=${encodeURIComponent(`/invites/${token}`)}`}
+          <Button
+            render={
+              <a href={`/api/v1/auth/login?return=${encodeURIComponent(`/invites/${token}`)}`} />
+            }
           >
             Sign in
-          </a>
+          </Button>
         </StatePanel>
       </main>
     );

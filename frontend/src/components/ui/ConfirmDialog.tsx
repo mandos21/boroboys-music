@@ -1,6 +1,17 @@
-import { Dialog } from "@base-ui/react/dialog";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import type { ReactNode } from "react";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "./alert-dialog";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -22,36 +33,22 @@ export function ConfirmDialog({
   onConfirm,
 }: ConfirmDialogProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="dialog-backdrop" />
-        <Dialog.Popup className="confirm-dialog" aria-describedby="confirm-dialog-description">
-          <div className="confirm-dialog-icon" aria-hidden="true">
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="confirm-dialog">
+        <AlertDialogHeader>
+          <AlertDialogMedia className="confirm-dialog-icon" aria-hidden="true">
             <AlertTriangle size={21} />
-          </div>
-          <Dialog.Title>{title}</Dialog.Title>
-          <Dialog.Description id="confirm-dialog-description">{description}</Dialog.Description>
-          <Dialog.Close
-            aria-label="Close confirmation"
-            className="icon-button confirm-dialog-close"
-          >
-            <X aria-hidden="true" size={18} />
-          </Dialog.Close>
-          <div className="confirm-dialog-actions">
-            <Dialog.Close className="button button-secondary" disabled={isPending}>
-              Cancel
-            </Dialog.Close>
-            <button
-              className="button button-danger"
-              disabled={isPending}
-              onClick={onConfirm}
-              type="button"
-            >
-              {isPending ? "Working…" : confirmLabel}
-            </button>
-          </div>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+          </AlertDialogMedia>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="confirm-dialog-actions">
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={isPending} onClick={onConfirm} variant="destructive">
+            {isPending ? "Working…" : confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

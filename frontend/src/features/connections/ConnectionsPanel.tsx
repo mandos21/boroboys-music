@@ -9,6 +9,7 @@ import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
+import { Button } from "../../components/ui/button";
 import "./connections.css";
 
 type Connection = components["schemas"]["ConnectionResponse"] & {
@@ -166,13 +167,13 @@ export function ConnectionsPanel() {
                     </button>
                   </div>
                 ))}
-                <a
-                  className="button connection-button"
-                  href={`/api/v1/connections/${provider}/login`}
+                <Button
+                  className="connection-button"
+                  render={<a href={`/api/v1/connections/${provider}/login`} />}
                 >
                   <Link2 aria-hidden="true" size={17} />{" "}
                   {linked.length ? `Connect another ${name} account` : `Connect ${name}`}
-                </a>
+                </Button>
               </section>
             );
           })}

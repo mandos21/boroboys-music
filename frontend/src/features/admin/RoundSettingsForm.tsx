@@ -4,6 +4,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { patch } from "../../api/client";
+import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/ToastProvider";
 import { toZonedInput, zonedInputToIso } from "../../lib/time";
 import { errorMessage } from "./adminUtils";
@@ -177,9 +178,9 @@ export function RoundSettingsForm({
             : ""}
         </span>
       </label>
-      <button className="button" disabled={saveRound.isPending}>
+      <Button disabled={saveRound.isPending} type="submit">
         {saveRound.isPending ? "Saving…" : "Save round settings"}
-      </button>
+      </Button>
       {errorMessage(saveRound.error) && (
         <p className="error-message" role="alert">
           {errorMessage(saveRound.error)}

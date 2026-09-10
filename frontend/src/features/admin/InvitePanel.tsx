@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { post } from "../../api/client";
+import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 
@@ -56,14 +57,14 @@ export function InvitePanel({ seriesId }: { seriesId: string }) {
             <option value="30">30 days</option>
           </select>
         </label>
-        <button
-          className="button button-secondary"
+        <Button
           type="button"
+          variant="secondary"
           onClick={() => create.mutate()}
           disabled={create.isPending}
         >
           {create.isPending ? "Creating…" : "Create link"}
-        </button>
+        </Button>
       </div>
       {link && (
         <div className="invite-link">

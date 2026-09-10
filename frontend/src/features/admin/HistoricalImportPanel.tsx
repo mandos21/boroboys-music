@@ -4,6 +4,8 @@ import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
+import { Button } from "../../components/ui/button";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { useToast } from "../../components/ui/ToastProvider";
 import { zonedInputToIso } from "../../lib/time";
 import { errorMessage } from "./adminUtils";
@@ -67,8 +69,11 @@ export function HistoricalImportPanel({
     (account) => account.provider === "spotify" && account.isActive,
   );
   return (
-    <details className="panel historical-import">
-      <summary>Import a historical Spotify playlist</summary>
+    <Disclosure
+      className="panel historical-import"
+      title="Import a historical Spotify playlist"
+      description="Reconstruct one published round from an existing playlist."
+    >
       <p>
         Imports preserve the remote track order and create an immutable published round. Imported
         playlists are never retired remotely. Times below are read in {timezone}, the series
@@ -146,9 +151,9 @@ export function HistoricalImportPanel({
               onChange={(event) => setPublishedAt(event.target.value)}
             />
           </label>
-          <button className="button" disabled={importPlaylist.isPending}>
+          <Button disabled={importPlaylist.isPending} type="submit">
             {importPlaylist.isPending ? "Importing…" : "Import playlist"}
-          </button>
+          </Button>
           {errorMessage(importPlaylist.error) && (
             <p className="error-message" role="alert">
               {errorMessage(importPlaylist.error)}
@@ -156,6 +161,6 @@ export function HistoricalImportPanel({
           )}
         </form>
       )}
-    </details>
+    </Disclosure>
   );
 }

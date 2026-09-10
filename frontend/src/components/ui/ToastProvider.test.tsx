@@ -1,42 +1,54 @@
-import { act, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+const notify = vi.hoisted(() => ({
+  error: vi.fn(),
+  info: vi.fn(),
+  success: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  Toaster: () => null,
+  toast: notify,
+}));
 
 import { ToastProvider, useToast } from "./ToastProvider";
-
-afterEach(() => vi.useRealTimers());
 
 function Publisher() {
   const { showToast } = useToast();
   return (
     <>
-      <button type="button" onClick={() => showToast({ title: "First" })}>
-        first
+      <button
+        type="button"
+        onClick={() => showToast({ title: "Saved", description: "Your note is ready." })}
+      >
+        success
       </button>
-      <button type="button" onClick={() => showToast({ title: "Second" })}>
-        second
+      <button type="button" onClick={() => showToast({ title: "Couldn’t save", tone: "error" })}>
+        error
       </button>
     </>
   );
 }
 
 describe("ToastProvider", () => {
-  it("keeps each notification on its own countdown", () => {
-    vi.useFakeTimers();
+  it("keeps feature notifications on the shared Sonner delivery contract", () => {
     render(
       <ToastProvider>
         <Publisher />
       </ToastProvider>,
     );
 
-    act(() => screen.getByRole("button", { name: "first" }).click());
-    expect(screen.getByText("First")).toBeTruthy();
+    screen.getByRole("button", { name: "success" }).click();
+    screen.getByRole("button", { name: "error" }).click();
 
-    // A later notification must not restart the earlier one's five seconds.
-    act(() => void vi.advanceTimersByTime(4_000));
-    act(() => screen.getByRole("button", { name: "second" }).click());
-    act(() => void vi.advanceTimersByTime(1_500));
-
-    expect(screen.queryByText("First")).toBeNull();
-    expect(screen.getByText("Second")).toBeTruthy();
+    expect(notify.success).toHaveBeenCalledWith("Saved", {
+      description: "Your note is ready.",
+      duration: 5_000,
+    });
+    expect(notify.error).toHaveBeenCalledWith("Couldn’t save", {
+      description: undefined,
+      duration: 5_000,
+    });
   });
 });

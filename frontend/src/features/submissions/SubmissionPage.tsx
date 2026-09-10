@@ -6,7 +6,10 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api, patch, post, put } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import { StatePanel } from "../../components/ui/StatePanel";
+import { MobileActionBar } from "../../components/ui/MobileActionBar";
+import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { useToast } from "../../components/ui/ToastProvider";
+import { Button } from "../../components/ui/button";
 import { formatDate } from "../../lib/format";
 import { SubmissionReviewPanel } from "./SubmissionReviewPanel";
 import { TrackSearchPanel } from "./TrackSearchPanel";
@@ -187,14 +190,7 @@ export function SubmissionPage() {
     };
   }, [draft.isSuccess, replaceId, roundId]);
 
-  if (round.isLoading)
-    return (
-      <main className="shell narrow-page-shell">
-        <StatePanel kind="loading" title="Preparing your submission">
-          Loading the round’s rules and timing.
-        </StatePanel>
-      </main>
-    );
+  if (round.isLoading) return <PageSkeleton label="Preparing your submission" variant="detail" />;
   if (round.isError || !round.data)
     return (
       <main className="shell narrow-page-shell">
@@ -281,6 +277,25 @@ export function SubmissionPage() {
           onSubmit={() => submission.mutate()}
         />
       </div>
+      <MobileActionBar label="Submission action">
+        <span>
+          {selected
+            ? canSubmit
+              ? "Ready when you are."
+              : "Checking this track against the round."
+            : "Choose a track to continue."}
+        </span>
+        <Button
+          type="button"
+          disabled={
+            !canSubmit ||
+            (Boolean(evaluation.data?.requiresWarningConfirmation) && !confirmWarnings)
+          }
+          onClick={() => submission.mutate()}
+        >
+          {replaceId ? "Replace" : "Submit"}
+        </Button>
+      </MobileActionBar>
     </main>
   );
 }

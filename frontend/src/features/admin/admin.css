@@ -68,8 +68,6 @@
 .publication-events li { display: flex; justify-content: space-between; gap: 1rem; color: #475569; font-size: .82rem; }
 .publication-events span { color: #94a3b8; }
 .historical-import { margin-top: 1rem; }
-.historical-import > summary { color: #15803d; font-size: .9rem; font-weight: 800; cursor: pointer; }
-.historical-import[open] > summary { margin-bottom: 1rem; }
 
 @media (max-width: 52rem) {
   .admin-columns { grid-template-columns: 1fr; }

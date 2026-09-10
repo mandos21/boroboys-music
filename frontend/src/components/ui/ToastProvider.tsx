@@ -4,11 +4,12 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
+import { toast } from "sonner";
+
+import { Toaster } from "./sonner";
 
 type ToastTone = "success" | "error" | "info";
 
@@ -18,8 +19,6 @@ type ToastInput = {
   tone?: ToastTone;
 };
 
-type Toast = ToastInput & { id: number; tone: ToastTone };
-
 type ToastContextValue = {
   showToast: (toast: ToastInput) => void;
 };
@@ -27,87 +26,38 @@ type ToastContextValue = {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const dismiss = useCallback((id: number) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id));
-  }, []);
+  const theme = useDocumentTheme();
   const showToast = useCallback((input: ToastInput) => {
-    const id = Date.now() + Math.floor(Math.random() * 1_000);
-    setToasts((current) => [...current, { ...input, id, tone: input.tone ?? "success" }].slice(-3));
+    const options = { description: input.description, duration: 5_000 };
+    const notify =
+      input.tone === "error" ? toast.error : input.tone === "info" ? toast.info : toast.success;
+    notify(input.title, options);
   }, []);
 
   const value = useMemo(() => ({ showToast }), [showToast]);
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <ToastViewport toasts={toasts} onDismiss={dismiss} />
+      <Toaster theme={theme} />
     </ToastContext.Provider>
   );
 }
 
-function ToastViewport({
-  toasts,
-  onDismiss,
-}: {
-  toasts: Toast[];
-  onDismiss: (id: number) => void;
-}) {
-  // Each toast owns its own timer. Sharing one effect over the whole list
-  // restarted every countdown as soon as another notification arrived.
-  const timers = useRef(new Map<number, number>());
+function useDocumentTheme(): "light" | "dark" {
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    document.documentElement.dataset.theme === "dark" ? "dark" : "light",
+  );
+
   useEffect(() => {
-    const pending = timers.current;
-    for (const toast of toasts) {
-      if (pending.has(toast.id)) continue;
-      pending.set(
-        toast.id,
-        window.setTimeout(() => onDismiss(toast.id), 5_000),
-      );
-    }
-    for (const [id, timer] of pending) {
-      if (toasts.some((toast) => toast.id === id)) continue;
-      window.clearTimeout(timer);
-      pending.delete(id);
-    }
-  }, [onDismiss, toasts]);
-  useEffect(() => {
-    const pending = timers.current;
-    return () => {
-      pending.forEach((timer) => window.clearTimeout(timer));
-      pending.clear();
-    };
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setTheme(root.dataset.theme === "dark" ? "dark" : "light");
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
   }, []);
 
-  if (toasts.length === 0) return null;
-  const icons = { success: CheckCircle2, error: CircleAlert, info: Info };
-  return (
-    <div aria-label="Notifications" className="toast-viewport">
-      {toasts.map((toast) => {
-        const Icon = icons[toast.tone];
-        return (
-          <section
-            className={`toast toast-${toast.tone}`}
-            key={toast.id}
-            role={toast.tone === "error" ? "alert" : "status"}
-          >
-            <Icon aria-hidden="true" size={20} />
-            <div>
-              <strong>{toast.title}</strong>
-              {toast.description && <p>{toast.description}</p>}
-            </div>
-            <button
-              aria-label="Dismiss notification"
-              className="icon-button toast-dismiss"
-              onClick={() => onDismiss(toast.id)}
-              type="button"
-            >
-              <X aria-hidden="true" size={16} />
-            </button>
-          </section>
-        );
-      })}
-    </div>
-  );
+  return theme;
 }
 
 export function useToast(): ToastContextValue {

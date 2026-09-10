@@ -1,4 +1,6 @@
 import { formatDate } from "../../lib/format";
+import { InfoHint } from "../../components/ui/InfoHint";
+import { Button } from "../../components/ui/button";
 
 import type { Evidence, PolicyResult, SubmissionResult, Track } from "./types";
 
@@ -87,10 +89,10 @@ export function SubmissionReviewPanel({
       {evidence && (
         <div className="evidence">
           <h3>Group listening evidence</h3>
-          <p className="evidence-explainer">
-            This is cached listening data. It may be slightly behind recent plays, but it is never
-            discarded simply because it is older.
-          </p>
+          <InfoHint label="How listening evidence works">
+            Listening counts come from linked Last.fm accounts. They may be slightly behind recent
+            plays, but previously recorded listens are retained rather than discarded.
+          </InfoHint>
           {evidence.evidence.length === 0 ? (
             <p className="field-hint">
               No shared Last.fm evidence is cached yet. It will refresh in the background.
@@ -149,14 +151,14 @@ export function SubmissionReviewPanel({
             : "This track cannot be submitted under the current rules."}
         </p>
       )}
-      <button
-        className="button submission-submit"
+      <Button
+        className="submission-submit"
         type="button"
         disabled={!canSubmit || (requiresWarningConfirmation && !confirmWarnings)}
         onClick={onSubmit}
       >
         {isSubmitting ? "Submitting…" : isReplacing ? "Replace track" : "Submit track"}
-      </button>
+      </Button>
     </section>
   );
 }

@@ -7,7 +7,10 @@ import { z } from "zod";
 
 import { post } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
+import { Button } from "../../components/ui/button";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { useToast } from "../../components/ui/ToastProvider";
+import "./admin.css";
 import { errorMessage } from "./adminUtils";
 
 const createSeriesSchema = z.object({
@@ -105,8 +108,11 @@ export function SeriesCreatePanel() {
             <span className="error-message">{formState.errors.name.message}</span>
           )}
         </label>
-        <details className="advanced-options">
-          <summary>Advanced options</summary>
+        <Disclosure
+          className="advanced-options"
+          title="Advanced options"
+          description="Set a custom URL name or timezone."
+        >
           <div>
             <label>
               URL name
@@ -134,10 +140,10 @@ export function SeriesCreatePanel() {
               )}
             </label>
           </div>
-        </details>
-        <button className="button" disabled={create.isPending}>
+        </Disclosure>
+        <Button disabled={create.isPending} type="submit">
           {create.isPending ? "Creating…" : "Create series"}
-        </button>
+        </Button>
         {errorMessage(create.error) && (
           <p className="error-message" role="alert">
             {errorMessage(create.error)}
