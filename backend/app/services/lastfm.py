@@ -58,6 +58,40 @@ def monthly_top_tracks(
     return suggestions
 
 
+def genre_tags(settings: Settings, artist: str, track: str, limit: int = 8) -> list[str]:
+    """Return Last.fm's top tags for a track, falling back to the artist's.
+
+    Last.fm tags are free-form crowd labels, not a controlled genre list - a
+    typical track carries a mix of genuine genres ("dream pop") alongside
+    moods, decades, and personal tags ("seen live", "favourites"). Filtering
+    happens in the caller, against the same taxonomy Spotify genres already
+    run through, so only terms it recognises as a genre survive either source.
+    """
+    if not settings.lastfm_api_key:
+        raise LastfmError("Last.fm is not configured")
+    api_key = settings.lastfm_api_key.get_secret_value()
+    tags = _top_tags(api_key, {"method": "track.getTopTags", "artist": artist, "track": track})
+    if not tags:
+        tags = _top_tags(api_key, {"method": "artist.getTopTags", "artist": artist})
+    return tags[:limit]
+
+
+def _top_tags(api_key: str, params: dict[str, str]) -> list[str]:
+    response = httpx.get(
+        API_URL,
+        params={**params, "api_key": api_key, "format": "json"},
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    container = payload.get("toptags") if isinstance(payload, dict) else None
+    rows = container.get("tag") if isinstance(container, dict) else None
+    if not isinstance(rows, list):
+        return []
+    names = [row.get("name") for row in rows if isinstance(row, dict)]
+    return [name.strip() for name in names if isinstance(name, str) and name.strip()]
+
+
 def authorization_url(settings: Settings, state: str) -> str:
     callback = f"{settings.lastfm_callback_url}?{urlencode({'state': state})}"
     api_key = settings.lastfm_api_key.get_secret_value() if settings.lastfm_api_key else ""

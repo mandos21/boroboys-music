@@ -7,13 +7,15 @@ from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.db.models import Track, TrackArtist, TrackGenre
-from app.services import spotify
+from app.services import lastfm, spotify
+from app.services.genre_taxonomy import family_for
 
 _GENRE_REFRESH_INTERVAL = timedelta(days=7)
 
@@ -87,12 +89,38 @@ def store_track_genres(db: Session, track: Track, genres: Iterable[str]) -> int:
 def refresh_track_genres(db: Session, track_id: uuid.UUID) -> None:
     """Refresh a track's genre cache without ever removing known values.
 
-    This runs outside the submit path. Spotify metadata is helpful context for
-    profiles, never a reason to slow down or reject a valid submission.
+    This runs outside the submit path. Genre metadata is helpful context for
+    profiles, never a reason to slow down or reject a valid submission. Last.fm
+    only gets asked when Spotify's artist genres come up empty - it is a
+    supplement for the tracks Spotify has no opinion on, not a second vote.
     """
     track = db.get(Track, track_id)
     if track is None or not _needs_genre_refresh(track.provider_metadata):
         return
+    settings = get_settings()
+    genres = _spotify_artist_genres(db, track, settings)
+    if not genres and settings.lastfm_is_configured:
+        genres = supplement_with_lastfm_genres(settings, track)
+    store_track_genres(db, track, genres)
+    db.commit()
+
+
+def supplement_with_lastfm_genres(settings: Settings, track: Track) -> set[str]:
+    """Return Last.fm tags for a track that resolve to a known genre family.
+
+    Last.fm's tags are free-form crowd labels - moods, decades, and personal
+    tags ("seen live") outnumber genuine genres. Reusing the same taxonomy
+    Spotify genres already pass through is what tells the two apart without a
+    hand-maintained denylist: a tag counts only if the taxonomy recognises it.
+    """
+    try:
+        tags = lastfm.genre_tags(settings, track.artist, track.name)
+    except (httpx.HTTPError, lastfm.LastfmError):
+        return set()
+    return {tag for tag in tags if family_for(tag) is not None}
+
+
+def _spotify_artist_genres(db: Session, track: Track, settings: Settings) -> set[str]:
     artist_ids = list(
         db.scalars(
             select(TrackArtist.spotify_artist_id).where(
@@ -101,18 +129,16 @@ def refresh_track_genres(db: Session, track_id: uuid.UUID) -> None:
             )
         )
     )
-    if not artist_ids or not get_settings().spotify_is_configured:
-        return
-    access_token = spotify.client_credentials_token(get_settings())
+    if not artist_ids or not settings.spotify_is_configured:
+        return set()
+    access_token = spotify.client_credentials_token(settings)
     artists = spotify.artists_by_id(access_token, artist_ids)
-    genres = {
+    return {
         genre.strip()
         for artist in artists
         for genre in (artist.get("genres") or [])
         if isinstance(genre, str) and genre.strip()
     }
-    store_track_genres(db, track, genres)
-    db.commit()
 
 
 def _needs_genre_refresh(metadata: dict[str, Any]) -> bool:

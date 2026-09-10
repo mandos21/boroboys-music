@@ -25,6 +25,7 @@ from app.services import spotify
 from app.services.track_metadata import (
     _needs_genre_refresh,
     store_track_genres,
+    supplement_with_lastfm_genres,
     sync_track_artists,
 )
 
@@ -37,6 +38,7 @@ class BackfillResult:
     eligible: int
     resolved: int
     enriched: int
+    lastfm_enriched: int
     missing_from_spotify: int
     skipped_invalid_id: int
 
@@ -96,7 +98,8 @@ def main() -> int:
 
     print(
         f"Resolved canonical metadata for {result.resolved} of "
-        f"{result.eligible} eligible track(s); cached genres for {result.enriched}; "
+        f"{result.eligible} eligible track(s); cached genres for {result.enriched} "
+        f"({result.lastfm_enriched} from Last.fm alone); "
         f"{result.missing_from_spotify} were unavailable; "
         f"skipped {result.skipped_invalid_id} non-Spotify ID(s)."
     )
@@ -135,7 +138,8 @@ def _backfill_metadata(
     db: Session, tracks: list[Track], access_token: str, pause_seconds: float
 ) -> BackfillResult:
     eligible = len(tracks)
-    resolved = enriched = missing = invalid = 0
+    resolved = enriched = lastfm_enriched = missing = invalid = 0
+    settings = get_settings()
     valid_tracks = {
         track.spotify_track_id: track
         for track in tracks
@@ -182,19 +186,17 @@ def _backfill_metadata(
 
         genres_by_artist = _genres_by_artist(access_token, artist_ids, pause_seconds)
         for track, credits in artists_by_track.items():
-            enriched += bool(
-                store_track_genres(
-                    db,
-                    track,
-                    {
-                        genre
-                        for artist_id, _, _ in credits
-                        for genre in genres_by_artist.get(artist_id, set())
-                    },
-                )
-            )
+            genres = {
+                genre
+                for artist_id, _, _ in credits
+                for genre in genres_by_artist.get(artist_id, set())
+            }
+            if not genres and settings.lastfm_is_configured:
+                genres = supplement_with_lastfm_genres(settings, track)
+                lastfm_enriched += bool(genres)
+            enriched += bool(store_track_genres(db, track, genres))
         db.commit()
-    return BackfillResult(eligible, resolved, enriched, missing, invalid)
+    return BackfillResult(eligible, resolved, enriched, lastfm_enriched, missing, invalid)
 
 
 def _artist_credits(item: dict[str, object]) -> list[tuple[str, str, int]]:

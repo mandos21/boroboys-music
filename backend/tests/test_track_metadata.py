@@ -11,10 +11,11 @@ from sqlalchemy.orm import Session
 
 from app.cli.backfill_historical_track_metadata import _eligible_tracks
 from app.db.models import Track, TrackArtist, TrackGenre
-from app.services import spotify
+from app.services import lastfm, spotify
 from app.services.track_metadata import (
     refresh_track_genres,
     store_track_genres,
+    supplement_with_lastfm_genres,
     sync_track_artists,
 )
 
@@ -56,6 +57,104 @@ def test_genre_refresh_adds_to_existing_cached_metadata(
 
 class _SpotifySettings:
     spotify_is_configured = True
+    lastfm_is_configured = False
+
+
+class _NoGenreSpotifySettings:
+    spotify_is_configured = True
+    lastfm_is_configured = True
+
+
+def test_genre_refresh_falls_back_to_lastfm_when_spotify_has_no_genres(
+    db: Session,
+    make_track: Callable[..., Track],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    track = make_track(artist="An Artist", name="A Track")
+    db.add(
+        TrackArtist(
+            track_id=track.id, spotify_artist_id="spotify-artist", name="An Artist", position=0
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(
+        "app.services.track_metadata.get_settings", lambda: _NoGenreSpotifySettings()
+    )
+    monkeypatch.setattr(spotify, "client_credentials_token", lambda _settings: "application-token")
+    # Spotify knows the artist but has no genres cached for them.
+    monkeypatch.setattr(
+        spotify, "artists_by_id", lambda _token, artist_ids: [{"id": artist_ids[0]}]
+    )
+    monkeypatch.setattr(
+        lastfm, "genre_tags", lambda _settings, artist, name: ["dream pop", "seen live"]
+    )
+
+    refresh_track_genres(db, track.id)
+
+    db.expire_all()
+    refreshed = db.get(Track, track.id)
+    assert refreshed is not None
+    # Only the tag the shared taxonomy recognises as a genre survives.
+    assert refreshed.provider_metadata["genres"] == ["dream pop"]
+
+
+def test_genre_refresh_skips_lastfm_when_it_is_not_configured(
+    db: Session,
+    make_track: Callable[..., Track],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    track = make_track()
+    db.add(
+        TrackArtist(
+            track_id=track.id, spotify_artist_id="spotify-artist", name="Artist", position=0
+        )
+    )
+    db.commit()
+    monkeypatch.setattr("app.services.track_metadata.get_settings", lambda: _SpotifySettings())
+    monkeypatch.setattr(spotify, "client_credentials_token", lambda _settings: "application-token")
+    monkeypatch.setattr(
+        spotify, "artists_by_id", lambda _token, artist_ids: [{"id": artist_ids[0]}]
+    )
+
+    def unexpected(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Last.fm must not be called when it is not configured")
+
+    monkeypatch.setattr(lastfm, "genre_tags", unexpected)
+
+    refresh_track_genres(db, track.id)
+
+    db.expire_all()
+    refreshed = db.get(Track, track.id)
+    assert refreshed is not None
+    assert "genres" not in refreshed.provider_metadata
+
+
+def test_supplement_with_lastfm_genres_keeps_only_recognised_genre_tags(
+    monkeypatch: pytest.MonkeyPatch, make_track: Callable[..., Track], db: Session
+) -> None:
+    track = make_track(artist="An Artist", name="A Track")
+    monkeypatch.setattr(
+        lastfm,
+        "genre_tags",
+        lambda _settings, artist, name: ["Dream Pop", "seen live", "2016", "shoegaze"],
+    )
+
+    genres = supplement_with_lastfm_genres(_NoGenreSpotifySettings(), track)
+
+    assert genres == {"Dream Pop", "shoegaze"}
+
+
+def test_supplement_with_lastfm_genres_swallows_lastfm_errors(
+    monkeypatch: pytest.MonkeyPatch, make_track: Callable[..., Track], db: Session
+) -> None:
+    track = make_track(artist="An Artist", name="A Track")
+
+    def failing(*_args: object, **_kwargs: object) -> list[str]:
+        raise lastfm.LastfmError("boom")
+
+    monkeypatch.setattr(lastfm, "genre_tags", failing)
+
+    assert supplement_with_lastfm_genres(_NoGenreSpotifySettings(), track) == set()
 
 
 def test_a_refresh_within_the_interval_makes_no_remote_call(

@@ -43,3 +43,58 @@ def test_monthly_top_tracks_returns_usable_track_suggestions(
         "limit": 4,
         "format": "json",
     }
+
+
+class FakeTagsResponse:
+    def __init__(self, tags: list[str]) -> None:
+        self._tags = tags
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> object:
+        return {"toptags": {"tag": [{"name": name} for name in self._tags]}}
+
+
+def test_genre_tags_returns_track_level_tags_without_an_artist_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_get(*_: object, **kwargs: object) -> FakeTagsResponse:
+        calls.append(kwargs)
+        return FakeTagsResponse(["dream pop", "shoegaze"])
+
+    monkeypatch.setattr(lastfm.httpx, "get", fake_get)
+
+    tags = lastfm.genre_tags(Settings(lastfm_api_key="api-key"), "An Artist", "A Track")
+
+    assert tags == ["dream pop", "shoegaze"]
+    assert len(calls) == 1
+    assert calls[0]["params"]["method"] == "track.getTopTags"
+
+
+def test_genre_tags_falls_back_to_artist_tags_when_the_track_has_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = iter([FakeTagsResponse([]), FakeTagsResponse(["indie rock"])])
+    calls: list[dict[str, object]] = []
+
+    def fake_get(*_: object, **kwargs: object) -> FakeTagsResponse:
+        calls.append(kwargs)
+        return next(responses)
+
+    monkeypatch.setattr(lastfm.httpx, "get", fake_get)
+
+    tags = lastfm.genre_tags(Settings(lastfm_api_key="api-key"), "An Artist", "A Track")
+
+    assert tags == ["indie rock"]
+    assert [call["params"]["method"] for call in calls] == [
+        "track.getTopTags",
+        "artist.getTopTags",
+    ]
+
+
+def test_genre_tags_requires_an_api_key() -> None:
+    with pytest.raises(lastfm.LastfmError):
+        lastfm.genre_tags(Settings(lastfm_api_key=None), "An Artist", "A Track")
