@@ -226,9 +226,17 @@ def delete_playlist(access_token: str, playlist_id: str) -> None:
     response.raise_for_status()
 
 
+# Refresh this long before Spotify says the token dies, so a request that
+# starts at the edge of the window is not sent with a token that expires in
+# flight.
+TOKEN_REFRESH_MARGIN = timedelta(seconds=60)
+
+
 def token_expiry(payload: dict[str, Any]) -> datetime | None:
     seconds = payload.get("expires_in")
-    return datetime.now(UTC) + timedelta(seconds=seconds) if isinstance(seconds, int) else None
+    if not isinstance(seconds, int):
+        return None
+    return datetime.now(UTC) + timedelta(seconds=seconds) - TOKEN_REFRESH_MARGIN
 
 
 def _headers(access_token: str) -> dict[str, str]:

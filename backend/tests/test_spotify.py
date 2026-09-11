@@ -201,3 +201,16 @@ def test_search_result_payload_tolerates_malformed_nested_fields() -> None:
         "artworkUrl": "https://img/a.jpg",
         "providerMetadata": {"explicit": False, "isPlayable": True},
     }
+
+
+def test_token_expiry_is_brought_forward_by_the_refresh_margin() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    before = datetime.now(UTC)
+    expiry = spotify.token_expiry({"expires_in": 3600})
+    after = datetime.now(UTC)
+
+    assert expiry is not None
+    assert before + timedelta(seconds=3600) - spotify.TOKEN_REFRESH_MARGIN <= expiry
+    assert expiry <= after + timedelta(seconds=3600) - spotify.TOKEN_REFRESH_MARGIN
+    assert spotify.token_expiry({"expires_in": "3600"}) is None
