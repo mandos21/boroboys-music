@@ -254,26 +254,28 @@ function RoundOverview({
             Checking how much room you have left in this round.
           </p>
         ) : hasCapacity ? (
-          <Button render={<Link to={`/rounds/${round.id}/submit`} />}>Choose a track</Button>
+          // The decline toggle lives in the same branch as the submit action:
+          // both exist only while there is still something left to submit.
+          <>
+            <Button render={<Link to={`/rounds/${round.id}/submit`} />}>Choose a track</Button>
+            <label className="round-decline-toggle">
+              <Switch
+                size="sm"
+                checked={round.declinedFurtherSubmissions}
+                onCheckedChange={onDeclineChange}
+                disabled={isSavingParticipation}
+              />
+              <span>
+                I&apos;m not submitting any more this round
+                {round.declinedFurtherSubmissions && " — you won’t get deadline reminders for it"}
+              </span>
+            </label>
+          </>
         ) : (
           <p className="round-capacity-note">
             You&apos;re all set! You can still change your mind before the end of the round by
             modifying your submissions below.
           </p>
-        )}
-        {round.status === "open" && round.isMember && hasCapacity && (
-          <label className="round-decline-toggle">
-            <Switch
-              size="sm"
-              checked={round.declinedFurtherSubmissions}
-              onCheckedChange={onDeclineChange}
-              disabled={isSavingParticipation}
-            />
-            <span>
-              I&apos;m not submitting any more this round
-              {round.declinedFurtherSubmissions && " — you won’t get deadline reminders for it"}
-            </span>
-          </label>
         )}
         <div className="round-secondary-actions">
           {round.spotifyPlaylistUrl && (
