@@ -90,6 +90,7 @@ def begin_spotify_link(
 @router.get("/spotify/callback")
 def complete_spotify_link(
     db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
@@ -97,19 +98,9 @@ def complete_spotify_link(
     settings = get_settings()
     if error or not code or not state:
         return _link_result_redirect(settings, "spotify", "denied")
-    attempt = db.scalar(
-        select(ExternalLinkAttempt)
-        .where(
-            ExternalLinkAttempt.state_hash == hash_secret(state),
-            ExternalLinkAttempt.provider == ExternalProvider.SPOTIFY,
-            ExternalLinkAttempt.expires_at > datetime.now(UTC),
-            ExternalLinkAttempt.consumed_at.is_(None),
-        )
-        .with_for_update()
-    )
+    attempt = _claim_link_attempt(db, ExternalProvider.SPOTIFY, state, user)
     if attempt is None:
         return _link_result_redirect(settings, "spotify", "expired")
-    attempt.consumed_at = datetime.now(UTC)
     try:
         token = spotify.exchange_code(
             settings,
@@ -176,6 +167,33 @@ def complete_spotify_link(
     return _link_result_redirect(settings)
 
 
+def _claim_link_attempt(
+    db: DbSession, provider: ExternalProvider, state: str, user: User
+) -> ExternalLinkAttempt | None:
+    """Consume the one-time link state, but only for the person who started it.
+
+    The provider redirects the browser back here without any proof of who is
+    sitting at it. Without tying the callback to the session that began the
+    attempt, an attacker could start a link on their own account, hand the
+    resulting authorization URL to someone else, and end up holding that
+    person's provider credentials.
+    """
+    attempt = db.scalar(
+        select(ExternalLinkAttempt)
+        .where(
+            ExternalLinkAttempt.state_hash == hash_secret(state),
+            ExternalLinkAttempt.provider == provider,
+            ExternalLinkAttempt.expires_at > datetime.now(UTC),
+            ExternalLinkAttempt.consumed_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if attempt is None or attempt.user_id != user.id:
+        return None
+    attempt.consumed_at = datetime.now(UTC)
+    return attempt
+
+
 def _link_result_redirect(
     settings: Settings, provider: str | None = None, reason: str | None = None
 ) -> RedirectResponse:
@@ -231,24 +249,17 @@ def begin_lastfm_link(
 
 @router.get("/lastfm/callback")
 def complete_lastfm_link(
-    db: DbSession, token: str | None = None, state: str | None = None
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+    token: str | None = None,
+    state: str | None = None,
 ) -> RedirectResponse:
     settings = get_settings()
     if not token or not state:
         return _link_result_redirect(settings, "lastfm", "denied")
-    attempt = db.scalar(
-        select(ExternalLinkAttempt)
-        .where(
-            ExternalLinkAttempt.state_hash == hash_secret(state),
-            ExternalLinkAttempt.provider == ExternalProvider.LASTFM,
-            ExternalLinkAttempt.expires_at > datetime.now(UTC),
-            ExternalLinkAttempt.consumed_at.is_(None),
-        )
-        .with_for_update()
-    )
+    attempt = _claim_link_attempt(db, ExternalProvider.LASTFM, state, user)
     if attempt is None:
         return _link_result_redirect(settings, "lastfm", "expired")
-    attempt.consumed_at = datetime.now(UTC)
     try:
         session = lastfm.exchange_session(settings, token)
     except (httpx.HTTPError, lastfm.LastfmError):
