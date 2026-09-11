@@ -621,6 +621,35 @@ def test_a_member_can_decline_and_later_resume_further_submissions(
     assert get_round(round_.id, db, member)["declinedFurtherSubmissions"] is False
 
 
+def test_submitting_again_withdraws_a_declined_further_submissions_declaration(
+    db: Session,
+    opened_task_app: None,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+) -> None:
+    member = make_user(name="Member")
+    series = make_series()
+    round_ = make_round(series, members=[member], submission_limit=2)
+    db.commit()
+    update_round_participation(
+        round_.id, RoundParticipationUpdate(declined_further_submissions=True), db, member
+    )
+    assert get_round(round_.id, db, member)["declinedFurtherSubmissions"] is True
+
+    tag = uuid.uuid4().hex[:8]
+    track = TrackInput(
+        spotify_track_id=f"track-{tag}",
+        name="Second thoughts",
+        artist="The Testers",
+        spotify_uri=f"spotify:track:{tag}",
+    )
+    accepted = create_submission(round_.id, SubmissionCreate(track=track), db, member)
+
+    assert accepted["accepted"] is True
+    assert get_round(round_.id, db, member)["declinedFurtherSubmissions"] is False
+
+
 def test_declining_further_submissions_requires_round_membership(
     db: Session,
     make_user: Callable[..., User],

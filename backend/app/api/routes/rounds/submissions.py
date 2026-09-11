@@ -155,6 +155,10 @@ def create_submission(
     )
     db.add(submission)
     db.flush()
+    # Submitting again is the clearest possible way of saying "I changed my
+    # mind"; making people untoggle the declaration by hand would leave their
+    # reminders silenced for the capacity they still have.
+    membership.declined_further_submissions_at = None
     db.add_all(
         PolicyEvaluation(
             round_id=round_.id,
