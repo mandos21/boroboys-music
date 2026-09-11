@@ -9,7 +9,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.db.models import ExternalAccount, ExternalProvider, ListeningEvidence, RoundMember, Track
+from app.db.models import (
+    ExternalAccount,
+    ExternalProvider,
+    ListeningEvidence,
+    RoundMember,
+    Track,
+    TrackArtist,
+)
 
 
 class LastfmUnmatched(Exception):
@@ -56,8 +63,11 @@ def _refresh_account(db: Session, account: ExternalAccount, track: Track) -> boo
     # useful answer even though it may not yet include the newest plays.
     if evidence is not None and evidence.refresh_after is not None and evidence.refresh_after > now:
         return False
+    artist = primary_artist_name(db, track)
     try:
-        playcount = _lastfm_playcount(settings, account.provider_subject, "track.getInfo", track)
+        playcount = _lastfm_playcount(
+            settings, account.provider_subject, "track.getInfo", track, artist
+        )
     except LastfmUnmatched:
         # Last.fm has no entry matching this artist/track pair. Recording that
         # as zero plays would be indistinguishable from a real zero, so the
@@ -68,10 +78,12 @@ def _refresh_account(db: Session, account: ExternalAccount, track: Track) -> boo
             evidence.refresh_after = now + timedelta(hours=1)
         return False
     artist_playcount = _optional_lastfm_playcount(
-        settings, account.provider_subject, "artist.getInfo", track
+        settings, account.provider_subject, "artist.getInfo", track, artist
     )
     album_playcount = (
-        _optional_lastfm_playcount(settings, account.provider_subject, "album.getInfo", track)
+        _optional_lastfm_playcount(
+            settings, account.provider_subject, "album.getInfo", track, artist
+        )
         if track.album
         else None
     )
@@ -107,7 +119,25 @@ def _refresh_account(db: Session, account: ExternalAccount, track: Track) -> boo
     return True
 
 
-def _lastfm_playcount(settings: Settings, username: str, method: str, track: Track) -> int:
+def primary_artist_name(db: Session, track: Track) -> str:
+    """The credited lead artist, which is what Last.fm keys its catalogue on.
+
+    `Track.artist` is a display string - "A, B, C" for a collaboration - and
+    Last.fm has no entry under that joined name, so multi-artist tracks were
+    coming back unmatched. The canonical credits are stored per artist.
+    """
+    lead = db.scalar(
+        select(TrackArtist.name)
+        .where(TrackArtist.track_id == track.id)
+        .order_by(TrackArtist.position)
+        .limit(1)
+    )
+    return lead or track.artist
+
+
+def _lastfm_playcount(
+    settings: Settings, username: str, method: str, track: Track, artist: str
+) -> int:
     api_key = settings.lastfm_api_key
     response = httpx.get(
         "https://ws.audioscrobbler.com/2.0/",
@@ -115,7 +145,7 @@ def _lastfm_playcount(settings: Settings, username: str, method: str, track: Tra
             "method": method,
             "api_key": api_key.get_secret_value() if api_key else "",
             "user": username,
-            "artist": track.artist,
+            "artist": artist,
             **({"track": track.name} if method == "track.getInfo" else {}),
             **({"album": track.album} if method == "album.getInfo" and track.album else {}),
             "format": "json",
@@ -132,10 +162,10 @@ def _lastfm_playcount(settings: Settings, username: str, method: str, track: Tra
 
 
 def _optional_lastfm_playcount(
-    settings: Settings, username: str, method: str, track: Track
+    settings: Settings, username: str, method: str, track: Track, artist: str
 ) -> int | None:
     try:
-        return _lastfm_playcount(settings, username, method, track)
+        return _lastfm_playcount(settings, username, method, track, artist)
     except (httpx.HTTPError, LastfmUnmatched, ValueError, TypeError):
         return None
 

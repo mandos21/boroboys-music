@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.models import Track, TrackArtist, TrackGenre
 from app.services import lastfm, spotify
+from app.services.evidence import primary_artist_name
 from app.services.genre_taxonomy import family_for
 
 _GENRE_REFRESH_INTERVAL = timedelta(days=7)
@@ -100,12 +101,12 @@ def refresh_track_genres(db: Session, track_id: uuid.UUID) -> None:
     settings = get_settings()
     genres = _spotify_artist_genres(db, track, settings)
     if not genres and settings.lastfm_is_configured:
-        genres = supplement_with_lastfm_genres(settings, track)
+        genres = supplement_with_lastfm_genres(db, settings, track)
     store_track_genres(db, track, genres)
     db.commit()
 
 
-def supplement_with_lastfm_genres(settings: Settings, track: Track) -> set[str]:
+def supplement_with_lastfm_genres(db: Session, settings: Settings, track: Track) -> set[str]:
     """Return Last.fm tags for a track that resolve to a known genre family.
 
     Last.fm's tags are free-form crowd labels - moods, decades, and personal
@@ -114,7 +115,7 @@ def supplement_with_lastfm_genres(settings: Settings, track: Track) -> set[str]:
     hand-maintained denylist: a tag counts only if the taxonomy recognises it.
     """
     try:
-        tags = lastfm.genre_tags(settings, track.artist, track.name)
+        tags = lastfm.genre_tags(settings, primary_artist_name(db, track), track.name)
     except (httpx.HTTPError, lastfm.LastfmError):
         return set()
     return {tag for tag in tags if family_for(tag) is not None}

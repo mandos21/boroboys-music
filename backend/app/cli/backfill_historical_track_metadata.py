@@ -192,7 +192,7 @@ def _backfill_metadata(
                 for genre in genres_by_artist.get(artist_id, set())
             }
             if not genres and settings.lastfm_is_configured:
-                genres = supplement_with_lastfm_genres(settings, track)
+                genres = supplement_with_lastfm_genres(db, settings, track)
                 lastfm_enriched += bool(genres)
             enriched += bool(store_track_genres(db, track, genres))
         db.commit()

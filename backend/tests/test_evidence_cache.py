@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import ExternalAccount, ListeningEvidence, Track, User
+from app.db.models import ExternalAccount, ListeningEvidence, Track, TrackArtist, User
 from app.services import evidence
 
 
@@ -156,3 +156,38 @@ def test_an_unmatched_response_never_downgrades_existing_evidence(
     assert row.playcount == 9
     assert row.match_confidence == "exact"
     assert row.response_status == "available"
+
+
+def test_refresh_asks_lastfm_about_the_lead_artist_not_the_joined_credit(
+    db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    make_user: Callable[..., User],
+    make_lastfm_account: Callable[..., ExternalAccount],
+    make_track: Callable[..., Track],
+) -> None:
+    """Last.fm keys its catalogue on the lead artist, not on "A, B" display strings."""
+    account = make_lastfm_account(make_user())
+    track = make_track(name="Duet", artist="Lead Artist, Featured Guest")
+    db.add_all(
+        (
+            TrackArtist(
+                track_id=track.id, spotify_artist_id="guest", name="Featured Guest", position=1
+            ),
+            TrackArtist(
+                track_id=track.id, spotify_artist_id="lead", name="Lead Artist", position=0
+            ),
+        )
+    )
+    db.flush()
+    asked: list[str] = []
+
+    def answer(*_a: object, **kwargs: object) -> _Response:
+        params = kwargs["params"]
+        assert isinstance(params, dict)
+        asked.append(str(params["artist"]))
+        return _Response({"track": {"userplaycount": 2}, "artist": {"userplaycount": 9}})
+
+    monkeypatch.setattr(evidence.httpx, "get", answer)
+    evidence._refresh_account(db, account, track)
+
+    assert asked and set(asked) == {"Lead Artist"}

@@ -139,7 +139,7 @@ def test_supplement_with_lastfm_genres_keeps_only_recognised_genre_tags(
         lambda _settings, artist, name: ["Dream Pop", "seen live", "2016", "shoegaze"],
     )
 
-    genres = supplement_with_lastfm_genres(_NoGenreSpotifySettings(), track)
+    genres = supplement_with_lastfm_genres(db, _NoGenreSpotifySettings(), track)
 
     assert genres == {"Dream Pop", "shoegaze"}
 
@@ -154,7 +154,7 @@ def test_supplement_with_lastfm_genres_swallows_lastfm_errors(
 
     monkeypatch.setattr(lastfm, "genre_tags", failing)
 
-    assert supplement_with_lastfm_genres(_NoGenreSpotifySettings(), track) == set()
+    assert supplement_with_lastfm_genres(db, _NoGenreSpotifySettings(), track) == set()
 
 
 def test_a_refresh_within_the_interval_makes_no_remote_call(
