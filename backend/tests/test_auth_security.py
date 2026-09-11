@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
@@ -32,7 +31,7 @@ def test_login_redirects_disabled_oidc_to_a_recoverable_ui_without_touching_data
     monkeypatch.setattr(auth, "get_settings", lambda: settings)  # type: ignore[attr-defined]
 
     # The disabled branch must return before it needs a database session.
-    response = asyncio.run(auth.login(db=None))  # type: ignore[arg-type]
+    response = auth.login(db=None)  # type: ignore[arg-type]
 
     assert response.status_code == 303
     assert (
@@ -142,12 +141,12 @@ def test_logout_ends_a_session_whose_id_token_predates_a_key_rotation(
         def __init__(self, _settings: object) -> None:
             pass
 
-        async def logout_url(self, id_token_hint: str | None) -> str:
+        def logout_url(self, id_token_hint: str | None) -> str:
             assert id_token_hint is None
             return "https://issuer.example/logout"
 
     monkeypatch.setattr(auth, "OidcClient", OfflineProvider)
-    response = asyncio.run(auth.logout(db, session))
+    response = auth.logout(db, session)
 
     assert response.status_code == 204
     assert response.headers["X-Logout-Redirect"] == "https://issuer.example/logout"

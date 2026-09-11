@@ -26,7 +26,7 @@ _INITIAL_ADMIN_LOCK_ID = 4_061_173_091
 
 
 @router.get("/login")
-async def login(
+def login(
     db: DbSession,
     return_path: Annotated[str, Query(alias="return")] = "/",
 ) -> RedirectResponse:
@@ -50,7 +50,7 @@ async def login(
     db.add(attempt)
     db.commit()
     try:
-        redirect_url = await OidcClient(settings).authorization_url(state, nonce, code_verifier)
+        redirect_url = OidcClient(settings).authorization_url(state, nonce, code_verifier)
     except (httpx.HTTPError, OidcError):
         db.delete(attempt)
         db.commit()
@@ -59,7 +59,7 @@ async def login(
 
 
 @router.get("/callback")
-async def callback(
+def callback(
     db: DbSession,
     code: str | None = None,
     state: str | None = None,
@@ -91,7 +91,7 @@ async def callback(
         )
         if not secrets_match(nonce, attempt.nonce_hash):
             raise OidcError("OIDC nonce storage validation failed")
-        identity = await OidcClient(settings).complete_login(
+        identity = OidcClient(settings).complete_login(
             code,
             decrypt(
                 attempt.code_verifier_ciphertext,
@@ -171,7 +171,7 @@ def session_details(
 
 
 @router.post("/logout", dependencies=[Depends(require_csrf)])
-async def logout(
+def logout(
     db: DbSession,
     session: Annotated[ServerSession, Depends(get_current_session)],
 ) -> Response:
@@ -192,7 +192,7 @@ async def logout(
     db.delete(session)
     db.commit()
     try:
-        destination = await OidcClient(settings).logout_url(id_token)
+        destination = OidcClient(settings).logout_url(id_token)
     except (httpx.HTTPError, OidcError):
         destination = str(settings.oidc_post_logout_redirect_url or settings.app_base_url)
     response = Response(

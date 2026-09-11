@@ -4,6 +4,11 @@ Periodic tasks reconcile timestamp-driven state: round transitions and due
 publications, worker liveness, and expiry of short-lived auth state. Domain
 tasks - publishing, retirement, evidence refresh - are deferred by the API and
 are idempotent, because Procrastinate may run one more than once.
+
+Every task is a plain function on purpose. The work inside is blocking -
+synchronous SQLAlchemy, httpx and SMTP - and Procrastinate runs a sync task in
+a worker thread, whereas an `async def` task would block the worker's event
+loop for the duration of a Spotify publish and hold up the heartbeat with it.
 """
 
 from __future__ import annotations
@@ -42,7 +47,7 @@ app = App(connector=PsycopgConnector(conninfo=settings.procrastinate_database_ur
 
 @app.periodic(cron="* * * * *", queue="scheduling")
 @app.task(queue="scheduling", queueing_lock="reconcile-schedules")
-async def reconcile_schedules(timestamp: int) -> None:
+def reconcile_schedules(timestamp: int) -> None:
     """Reconcile timestamp-driven state after normal operation or worker downtime.
 
     Closing and publishing are one pass because they are sequential: a round has
@@ -70,7 +75,7 @@ async def reconcile_schedules(timestamp: int) -> None:
 
 @app.periodic(cron="* * * * *", queue="scheduling")
 @app.task(queue="scheduling", queueing_lock="worker-heartbeat")
-async def record_worker_heartbeat(timestamp: int) -> None:
+def record_worker_heartbeat(timestamp: int) -> None:
     """Provide an independently queryable worker liveness signal every minute."""
 
     del timestamp
@@ -81,7 +86,7 @@ async def record_worker_heartbeat(timestamp: int) -> None:
 
 @app.periodic(cron="15 3 * * *", queue="scheduling")
 @app.task(queue="scheduling", queueing_lock="purge-auth-state")
-async def purge_auth_state(timestamp: int) -> None:
+def purge_auth_state(timestamp: int) -> None:
     """Keep expired opaque sessions and short-lived OAuth state bounded."""
 
     del timestamp
@@ -91,7 +96,7 @@ async def purge_auth_state(timestamp: int) -> None:
 
 
 @app.task(queue="publishing")
-async def publish_round(publication_id: str) -> None:
+def publish_round(publication_id: str) -> None:
     with get_session_factory()() as db:
         was_published = (
             db.scalar(select(Publication.state).where(Publication.id == uuid.UUID(publication_id)))
@@ -108,37 +113,37 @@ async def publish_round(publication_id: str) -> None:
 
 
 @app.task(queue="publishing")
-async def retire_round(publication_id: str) -> None:
+def retire_round(publication_id: str) -> None:
     with get_session_factory()() as db:
         execute_retirement(db, uuid.UUID(publication_id))
 
 
 @app.task(queue="evidence")
-async def refresh_evidence(round_id: str, track_id: str) -> None:
+def refresh_evidence(round_id: str, track_id: str) -> None:
     with get_session_factory()() as db:
         refresh_round_evidence(db, round_id, track_id)
 
 
 @app.task(queue="metadata")
-async def enrich_track_genres(track_id: str) -> None:
+def enrich_track_genres(track_id: str) -> None:
     with get_session_factory()() as db:
         refresh_track_genres(db, uuid.UUID(track_id))
 
 
 @app.task(queue="notifications")
-async def send_reminder(round_id: str, window: str) -> None:
+def send_reminder(round_id: str, window: str) -> None:
     with get_session_factory()() as db:
         send_round_reminder(db, uuid.UUID(round_id), window)
 
 
 @app.task(queue="notifications")
-async def notify_published(round_id: str) -> None:
+def notify_published(round_id: str) -> None:
     with get_session_factory()() as db:
         notify_round_published(db, uuid.UUID(round_id))
 
 
 @app.task(queue="notifications")
-async def notify_opened(round_id: str) -> None:
+def notify_opened(round_id: str) -> None:
     with get_session_factory()() as db:
         notify_round_opened(db, uuid.UUID(round_id))
 

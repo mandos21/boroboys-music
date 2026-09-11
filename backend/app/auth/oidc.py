@@ -1,4 +1,9 @@
-"""Generic OpenID Connect authorization-code + PKCE client."""
+"""Generic OpenID Connect authorization-code + PKCE client.
+
+Synchronous on purpose: the routes that use it run on FastAPI's thread pool
+alongside the synchronous database session, so an asynchronous client would
+only have moved the blocking database work onto the event loop.
+"""
 
 from __future__ import annotations
 
@@ -35,8 +40,8 @@ class OidcClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    async def authorization_url(self, state: str, nonce: str, code_verifier: str) -> str:
-        metadata = await self._metadata()
+    def authorization_url(self, state: str, nonce: str, code_verifier: str) -> str:
+        metadata = self._metadata()
         challenge = (
             base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode("ascii")).digest())
             .rstrip(b"=")
@@ -56,14 +61,14 @@ class OidcClient:
         )
         return f"{metadata['authorization_endpoint']}?{query}"
 
-    async def complete_login(self, code: str, code_verifier: str, nonce: str) -> OidcIdentity:
-        metadata = await self._metadata()
-        token_response = await self._token_response(metadata, code, code_verifier)
+    def complete_login(self, code: str, code_verifier: str, nonce: str) -> OidcIdentity:
+        metadata = self._metadata()
+        token_response = self._token_response(metadata, code, code_verifier)
         id_token = token_response.get("id_token")
         if not isinstance(id_token, str):
             raise OidcError("provider token response did not include an ID token")
 
-        claims = await self._validate_id_token(metadata, id_token, nonce)
+        claims = self._validate_id_token(metadata, id_token, nonce)
         subject = claims.get("sub")
         if not isinstance(subject, str) or not subject:
             raise OidcError("ID token did not contain a subject")
@@ -79,8 +84,8 @@ class OidcClient:
             claims=claims,
         )
 
-    async def logout_url(self, id_token_hint: str | None) -> str:
-        metadata = await self._metadata()
+    def logout_url(self, id_token_hint: str | None) -> str:
+        metadata = self._metadata()
         fallback = str(self.settings.oidc_post_logout_redirect_url or self.settings.app_base_url)
         endpoint = metadata.get("end_session_endpoint")
         if not isinstance(endpoint, str):
@@ -92,10 +97,10 @@ class OidcClient:
             query["client_id"] = self.settings.oidc_client_id
         return f"{endpoint}?{urlencode(query)}"
 
-    async def _metadata(self) -> dict[str, Any]:
+    def _metadata(self) -> dict[str, Any]:
         issuer = str(self.settings.oidc_issuer_url).rstrip("/")
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(f"{issuer}/.well-known/openid-configuration")
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(f"{issuer}/.well-known/openid-configuration")
             response.raise_for_status()
         metadata = response.json()
         if not isinstance(metadata, dict) or not isinstance(
@@ -104,7 +109,7 @@ class OidcClient:
             raise OidcError("provider discovery document is incomplete")
         return metadata
 
-    async def _token_response(
+    def _token_response(
         self, metadata: dict[str, Any], code: str, code_verifier: str
     ) -> dict[str, Any]:
         endpoint = metadata.get("token_endpoint")
@@ -113,8 +118,8 @@ class OidcClient:
         client_secret = self.settings.oidc_client_secret
         if not client_secret or not self.settings.oidc_client_id:
             raise OidcError("OIDC is not configured")
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(
                 endpoint,
                 data={
                     "grant_type": "authorization_code",
@@ -130,14 +135,14 @@ class OidcClient:
             raise OidcError("provider token response was not an object")
         return payload
 
-    async def _validate_id_token(
+    def _validate_id_token(
         self, metadata: dict[str, Any], id_token: str, nonce: str
     ) -> dict[str, Any]:
         jwks_uri = metadata.get("jwks_uri")
         if not isinstance(jwks_uri, str):
             raise OidcError("provider discovery document has no JWKS URI")
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(jwks_uri)
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(jwks_uri)
             response.raise_for_status()
         key_set = JsonWebKey.import_key_set(response.json())
         try:
