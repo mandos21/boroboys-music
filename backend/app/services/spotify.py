@@ -6,7 +6,7 @@ import base64
 import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -151,7 +151,9 @@ def artists_by_id(access_token: str, artist_ids: list[str]) -> list[dict[str, An
 def playlist_snapshot(access_token: str, playlist_id: str) -> dict[str, Any]:
     """Read playlist metadata and ordered track snapshots for historical import."""
     playlist_response = httpx.get(
-        f"{SPOTIFY_API}/playlists/{playlist_id}", headers=_headers(access_token), timeout=15.0
+        f"{SPOTIFY_API}/playlists/{quote(playlist_id, safe='')}",
+        headers=_headers(access_token),
+        timeout=15.0,
     )
     playlist_response.raise_for_status()
     playlist = playlist_response.json()
@@ -161,7 +163,7 @@ def playlist_snapshot(access_token: str, playlist_id: str) -> dict[str, Any]:
     offset = 0
     while True:
         response = httpx.get(
-            f"{SPOTIFY_API}/playlists/{playlist_id}/items",
+            f"{SPOTIFY_API}/playlists/{quote(playlist_id, safe='')}/items",
             headers=_headers(access_token),
             params={"limit": 50, "offset": offset, "additional_types": "track"},
             timeout=15.0,
@@ -188,7 +190,7 @@ def playlist_snapshot(access_token: str, playlist_id: str) -> dict[str, Any]:
 
 def create_playlist(access_token: str, user_id: str, name: str, description: str) -> str:
     response = httpx.post(
-        f"{SPOTIFY_API}/users/{user_id}/playlists",
+        f"{SPOTIFY_API}/users/{quote(user_id, safe='')}/playlists",
         headers=_headers(access_token),
         json={"name": name, "description": description, "public": False},
         timeout=15.0,
@@ -203,7 +205,7 @@ def create_playlist(access_token: str, user_id: str, name: str, description: str
 def add_items(access_token: str, playlist_id: str, uris: list[str]) -> None:
     for start in range(0, len(uris), 100):
         response = httpx.post(
-            f"{SPOTIFY_API}/playlists/{playlist_id}/items",
+            f"{SPOTIFY_API}/playlists/{quote(playlist_id, safe='')}/items",
             headers=_headers(access_token),
             json={"uris": uris[start : start + 100]},
             timeout=15.0,
@@ -219,7 +221,7 @@ def delete_playlist(access_token: str, playlist_id: str) -> None:
     playlist behind after a local publication reversal.
     """
     response = httpx.delete(
-        f"{SPOTIFY_API}/playlists/{playlist_id}/followers",
+        f"{SPOTIFY_API}/playlists/{quote(playlist_id, safe='')}/followers",
         headers=_headers(access_token),
         timeout=15.0,
     )

@@ -1159,8 +1159,7 @@
             "type": "string"
           },
           "spotify_playlist_id": {
-            "maxLength": 128,
-            "minLength": 1,
+            "pattern": "^[A-Za-z0-9]{1,128}$",
             "title": "Spotify Playlist Id",
             "type": "string"
           },

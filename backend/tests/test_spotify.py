@@ -214,3 +214,49 @@ def test_token_expiry_is_brought_forward_by_the_refresh_margin() -> None:
     assert before + timedelta(seconds=3600) - spotify.TOKEN_REFRESH_MARGIN <= expiry
     assert expiry <= after + timedelta(seconds=3600) - spotify.TOKEN_REFRESH_MARGIN
     assert spotify.token_expiry({"expires_in": "3600"}) is None
+
+
+def test_playlist_and_user_ids_are_escaped_in_request_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    urls: list[str] = []
+
+    def fake_post(url: str, **_: object) -> FakeResponse:
+        urls.append(url)
+        return FakeResponse({"id": "new-playlist"})
+
+    def fake_delete(url: str, **_: object) -> FakeResponse:
+        urls.append(url)
+        return FakeResponse({})
+
+    monkeypatch.setattr(spotify.httpx, "post", fake_post)
+    monkeypatch.setattr(spotify.httpx, "delete", fake_delete)
+
+    spotify.create_playlist("token", "user name/../x", "Round", "desc")
+    spotify.add_items("token", "list?id=1", ["spotify:track:a"])
+    spotify.delete_playlist("token", "list/../other")
+
+    assert urls == [
+        f"{spotify.SPOTIFY_API}/users/user%20name%2F..%2Fx/playlists",
+        f"{spotify.SPOTIFY_API}/playlists/list%3Fid%3D1/items",
+        f"{spotify.SPOTIFY_API}/playlists/list%2F..%2Fother/followers",
+    ]
+
+
+def test_import_requests_only_accept_base62_playlist_ids() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from pydantic import ValidationError
+
+    from app.api.routes.admin import PlaylistImportRequest
+
+    now = datetime.now(UTC)
+    timeline = {
+        "publisher_account_id": "00000000-0000-0000-0000-000000000000",
+        "opens_at": now - timedelta(days=2),
+        "closes_at": now - timedelta(days=1),
+        "published_at": now,
+    }
+    assert PlaylistImportRequest(spotify_playlist_id="37i9dQZF1DX4sWSpwq3LiO", **timeline)
+    with pytest.raises(ValidationError):
+        PlaylistImportRequest(spotify_playlist_id="../users/me", **timeline)

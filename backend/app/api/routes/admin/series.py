@@ -146,7 +146,8 @@ class InviteCreate(BaseModel):
 
 class PlaylistImportRequest(BaseModel):
     publisher_account_id: uuid.UUID
-    spotify_playlist_id: str = Field(min_length=1, max_length=128)
+    # Spotify IDs are base62; anything else would be interpolated into a URL path.
+    spotify_playlist_id: str = Field(pattern=r"^[A-Za-z0-9]{1,128}$")
     opens_at: datetime
     closes_at: datetime
     published_at: datetime
