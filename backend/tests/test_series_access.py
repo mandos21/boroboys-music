@@ -339,7 +339,9 @@ def test_open_series_are_listed_first_with_contributor_progress(db: Session) -> 
     }
 
 
-def test_round_submissions_fall_back_to_email_for_unnamed_contributors(db: Session) -> None:
+def test_round_submissions_fall_back_to_the_address_local_part_for_unnamed_contributors(
+    db: Session,
+) -> None:
     suffix = uuid.uuid4().hex[:12]
     now = datetime.now(UTC)
     contributor = User(
@@ -389,7 +391,8 @@ def test_round_submissions_fall_back_to_email_for_unnamed_contributors(db: Sessi
 
     entries = list_round_submissions(round_.id, db, contributor)
 
-    assert entries[0]["contributor"]["displayName"] == contributor.email
+    # Identifies the person to their friends without publishing their address.
+    assert entries[0]["contributor"]["displayName"] == f"listener-{suffix}"
 
 
 def test_series_stats_returns_every_cached_genre_for_the_expandable_fingerprint(

@@ -44,8 +44,17 @@ def spotify_profile_image_subquery(user_column: Mapped[uuid.UUID]) -> ScalarSele
 
 
 def contributor_display_name(display_name: str | None, email: str | None) -> str:
-    """Never render a blank name; fall back to the address, then to a label."""
-    return display_name or email or UNKNOWN_CONTRIBUTOR
+    """Never render a blank name, and never render a full email address.
+
+    A provider that sends no name still usually sends an address. The part
+    before the "@" identifies the person to their friends without publishing
+    the address itself to every round they are in; administrators see the
+    full address through the admin endpoints.
+    """
+    if display_name:
+        return display_name
+    local_part = email.split("@", 1)[0].strip() if email else ""
+    return local_part or UNKNOWN_CONTRIBUTOR
 
 
 def round_timeline(round_: Round) -> dict[str, object]:
