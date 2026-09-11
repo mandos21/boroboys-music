@@ -132,15 +132,20 @@ export function SubmissionPage() {
       }),
   });
 
+  // Mutation result objects change identity on every render; depending on
+  // them made this callback new each time and re-ran the draft hydration
+  // effect below on every render. The individual functions are stable.
+  const { mutate: evaluateTrack, reset: resetEvaluation } = evaluation;
+  const { reset: resetSubmission } = submission;
   const chooseTrack = useCallback(
     (track: Track) => {
       form.setValue("selected", track);
       setConfirmWarnings(false);
-      evaluation.reset();
-      submission.reset();
-      evaluation.mutate(track);
+      resetEvaluation();
+      resetSubmission();
+      evaluateTrack(track);
     },
-    [evaluation, form, submission],
+    [evaluateTrack, form, resetEvaluation, resetSubmission],
   );
 
   // Defer hydration one task so React sees it as a response to the query result,
