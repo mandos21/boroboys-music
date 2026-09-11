@@ -47,3 +47,24 @@ def test_worker_health_reflects_fresh_and_stale_heartbeats() -> None:
         stale = client.get("/api/v1/health/worker")
     assert stale.status_code == 503
     assert stale.json()["status"] == "degraded"
+
+
+def test_openapi_and_docs_are_not_served_in_production(monkeypatch: object) -> None:
+    import pytest
+
+    from app import main
+    from app.core.config import Settings
+
+    production = Settings(
+        app_env="production",
+        app_base_url="https://music.example.test",
+        credential_encryption_key="credential-key",
+    )
+    assert isinstance(monkeypatch, pytest.MonkeyPatch)
+    monkeypatch.setattr(main, "get_settings", lambda: production)
+
+    with TestClient(main.create_app()) as client:
+        assert client.get("/api/openapi.json").status_code == 404
+        assert client.get("/api/docs").status_code == 404
+    # The contract generator does not go through HTTP, so it still works.
+    assert "/api/v1/health" in main.create_app().openapi()["paths"]

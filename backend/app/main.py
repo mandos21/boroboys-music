@@ -46,8 +46,10 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=f"{settings.app_name} API",
         version="0.1.0",
+        # The contract is generated at build time from create_app().openapi();
+        # nothing in production needs it served, and nginx proxies all of /api/.
         docs_url="/api/docs" if settings.app_env != "production" else None,
-        openapi_url="/api/openapi.json",
+        openapi_url="/api/openapi.json" if settings.app_env != "production" else None,
         lifespan=lifespan,
     )
     app.add_middleware(
