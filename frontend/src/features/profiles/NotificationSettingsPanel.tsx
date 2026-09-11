@@ -41,6 +41,9 @@ export function NotificationSettingsPanel() {
   const update = useMutation({
     mutationFn: (change: Record<string, boolean>) =>
       patch<NotificationSettings>("/profiles/me/notification-settings", change),
+    // A refetch already in flight (window focus, remount) carries pre-PATCH
+    // values and would overwrite the response written below; cancel it first.
+    onMutate: () => queryClient.cancelQueries({ queryKey: queryKeys.notificationSettings() }),
     onSuccess: (data) => queryClient.setQueryData(queryKeys.notificationSettings(), data),
     onError: () =>
       showToast({
