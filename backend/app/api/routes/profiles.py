@@ -320,44 +320,65 @@ def _taste_affinity(db: DbSession, profile_user: User, viewer: User) -> list[dic
     Only people who have actually shared a round with this profile are
     considered, and only rounds the viewer may see - so the panel cannot become
     a way to learn who is in a private round.
+
+    The tallies are aggregated in PostgreSQL: the application only ever sees
+    one row per (listener, genre) and one per listener, never every
+    submission-genre pair in the archive.
     """
-    rows = db.execute(
-        select(
-            Submission.contributor_id,
-            Submission.round_id,
-            TrackGenre.name,
+    visible_rounds = _visible_round_predicate(profile_user, viewer)
+    my_rounds = (
+        select(Submission.round_id)
+        .join(Round, Round.id == Submission.round_id)
+        .where(
+            Submission.contributor_id == profile_user.id,
+            Submission.status == SubmissionStatus.ACCEPTED,
+            visible_rounds,
         )
+        .distinct()
+    )
+    shared_round_counts: dict[uuid.UUID, int] = {
+        contributor_id: int(count)
+        for contributor_id, count in db.execute(
+            select(Submission.contributor_id, func.count(func.distinct(Submission.round_id)))
+            .where(
+                Submission.round_id.in_(my_rounds),
+                Submission.contributor_id != profile_user.id,
+                Submission.status == SubmissionStatus.ACCEPTED,
+            )
+            .group_by(Submission.contributor_id)
+        )
+    }
+    if not shared_round_counts:
+        return []
+
+    genres_by_user: dict[uuid.UUID, Counter[str]] = defaultdict(Counter)
+    for contributor_id, genre, count in db.execute(
+        select(Submission.contributor_id, TrackGenre.name, func.count())
         .join(Round, Round.id == Submission.round_id)
         .join(TrackGenre, TrackGenre.track_id == Submission.track_id)
         .where(
             Submission.status == SubmissionStatus.ACCEPTED,
-            _visible_round_predicate(profile_user, viewer),
+            Submission.contributor_id.in_([profile_user.id, *shared_round_counts]),
+            visible_rounds,
         )
-    ).all()
-    if not rows:
-        return []
-
-    genres_by_user: dict[uuid.UUID, Counter[str]] = defaultdict(Counter)
-    rounds_by_user: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
-    for contributor_id, round_id, genre in rows:
-        genres_by_user[contributor_id][genre] += 1
-        rounds_by_user[contributor_id].add(round_id)
+        .group_by(Submission.contributor_id, TrackGenre.name)
+    ):
+        genres_by_user[contributor_id][genre] = int(count)
 
     mine = genres_by_user.get(profile_user.id)
     if not mine:
         return []
     my_shares = _group_shares(mine)
-    my_rounds = rounds_by_user[profile_user.id]
 
     scored: list[tuple[int, str, list[str], int]] = []
-    for user_id, genres in genres_by_user.items():
-        shared_rounds = my_rounds & rounds_by_user[user_id]
-        if user_id == profile_user.id or not shared_rounds:
+    for user_id, shared_rounds in shared_round_counts.items():
+        genres = genres_by_user.get(user_id)
+        if not genres:
             continue
         theirs = _group_shares(genres)
         overlap = sum(min(my_shares.get(group, 0.0), theirs.get(group, 0.0)) for group in my_shares)
         shared = [name for name, _ in (mine & genres).most_common(_SHARED_GENRE_LIMIT)]
-        scored.append((round(overlap * 100), str(user_id), shared, len(shared_rounds)))
+        scored.append((round(overlap * 100), str(user_id), shared, shared_rounds))
     scored.sort(key=lambda item: (-item[0], item[1]))
     return _with_identities(
         db,

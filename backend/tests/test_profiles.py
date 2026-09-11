@@ -272,3 +272,71 @@ def test_notification_settings_default_to_enabled_and_can_be_toggled_independent
         NotificationSettingsUpdate(notify_reminder_emails=True), db, user
     )
     assert restored == {"notifyReminderEmails": True, "notifyRoundPublishedEmails": True}
+
+
+def test_affinity_ranks_listeners_from_shared_visible_rounds_only(
+    db: Session,
+    make_round: Callable[..., Round],
+    make_series: Callable[..., Series],
+    make_track: Callable[..., Track],
+    make_user: Callable[..., User],
+) -> None:
+    viewer = make_user(name="Viewer")
+    profile = make_user(name="Profile")
+    kindred = make_user(name="Kindred")
+    stranger = make_user(name="Stranger")
+    series = make_series()
+    shared = make_round(series, members=[viewer, profile, kindred], submission_limit=2)
+    hidden = make_round(series, members=[profile, stranger])
+
+    def tagged(name: str, *genres: str) -> Track:
+        track = make_track(name=name, artist=name)
+        db.add_all(TrackGenre(track_id=track.id, genre_key=genre, name=genre) for genre in genres)
+        return track
+
+    db.add_all(
+        (
+            Submission(
+                round_id=shared.id,
+                contributor_id=profile.id,
+                track_id=tagged("P1", "indie rock").id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+            Submission(
+                round_id=shared.id,
+                contributor_id=profile.id,
+                track_id=tagged("P2", "dream pop").id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+            Submission(
+                round_id=shared.id,
+                contributor_id=kindred.id,
+                track_id=tagged("K1", "indie rock").id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+            Submission(
+                round_id=hidden.id,
+                contributor_id=profile.id,
+                track_id=tagged("P3", "ambient").id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+            Submission(
+                round_id=hidden.id,
+                contributor_id=stranger.id,
+                track_id=tagged("S1", "indie rock", "dream pop").id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+        )
+    )
+    db.commit()
+
+    affinity = get_profile(profile.id, db, viewer)["stats"]["affinity"]
+
+    assert [item["displayName"] for item in affinity] == ["Kindred"]
+    assert affinity[0]["sharedRoundCount"] == 1
+    assert affinity[0]["sharedGenres"] == ["indie rock"]
+    assert affinity[0]["affinity"] == 100  # both entirely within the alternative family
+
+    # The profile's owner can see the hidden round, so the stranger shows up for them.
+    own = get_my_profile(db, profile)["stats"]["affinity"]
+    assert {item["displayName"] for item in own} == {"Kindred", "Stranger"}
