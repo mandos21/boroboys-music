@@ -146,6 +146,7 @@ def get_round(
         "submittedCount": submitted_count,
         "contributorCount": contributor_count,
         "canManage": can_manage,
+        "isMember": membership is not None,
         "backgroundArtworkUrl": background_artwork_url,
         "artworkUrls": balanced_artwork,
         "declinedFurtherSubmissions": (

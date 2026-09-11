@@ -1495,6 +1495,8 @@ export interface components {
             declinedFurtherSubmissions: boolean;
             /** Id */
             id: string;
+            /** Ismember */
+            isMember: boolean;
             /**
              * Opensat
              * Format: date-time

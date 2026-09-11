@@ -78,6 +78,9 @@ class RoundDetailResponse(RoundPreviewResponse):
     submission_limit: int
     spotify_playlist_url: str | None
     can_manage: bool
+    # A series administrator can view a round without being a contributor in
+    # it; contributor-only controls key off this rather than off can_manage.
+    is_member: bool
     background_artwork_url: str | None
     artwork_urls: list[str]
     declined_further_submissions: bool

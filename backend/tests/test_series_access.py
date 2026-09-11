@@ -107,6 +107,11 @@ def test_series_history_does_not_leak_another_group_round(db: Session) -> None:
     }
     admin_round = get_round(one.id, db, administrator)
     assert admin_round["id"] == str(one.id)
+    # Management access is not contributor access: the client must not offer
+    # the administrator controls that require round membership.
+    assert admin_round["canManage"] is True
+    assert admin_round["isMember"] is False
+    assert get_round(one.id, db, member_one)["isMember"] is True
     assert list_round_submissions(one.id, db, administrator) == []
     with pytest.raises(HTTPException, match="series access required") as error:
         get_series_history(series.id, db, outsider)

@@ -107,6 +107,7 @@ const openRound = {
   submittedCount: 3,
   contributorCount: 4,
   canManage: true,
+  isMember: true,
   spotifyPlaylistUrl: null,
   artworkUrls: art.slice(0, 4),
   backgroundArtworkUrl: art[0],

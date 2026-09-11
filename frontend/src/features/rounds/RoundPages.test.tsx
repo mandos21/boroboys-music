@@ -63,6 +63,8 @@ const baseRound = {
   closesAt: "2026-09-30T00:00:00Z",
   publishAt: "2026-10-01T00:00:00Z",
   submissionLimit: 2,
+  canManage: false,
+  isMember: true,
   declinedFurtherSubmissions: false,
 };
 
@@ -78,6 +80,18 @@ describe("RoundPage", () => {
       expect.stringContaining("/rounds/round-1/submit"),
     );
     expect(await screen.findByRole("heading", { name: "Submissions" })).toBeTruthy();
+  });
+
+  it("offers no contributor controls to an administrator who is not a member", async () => {
+    stubRoundFetch({ ...baseRound, canManage: true, isMember: false });
+
+    renderRound();
+
+    expect(await screen.findByRole("heading", { name: "September picks" })).toBeTruthy();
+    expect(await screen.findByText(/aren.t one of its contributors/)).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Choose a track" })).toBeNull();
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.getByRole("link", { name: "Manage this round" })).toBeTruthy();
   });
 
   it("lets a member declare they're done submitting, without losing their pick capacity", async () => {

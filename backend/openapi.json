@@ -1724,6 +1724,10 @@
             "title": "Id",
             "type": "string"
           },
+          "isMember": {
+            "title": "Ismember",
+            "type": "boolean"
+          },
           "opensAt": {
             "format": "date-time",
             "title": "Opensat",
@@ -1791,6 +1795,7 @@
           "submissionLimit",
           "spotifyPlaylistUrl",
           "canManage",
+          "isMember",
           "backgroundArtworkUrl",
           "artworkUrls",
           "declinedFurtherSubmissions"

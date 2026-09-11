@@ -237,17 +237,22 @@ function RoundOverview({
         </div>
       </div>
       <div className="round-overview-actions">
-        {round.status === "open" && hasCapacity ? (
+        {round.status !== "open" ? (
+          <p className="muted">Submissions are currently closed.</p>
+        ) : !round.isMember ? (
+          <p className="muted">
+            You manage this round but aren&apos;t one of its contributors, so there&apos;s nothing
+            for you to submit here.
+          </p>
+        ) : hasCapacity ? (
           <Button render={<Link to={`/rounds/${round.id}/submit`} />}>Choose a track</Button>
-        ) : round.status === "open" ? (
+        ) : (
           <p className="round-capacity-note">
             You&apos;re all set! You can still change your mind before the end of the round by
             modifying your submissions below.
           </p>
-        ) : (
-          <p className="muted">Submissions are currently closed.</p>
         )}
-        {round.status === "open" && hasCapacity && (
+        {round.status === "open" && round.isMember && hasCapacity && (
           <label className="round-decline-toggle">
             <Switch
               size="sm"
