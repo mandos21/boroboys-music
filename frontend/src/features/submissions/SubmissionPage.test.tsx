@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/ui/ToastProvider";
 import { SubmissionPage } from "./SubmissionPage";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 function renderSubmission() {
   vi.stubGlobal(

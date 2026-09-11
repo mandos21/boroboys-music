@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/ui/ToastProvider";
 import { ProfilePage } from "./ProfilePage";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const profile = {
   id: "listener-1",

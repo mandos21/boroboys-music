@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RoundPage } from "./RoundPages";
 import { ToastProvider } from "../../components/ui/ToastProvider";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 function renderRound() {
   const client = new QueryClient({

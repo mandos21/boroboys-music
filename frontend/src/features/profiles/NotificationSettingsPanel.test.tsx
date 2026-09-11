@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/ui/ToastProvider";
 import { NotificationSettingsPanel } from "./NotificationSettingsPanel";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 type Deferred = { resolve: () => void };
 

@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SeriesPage } from "./RoundPages";
 import { ToastProvider } from "../../components/ui/ToastProvider";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const openRound = {
   id: "round-open",

@@ -8,6 +8,7 @@ import { App } from "./App";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function renderApp(path: string) {

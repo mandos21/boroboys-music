@@ -7,7 +7,10 @@ import { RoundScheduleForm } from "./RoundScheduleForm";
 import { ToastProvider } from "../../components/ui/ToastProvider";
 import type { Connection, SeriesDetail, User } from "./types";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const series = {
   id: "series-1",
