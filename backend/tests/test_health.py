@@ -68,3 +68,44 @@ def test_openapi_and_docs_are_not_served_in_production(monkeypatch: object) -> N
         assert client.get("/api/docs").status_code == 404
     # The contract generator does not go through HTTP, so it still works.
     assert "/api/v1/health" in main.create_app().openapi()["paths"]
+
+
+def test_admin_reads_need_a_session_but_not_a_csrf_token() -> None:
+    """The router-wide CSRF guard applies to writes; a GET is not a state change."""
+    import uuid
+
+    from app.api.deps import require_csrf_for_writes
+    from app.core.security import hash_secret, new_secret
+    from app.db.models import PlatformRole, ServerSession, User
+    from app.main import create_app
+
+    token = new_secret()
+    with get_session_factory()() as db:
+        user = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"csrf-{uuid.uuid4().hex[:8]}",
+            platform_role=PlatformRole.ADMIN,
+        )
+        db.add(user)
+        db.flush()
+        db.add(
+            ServerSession(
+                user_id=user.id,
+                token_hash=hash_secret(token),
+                csrf_secret_hash=hash_secret(new_secret()),
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+        )
+        db.commit()
+
+    app = create_app()
+    assert any(
+        dependency.dependency is require_csrf_for_writes
+        for route in app.routes
+        if getattr(route, "path", "").startswith("/api/v1/admin/")
+        for dependency in getattr(route, "dependencies", [])
+    )
+    with TestClient(app) as client:
+        client.cookies.set("music_rounds_session", token)
+        assert client.get("/api/v1/admin/series").status_code == 200
+        assert client.post("/api/v1/admin/series", json={}).status_code == 403

@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import DbSession, require_csrf
+from app.api.deps import DbSession, require_csrf_for_writes
 from app.api.payloads import round_timeline
 from app.db.models import (
     ExternalAccount,
@@ -20,7 +20,9 @@ from app.services.authorization import is_series_admin
 
 # One router, imported by each admin module, so route registration order stays
 # the order the modules are imported in __init__.
-router = APIRouter(prefix="/admin", tags=["administration"], dependencies=[Depends(require_csrf)])
+router = APIRouter(
+    prefix="/admin", tags=["administration"], dependencies=[Depends(require_csrf_for_writes)]
+)
 
 
 def _require_publishable_account(

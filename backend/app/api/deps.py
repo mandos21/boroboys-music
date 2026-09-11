@@ -64,6 +64,20 @@ def require_csrf(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="invalid CSRF token")
 
 
+# Methods that must not change state; a router-wide CSRF dependency has no
+# business demanding the token for these.
+_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def require_csrf_for_writes(
+    request: Request, session: Annotated[ServerSession, Depends(get_current_session)]
+) -> None:
+    """Router-level CSRF: enforced on every unsafe method, skipped for reads."""
+    if request.method in _SAFE_METHODS:
+        return
+    require_csrf(request, session)
+
+
 def _hash_for_lookup(value: str) -> str:
     # Local import avoids re-exporting implementation details through this module.
     from app.core.security import hash_secret
