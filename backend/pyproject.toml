@@ -3,6 +3,7 @@ name = "music-rounds-api"
 version = "0.1.0"
 description = "API and background tasks for Music Rounds"
 authors = ["Music Rounds contributors"]
+license = "AGPL-3.0-only"
 package-mode = true
 packages = [{ include = "app" }]
 

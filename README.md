@@ -151,3 +151,9 @@ Review screenshot changes intentionally. To update an approved visual baseline, 
 `e2e/*.spec.ts-snapshots/` files with the UI change.
 
 Copy `.env.example` to `.env` before starting local services. Never commit secrets.
+
+## License
+
+AGPL-3.0-only (see [LICENSE](LICENSE)). Running a modified version of this
+software as a network service requires offering that version's source to its
+users, per AGPL §13.
