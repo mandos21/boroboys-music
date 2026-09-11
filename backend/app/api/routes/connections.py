@@ -112,7 +112,6 @@ def complete_spotify_link(
         )
         profile = spotify.current_profile(str(token["access_token"]))
     except (httpx.HTTPError, spotify.SpotifyError):
-        db.commit()
         return _link_result_redirect(settings, "spotify", "failed")
     account = db.scalar(
         select(ExternalAccount).where(
@@ -121,7 +120,6 @@ def complete_spotify_link(
         )
     )
     if account is not None and account.user_id != attempt.user_id:
-        db.commit()
         return _link_result_redirect(settings, "spotify", "already-linked")
     if account is None:
         account = ExternalAccount(
@@ -191,6 +189,10 @@ def _claim_link_attempt(
     if attempt is None or attempt.user_id != user.id:
         return None
     attempt.consumed_at = datetime.now(UTC)
+    # Release the row lock before the provider exchange, as the OIDC callback
+    # does: a replayed callback should be refused immediately, not queue up
+    # behind remote I/O.
+    db.commit()
     return attempt
 
 
@@ -263,7 +265,6 @@ def complete_lastfm_link(
     try:
         session = lastfm.exchange_session(settings, token)
     except (httpx.HTTPError, lastfm.LastfmError):
-        db.commit()
         return _link_result_redirect(settings, "lastfm", "failed")
     account = db.scalar(
         select(ExternalAccount).where(
@@ -272,7 +273,6 @@ def complete_lastfm_link(
         )
     )
     if account is not None and account.user_id != attempt.user_id:
-        db.commit()
         return _link_result_redirect(settings, "lastfm", "already-linked")
     if account is None:
         account = ExternalAccount(

@@ -55,6 +55,27 @@ def test_provider_callback_links_the_account_that_started_the_attempt(
     assert account is not None and account.provider is ExternalProvider.LASTFM
 
 
+def test_provider_callback_consumes_the_attempt_before_the_remote_exchange(
+    db: Session, make_user: Callable[..., User], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed exchange must still burn the one-time state so it cannot be replayed."""
+    owner = make_user(name="Owner")
+    state = _start_lastfm_attempt(db, owner)
+
+    def failing_exchange(_settings: object, _token: str) -> dict[str, str]:
+        attempt = db.scalar(select(ExternalLinkAttempt))
+        assert attempt is not None and attempt.consumed_at is not None
+        raise connections.lastfm.LastfmError("provider down")
+
+    monkeypatch.setattr(connections.lastfm, "exchange_session", failing_exchange)
+
+    response = connections.complete_lastfm_link(db, owner, token="provider-token", state=state)
+
+    assert "linkError=failed" in response.headers["location"]
+    replay = connections.complete_lastfm_link(db, owner, token="provider-token", state=state)
+    assert "linkError=expired" in replay.headers["location"]
+
+
 def test_provider_callback_rejects_a_state_started_by_someone_else(
     db: Session, make_user: Callable[..., User], lastfm_exchange: None
 ) -> None:
