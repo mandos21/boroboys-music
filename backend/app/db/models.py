@@ -284,6 +284,11 @@ class Round(UUIDTimestampMixin, Base):
     prompt: Mapped[str | None] = mapped_column(Text)
     reminder_48h_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reminder_24h_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Claimed by the scheduler when it announces the round opening. A round can
+    # become open from several places - the worker, a page load that reconciles
+    # its timeline, or a successor created already open - so the announcement
+    # keys off the state rather than off whichever code path changed it.
+    opened_announced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class RoundMember(UUIDTimestampMixin, Base):

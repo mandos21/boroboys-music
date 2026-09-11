@@ -13,32 +13,48 @@ from sqlalchemy.orm import Session
 from app.db.models import Round, RoundMember, RoundStatus, Series
 
 
-def reconcile_rounds(db: Session, now: datetime | None = None) -> list[uuid.UUID]:
+def reconcile_rounds(db: Session, now: datetime | None = None) -> None:
     """Move due scheduled/open rounds forward; safe to call repeatedly from workers.
 
-    Returns the rounds that just became open, so a caller can announce them
-    exactly once - a round only ever leaves `scheduled` here, so it can only
-    appear in this list on the one pass that moves it.
+    This is not the only place a round becomes open - a page load reconciles a
+    round's timeline too, and successors can be created already open - which
+    is why opening is announced from :func:`start_due_open_announcements`
+    rather than from here.
     """
     instant = now or datetime.now(UTC)
-    opened: list[uuid.UUID] = []
     for round_ in db.scalars(
         select(Round)
         .where(Round.status == RoundStatus.SCHEDULED, Round.opens_at <= instant)
         .with_for_update(skip_locked=True)
     ):
-        if instant < round_.closes_at:
-            round_.status = RoundStatus.OPEN
-            opened.append(round_.id)
-        else:
-            round_.status = RoundStatus.CLOSED
+        round_.status = RoundStatus.OPEN if instant < round_.closes_at else RoundStatus.CLOSED
     for round_ in db.scalars(
         select(Round)
         .where(Round.status == RoundStatus.OPEN, Round.closes_at <= instant)
         .with_for_update(skip_locked=True)
     ):
         round_.status = RoundStatus.CLOSED
-    return opened
+    # Sessions do not autoflush, and the announcement pass that follows in the
+    # same transaction selects on the status this just changed.
+    db.flush()
+
+
+def start_due_open_announcements(db: Session, now: datetime | None = None) -> list[uuid.UUID]:
+    """Claim every open round that has not yet been announced, exactly once.
+
+    Setting `opened_announced_at` in the same transaction that selects the row
+    is what makes this idempotent, the same way deadline reminders work.
+    """
+    instant = now or datetime.now(UTC)
+    claimed: list[uuid.UUID] = []
+    for round_ in db.scalars(
+        select(Round)
+        .where(Round.status == RoundStatus.OPEN, Round.opened_announced_at.is_(None))
+        .with_for_update(skip_locked=True)
+    ):
+        round_.opened_announced_at = instant
+        claimed.append(round_.id)
+    return claimed
 
 
 def reconcile_round_status(round_: Round, now: datetime | None = None) -> bool:

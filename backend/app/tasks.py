@@ -20,7 +20,7 @@ from app.db.models import Publication, PublicationState, Round
 from app.db.session import get_session_factory
 from app.services.auth_cleanup import purge_expired_auth_state
 from app.services.evidence import refresh_round_evidence
-from app.services.lifecycle import reconcile_rounds
+from app.services.lifecycle import reconcile_rounds, start_due_open_announcements
 from app.services.notifications import (
     notify_round_opened,
     notify_round_published,
@@ -52,7 +52,8 @@ async def reconcile_schedules(timestamp: int) -> None:
 
     del timestamp
     with get_session_factory()() as db:
-        opened_round_ids = reconcile_rounds(db)
+        reconcile_rounds(db)
+        opened_round_ids = start_due_open_announcements(db)
         due_reminders = start_due_reminders(db)
         db.commit()
         for round_id in opened_round_ids:
