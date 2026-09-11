@@ -8,10 +8,12 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.routes.admin import get_publication_status
+from app.api.routes.admin import get_publication_status, retry_publication
+from app.api.routes.admin import publications as admin_publications
 from app.core.config import get_settings
 from app.core.security import encrypt
 from app.db.models import (
@@ -608,3 +610,96 @@ def test_a_worker_whose_lease_was_recovered_cannot_overwrite_the_outcome(
         assert publication.state is PublicationState.PUBLISHED
         assert publication.execution_token == "recovered-by-another-worker"
         assert round_.status is RoundStatus.PUBLISHED
+
+
+def _publishing_fixture(db: Session) -> tuple[User, Round, Publication]:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    admin = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"stuck-{suffix}",
+        platform_role=PlatformRole.ADMIN,
+    )
+    series = Series(
+        name=f"Stuck {suffix}", slug=f"stuck-{suffix}", timezone="UTC", default_policies=[]
+    )
+    db.add_all((admin, series))
+    db.flush()
+    account = ExternalAccount(
+        user_id=admin.id, provider=ExternalProvider.SPOTIFY, provider_subject=f"stuck-{suffix}"
+    )
+    round_ = Round(
+        series_id=series.id,
+        title=f"Stuck {suffix}",
+        timezone="UTC",
+        submission_limit=1,
+        opens_at=now - timedelta(days=2),
+        closes_at=now - timedelta(days=1),
+        publish_at=now - timedelta(hours=12),
+        status=RoundStatus.PUBLISHING,
+        policy_snapshot=[],
+    )
+    db.add_all((account, round_))
+    db.flush()
+    db.add(
+        ExternalCredential(
+            external_account_id=account.id,
+            ciphertext=encrypt(
+                json.dumps({"access_token": "test-token"}),
+                get_settings().credential_encryption_key.get_secret_value(),
+            ),
+            key_version="v1",
+        )
+    )
+    publication = Publication(
+        round_id=round_.id,
+        publisher_account_id=account.id,
+        state=PublicationState.PUBLISHING,
+        idempotency_key=f"stuck-{suffix}",
+        spotify_playlist_id="playlist-id",
+    )
+    db.add(publication)
+    db.commit()
+    return admin, round_, publication
+
+
+def test_an_unexpected_worker_error_still_ends_in_a_retryable_failure(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, round_, publication = _publishing_fixture(db)
+
+    def crash(*_: object) -> dict[str, object]:
+        raise KeyError("a bug the transport error handling never anticipated")
+
+    monkeypatch.setattr(spotify, "playlist_snapshot", crash)
+    execute_publication(db, publication.id)
+
+    db.refresh(publication)
+    db.refresh(round_)
+    assert publication.state is PublicationState.FAILED
+    assert round_.status is RoundStatus.FAILED
+    assert publication.execution_token is None
+    assert publication.last_error == "Publication failed unexpectedly"
+
+
+def test_retry_requeues_a_publication_whose_worker_lease_has_lapsed(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A worker that died mid-run must not leave the round unrecoverable from the UI."""
+    admin, round_, publication = _publishing_fixture(db)
+    deferred: list[str] = []
+    monkeypatch.setattr(admin_publications, "defer_publication", deferred.append)
+
+    publication.execution_token = "dead-worker"
+    publication.execution_lease_expires_at = datetime.now(UTC) + timedelta(minutes=10)
+    db.commit()
+    with pytest.raises(HTTPException) as error:
+        retry_publication(publication.id, db, admin)
+    assert error.value.status_code == 409
+
+    publication.execution_lease_expires_at = datetime.now(UTC) - timedelta(minutes=1)
+    db.commit()
+    result = retry_publication(publication.id, db, admin)
+
+    assert result["state"] == "publishing"
+    assert deferred == [str(publication.id)]

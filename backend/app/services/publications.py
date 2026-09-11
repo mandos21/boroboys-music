@@ -397,6 +397,13 @@ def execute_publication(db: Session, publication_id: uuid.UUID) -> None:
         db.commit()
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
         _fail(db, publication, round_, "Spotify publication failed", token)
+    except Exception:
+        # Anything else - a database error mid-run, a successor that failed to
+        # create - must still end in a retryable failed state. Leaving the row
+        # in `publishing` would strand it: nothing re-queues it after the lease
+        # expires, and the retry command refuses anything that is not failed.
+        LOGGER.exception("publication crashed", extra={"publication_id": str(publication_id)})
+        _fail(db, publication, round_, "Publication failed unexpectedly", token)
 
 
 def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
@@ -433,6 +440,9 @@ def execute_retirement(db: Session, publication_id: uuid.UUID) -> None:
         db.commit()
     except (httpx.HTTPError, spotify.SpotifyError, ValueError, json.JSONDecodeError):
         _fail(db, publication, round_, "Spotify playlist retirement failed", token)
+    except Exception:
+        LOGGER.exception("retirement crashed", extra={"publication_id": str(publication_id)})
+        _fail(db, publication, round_, "Retirement failed unexpectedly", token)
 
 
 def get_spotify_access_token(db: Session, account_id: uuid.UUID) -> str:

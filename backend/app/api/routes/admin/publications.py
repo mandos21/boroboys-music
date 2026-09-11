@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -153,22 +154,37 @@ def retry_publication(
     if round_ is None:
         raise _not_found("round")
     _require_series_admin(db, user, round_.series_id)
-    if publication.state is PublicationState.FAILED:
-        if publication.retirement_requested:
-            publication.state = PublicationState.UNPUBLISHING
-            round_.status = RoundStatus.UNPUBLISHING
-            defer = defer_retirement
-        else:
-            publication.state = PublicationState.PUBLISHING
-            round_.status = RoundStatus.PUBLISHING
-            defer = defer_publication
-        # The previous failure is no longer the current state of this
-        # publication, so it must not keep being reported as one.
-        publication.last_error = None
-        db.commit()
-        defer_or_fail(db, publication, round_, defer)
-    else:
+    if not _is_retryable(publication):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="publication is not retryable"
         )
+    if publication.retirement_requested:
+        publication.state = PublicationState.UNPUBLISHING
+        round_.status = RoundStatus.UNPUBLISHING
+        defer = defer_retirement
+    else:
+        publication.state = PublicationState.PUBLISHING
+        round_.status = RoundStatus.PUBLISHING
+        defer = defer_publication
+    # The previous failure is no longer the current state of this
+    # publication, so it must not keep being reported as one.
+    publication.last_error = None
+    db.commit()
+    defer_or_fail(db, publication, round_, defer)
     return {"publicationId": str(publication.id), "state": publication.state.value}
+
+
+def _is_retryable(publication: Publication) -> bool:
+    """Failed publications, plus in-progress ones whose worker lease has lapsed.
+
+    A worker that died without reaching the failure path leaves the row in
+    `publishing`/`unpublishing` with an expired lease and nothing to re-queue
+    it. Re-queuing is safe because execution re-claims the lease and resumes
+    from the last committed batch.
+    """
+    if publication.state is PublicationState.FAILED:
+        return True
+    if publication.state not in {PublicationState.PUBLISHING, PublicationState.UNPUBLISHING}:
+        return False
+    lease = publication.execution_lease_expires_at
+    return lease is None or lease <= datetime.now(UTC)
