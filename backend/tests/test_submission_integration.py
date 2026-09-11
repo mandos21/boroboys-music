@@ -666,3 +666,63 @@ def test_declining_further_submissions_requires_round_membership(
             round_.id, RoundParticipationUpdate(declined_further_submissions=True), db, outsider
         )
     assert error.value.status_code == 403
+
+
+def test_a_round_cancelled_during_the_track_lookup_refuses_the_submission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The locked re-check after remote I/O has to see the round's current state."""
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    factory = get_session_factory()
+    with factory() as setup:
+        contributor = User(oidc_issuer="https://issuer.test", oidc_subject=f"cancel-{suffix}")
+        series = Series(
+            name=f"Cancel {suffix}", slug=f"cancel-{suffix}", timezone="UTC", default_policies=[]
+        )
+        setup.add_all((contributor, series))
+        setup.flush()
+        round_ = Round(
+            series_id=series.id,
+            title=f"Cancel {suffix}",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now - timedelta(minutes=5),
+            closes_at=now + timedelta(minutes=5),
+            publish_at=now + timedelta(minutes=10),
+            status=RoundStatus.OPEN,
+            policy_snapshot=[],
+        )
+        setup.add(round_)
+        setup.flush()
+        setup.add(RoundMember(round_id=round_.id, user_id=contributor.id))
+        setup.commit()
+        round_id, user_id = round_.id, contributor.id
+
+    def cancel_during_lookup(_db: Session, _user: User, track: TrackInput) -> TrackInput:
+        with factory() as admin:
+            admin.get(Round, round_id).status = RoundStatus.CANCELLED  # type: ignore[union-attr]
+            admin.commit()
+        return track
+
+    monkeypatch.setattr(submission_routes, "_canonical_track_input", cancel_during_lookup)
+    with factory() as db:
+        user = db.get(User, user_id)
+        assert user is not None
+        with pytest.raises(HTTPException) as error:
+            create_submission(
+                round_id,
+                SubmissionCreate(
+                    track=TrackInput(
+                        spotify_track_id=f"cancel-track-{suffix}",
+                        name="Too late",
+                        artist="The Testers",
+                        spotify_uri=f"spotify:track:{suffix}",
+                    )
+                ),
+                db,
+                user,
+            )
+        assert error.value.status_code == 409
+    with factory() as check:
+        assert check.scalar(select(Submission.id).where(Submission.round_id == round_id)) is None

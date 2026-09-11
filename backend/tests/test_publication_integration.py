@@ -520,3 +520,91 @@ def test_enqueue_failure_marks_the_publication_failed_for_ui_retry(db: Session) 
     assert publication.state is PublicationState.FAILED
     assert round_.status is RoundStatus.FAILED
     assert publication.last_error is not None and "Retry" in publication.last_error
+
+
+def test_a_worker_whose_lease_was_recovered_cannot_overwrite_the_outcome(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stalled worker that wakes up after its lease expired must stand down.
+
+    Uses committed sessions rather than the rollback fixture because the second
+    worker's recovery has to be visible from a different connection, exactly as
+    it would be in production.
+    """
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    factory = get_session_factory()
+    with factory() as setup:
+        publisher = User(
+            oidc_issuer="https://issuer.test",
+            oidc_subject=f"lease-{suffix}",
+            platform_role=PlatformRole.ADMIN,
+        )
+        series = Series(
+            name=f"Lease {suffix}", slug=f"lease-{suffix}", timezone="UTC", default_policies=[]
+        )
+        setup.add_all((publisher, series))
+        setup.flush()
+        account = ExternalAccount(
+            user_id=publisher.id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject=f"lease-{suffix}",
+        )
+        round_ = Round(
+            series_id=series.id,
+            title=f"Lease {suffix}",
+            timezone="UTC",
+            submission_limit=1,
+            opens_at=now - timedelta(days=2),
+            closes_at=now - timedelta(days=1),
+            publish_at=now - timedelta(hours=12),
+            status=RoundStatus.PUBLISHING,
+            policy_snapshot=[],
+        )
+        setup.add_all((account, round_))
+        setup.flush()
+        setup.add(
+            ExternalCredential(
+                external_account_id=account.id,
+                ciphertext=encrypt(
+                    json.dumps({"access_token": "test-token"}),
+                    get_settings().credential_encryption_key.get_secret_value(),
+                ),
+                key_version="v1",
+            )
+        )
+        publication = Publication(
+            round_id=round_.id,
+            publisher_account_id=account.id,
+            state=PublicationState.PUBLISHING,
+            idempotency_key=f"lease-{suffix}",
+            spotify_playlist_id="playlist-id",
+        )
+        setup.add(publication)
+        setup.commit()
+        publication_id, round_id = publication.id, round_.id
+
+    def stolen_lease_then_failure(*_: object) -> dict[str, object]:
+        # While the first worker is inside remote I/O, a second worker recovers
+        # the expired lease and publishes successfully.
+        with factory() as other:
+            recovered = other.get(Publication, publication_id)
+            assert recovered is not None
+            recovered.execution_token = "recovered-by-another-worker"
+            recovered.execution_lease_expires_at = datetime.now(UTC) + timedelta(minutes=30)
+            recovered.state = PublicationState.PUBLISHED
+            other.get(Round, round_id).status = RoundStatus.PUBLISHED  # type: ignore[union-attr]
+            other.commit()
+        raise spotify.SpotifyError("first worker's request eventually failed")
+
+    monkeypatch.setattr(spotify, "playlist_snapshot", stolen_lease_then_failure)
+    with factory() as worker:
+        execute_publication(worker, publication_id)
+
+    with factory() as check:
+        publication = check.get(Publication, publication_id)
+        round_ = check.get(Round, round_id)
+        assert publication is not None and round_ is not None
+        assert publication.state is PublicationState.PUBLISHED
+        assert publication.execution_token == "recovered-by-another-worker"
+        assert round_.status is RoundStatus.PUBLISHED

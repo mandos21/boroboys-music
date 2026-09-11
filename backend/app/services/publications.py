@@ -553,9 +553,17 @@ def _claim_execution(
 
 
 def _refresh_execution_lease(db: Session, publication: Publication, token: str) -> None:
-    """Fail closed if another worker has recovered an expired lease."""
+    """Fail closed if another worker has recovered an expired lease.
+
+    `populate_existing` matters: the publication is already in this session's
+    identity map, so a plain re-select would return the same object with the
+    token this worker wrote and the comparison could never fail.
+    """
     current = db.scalar(
-        select(Publication).where(Publication.id == publication.id).with_for_update()
+        select(Publication)
+        .where(Publication.id == publication.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if current is None or current.execution_token != token:
         raise ValueError("publication worker lease was lost")
@@ -611,8 +619,16 @@ def _fail(
     message: str,
     token: str | None = None,
 ) -> None:
-    if token is not None and publication.execution_token != token:
-        return
+    # Discard whatever the failed attempt left uncommitted before recording
+    # the outcome, then read the lease back from the database rather than from
+    # this session's copy of it.
+    db.rollback()
+    if token is not None:
+        db.refresh(publication, with_for_update=True)
+        if publication.execution_token != token:
+            # Another worker recovered the lease; its outcome is the one that counts.
+            db.rollback()
+            return
     publication.state = PublicationState.FAILED
     publication.attempt_count += 1
     publication.last_error = message

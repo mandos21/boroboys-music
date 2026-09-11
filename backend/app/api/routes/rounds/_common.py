@@ -75,7 +75,11 @@ def _member_round(
 ) -> tuple[Round, RoundMember]:
     query = select(Round).where(Round.id == round_id)
     if lock_round:
-        query = query.with_for_update()
+        # Callers lock the round *after* remote I/O to re-check its state.
+        # Without `populate_existing`, a round already in the identity map is
+        # handed back with the attributes loaded before the lock, so the
+        # re-check would see stale state and the lock would prove nothing.
+        query = query.with_for_update().execution_options(populate_existing=True)
     round_ = db.scalar(query)
     if round_ is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="round not found")
