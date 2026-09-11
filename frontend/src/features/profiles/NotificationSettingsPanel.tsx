@@ -8,12 +8,15 @@ import { useToast } from "../../components/ui/ToastProvider";
 import { Switch } from "../../components/ui/switch";
 
 type NotificationSettings = components["schemas"]["NotificationSettingsResponse"];
+type NotificationSettingsUpdate = components["schemas"]["NotificationSettingsUpdate"];
 
 // Responses are camelCase (the API's usual convention); this endpoint's PATCH
-// body is snake_case, matching every other write endpoint in this app.
+// body is snake_case, matching every other write endpoint in this app. Both
+// keys come from the generated contract, so a renamed setting fails to
+// compile here instead of at runtime.
 const TOGGLES: {
   key: keyof NotificationSettings;
-  requestKey: "notify_reminder_emails" | "notify_round_published_emails";
+  requestKey: keyof NotificationSettingsUpdate;
   label: string;
   description: string;
 }[] = [
@@ -39,7 +42,7 @@ export function NotificationSettingsPanel() {
     queryFn: () => api<NotificationSettings>("/profiles/me/notification-settings"),
   });
   const update = useMutation({
-    mutationFn: (change: Record<string, boolean>) =>
+    mutationFn: (change: NotificationSettingsUpdate) =>
       patch<NotificationSettings>("/profiles/me/notification-settings", change),
     // A refetch already in flight (window focus, remount) carries pre-PATCH
     // values and would overwrite the response written below; cancel it first.

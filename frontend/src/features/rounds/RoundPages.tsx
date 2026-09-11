@@ -21,6 +21,8 @@ import { DeferredSeriesInsights } from "./DeferredSeriesInsights";
 type Round = components["schemas"]["RoundDetailResponse"];
 type Submission = components["schemas"]["SubmissionResponse"];
 type SeriesHistory = components["schemas"]["SeriesHistoryResponse"];
+type RoundParticipation = components["schemas"]["RoundParticipationResponse"];
+type RoundParticipationUpdate = components["schemas"]["RoundParticipationUpdate"];
 
 export function RoundPage() {
   const { roundId } = useParams();
@@ -76,10 +78,10 @@ export function RoundPage() {
       }),
   });
   const updateParticipation = useMutation({
-    mutationFn: (declined: boolean) =>
-      patch<{ declinedFurtherSubmissions: boolean }>(`/rounds/${roundId}/participation`, {
-        declined_further_submissions: declined,
-      }),
+    mutationFn: (declined: boolean) => {
+      const change: RoundParticipationUpdate = { declined_further_submissions: declined };
+      return patch<RoundParticipation>(`/rounds/${roundId}/participation`, change);
+    },
     onSuccess: () => invalidate(),
     onError: () =>
       showToast({
