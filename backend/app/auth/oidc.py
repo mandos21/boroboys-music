@@ -10,14 +10,64 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import threading
 from dataclasses import dataclass
+from time import monotonic
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
-from authlib.jose import JsonWebKey, jwt  # type: ignore[import-untyped]
+from authlib.jose import JsonWebKey, JsonWebToken  # type: ignore[import-untyped]
 
 from app.core.config import Settings
+
+# Discovery documents and signing keys change rarely; refetching both on every
+# login made each sign-in three provider round-trips instead of one. A short
+# TTL keeps a key rotation at the provider from locking people out for long.
+_METADATA_TTL_SECONDS = 15 * 60
+
+# Only asymmetric signatures make sense for an ID token verified against the
+# provider's published JWKS. Leaving the algorithm open would let a token
+# signed with HS256 be checked against the public key as if it were a shared
+# secret, and the discovery document's own list is only consulted to narrow
+# this further, never to widen it.
+_ALLOWED_SIGNING_ALGORITHMS = [
+    "RS256",
+    "RS384",
+    "RS512",
+    "PS256",
+    "PS384",
+    "PS512",
+    "ES256",
+    "ES384",
+    "ES512",
+]
+
+
+class _TtlCache:
+    """A tiny per-URL cache for JSON documents, shared by every client instance."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._entries: dict[str, tuple[float, Any]] = {}
+
+    def get(self, url: str) -> Any | None:
+        with self._lock:
+            entry = self._entries.get(url)
+        if entry is None or entry[0] <= monotonic():
+            return None
+        return entry[1]
+
+    def put(self, url: str, value: Any) -> None:
+        with self._lock:
+            self._entries[url] = (monotonic() + _METADATA_TTL_SECONDS, value)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+
+
+_documents = _TtlCache()
 
 
 class OidcError(Exception):
@@ -99,10 +149,7 @@ class OidcClient:
 
     def _metadata(self) -> dict[str, Any]:
         issuer = str(self.settings.oidc_issuer_url).rstrip("/")
-        with httpx.Client(timeout=10.0) as client:
-            response = client.get(f"{issuer}/.well-known/openid-configuration")
-            response.raise_for_status()
-        metadata = response.json()
+        metadata = _fetch_json(f"{issuer}/.well-known/openid-configuration")
         if not isinstance(metadata, dict) or not isinstance(
             metadata.get("authorization_endpoint"), str
         ):
@@ -141,19 +188,52 @@ class OidcClient:
         jwks_uri = metadata.get("jwks_uri")
         if not isinstance(jwks_uri, str):
             raise OidcError("provider discovery document has no JWKS URI")
-        with httpx.Client(timeout=10.0) as client:
-            response = client.get(jwks_uri)
-            response.raise_for_status()
-        key_set = JsonWebKey.import_key_set(response.json())
+        algorithms = _signing_algorithms(metadata)
         try:
-            claims = jwt.decode(id_token, key_set)
-            claims.validate(leeway=60)
-        except Exception as error:
-            raise OidcError("ID token signature or standard claims validation failed") from error
+            claims = _decode(id_token, JsonWebKey.import_key_set(_fetch_json(jwks_uri)), algorithms)
+        except Exception:
+            # The provider may have rotated its keys inside the cache window;
+            # one fresh fetch tells a stale cache apart from a bad token.
+            _documents.clear()
+            try:
+                claims = _decode(
+                    id_token, JsonWebKey.import_key_set(_fetch_json(jwks_uri)), algorithms
+                )
+            except Exception as error:
+                raise OidcError(
+                    "ID token signature or standard claims validation failed"
+                ) from error
 
         if not _claims_match_provider(self.settings, claims, nonce):
             raise OidcError("ID token issuer, audience, or nonce validation failed")
         return dict(claims)
+
+
+def _fetch_json(url: str) -> Any:
+    cached = _documents.get(url)
+    if cached is not None:
+        return cached
+    with httpx.Client(timeout=10.0) as client:
+        response = client.get(url)
+        response.raise_for_status()
+    document = response.json()
+    _documents.put(url, document)
+    return document
+
+
+def _signing_algorithms(metadata: dict[str, Any]) -> list[str]:
+    """The allowed algorithms, narrowed to what the provider says it uses."""
+    advertised = metadata.get("id_token_signing_alg_values_supported")
+    if not isinstance(advertised, list):
+        return _ALLOWED_SIGNING_ALGORITHMS
+    narrowed = [alg for alg in _ALLOWED_SIGNING_ALGORITHMS if alg in advertised]
+    return narrowed or _ALLOWED_SIGNING_ALGORITHMS
+
+
+def _decode(id_token: str, key_set: Any, algorithms: list[str]) -> Any:
+    claims = JsonWebToken(algorithms).decode(id_token, key_set)
+    claims.validate(leeway=60)
+    return claims
 
 
 def _claims_match_provider(settings: Settings, claims: dict[str, Any], nonce: str) -> bool:
