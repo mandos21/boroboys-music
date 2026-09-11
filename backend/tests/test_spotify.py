@@ -176,3 +176,28 @@ def test_profile_image_uses_the_first_spotify_image() -> None:
         "https://cdn.test/avatar.jpg"
     )
     assert _spotify_profile_image({"images": []}) is None
+
+
+def test_search_result_payload_tolerates_malformed_nested_fields() -> None:
+    from app.api.routes.rounds.discovery import _search_result_payload
+
+    payload = _search_result_payload(
+        {
+            "id": "track-1",
+            "name": "Song",
+            "artists": "not-a-list",
+            "album": {"name": 7, "images": [None, "junk", {"url": "https://img/a.jpg"}]},
+            "uri": 12,
+            "explicit": "yes",
+        }
+    )
+
+    assert payload == {
+        "spotifyTrackId": "track-1",
+        "name": "Song",
+        "artist": "",
+        "album": None,
+        "spotifyUri": None,
+        "artworkUrl": "https://img/a.jpg",
+        "providerMetadata": {"explicit": False, "isPlayable": True},
+    }

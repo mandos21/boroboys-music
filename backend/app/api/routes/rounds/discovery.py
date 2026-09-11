@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 from fastapi import Depends, HTTPException, Query, status
@@ -144,29 +144,53 @@ def search_tracks(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="Spotify search failed"
         ) from None
     return [
-        {
-            "spotifyTrackId": item.get("id"),
-            "name": item.get("name"),
-            "artist": ", ".join(
-                artist.get("name", "")
-                for artist in item.get("artists", [])
-                if isinstance(artist, dict)
-            ),
-            "album": item.get("album", {}).get("name")
-            if isinstance(item.get("album"), dict)
-            else None,
-            "spotifyUri": item.get("uri"),
-            "artworkUrl": (item.get("album", {}).get("images") or [{}])[0].get("url")
-            if isinstance(item.get("album"), dict)
-            else None,
-            "providerMetadata": {
-                "explicit": item.get("explicit", False),
-                "isPlayable": item.get("is_playable", True),
-            },
-        }
+        _search_result_payload(item)
         for item in matches
         if isinstance(item.get("id"), str) and isinstance(item.get("name"), str)
     ]
+
+
+def _search_result_payload(item: dict[str, Any]) -> dict[str, object]:
+    """Shape one Spotify search hit without trusting any nested field's type.
+
+    Search results are only a picker; the canonical lookup at submission time
+    re-reads the track. That is no reason for an odd payload to 500 the
+    search itself, so every nested access is type-checked.
+    """
+    artists = item.get("artists")
+    artist_names = (
+        [
+            artist["name"]
+            for artist in artists
+            if isinstance(artist, dict) and isinstance(artist.get("name"), str)
+        ]
+        if isinstance(artists, list)
+        else []
+    )
+    raw_album = item.get("album")
+    album: dict[str, Any] = raw_album if isinstance(raw_album, dict) else {}
+    raw_images = album.get("images")
+    images: list[Any] = raw_images if isinstance(raw_images, list) else []
+    artwork_url = next(
+        (
+            image["url"]
+            for image in images
+            if isinstance(image, dict) and isinstance(image.get("url"), str)
+        ),
+        None,
+    )
+    return {
+        "spotifyTrackId": item["id"],
+        "name": item["name"],
+        "artist": ", ".join(artist_names),
+        "album": album.get("name") if isinstance(album.get("name"), str) else None,
+        "spotifyUri": item.get("uri") if isinstance(item.get("uri"), str) else None,
+        "artworkUrl": artwork_url,
+        "providerMetadata": {
+            "explicit": item.get("explicit") is True,
+            "isPlayable": item.get("is_playable") is not False,
+        },
+    }
 
 
 @router.get("/{round_id}/tracks/{track_id}/evidence", response_model=EvidenceResponse)
