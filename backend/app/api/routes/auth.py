@@ -7,6 +7,7 @@ from typing import Annotated
 from urllib.parse import urlencode, urlparse
 
 import httpx
+from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
@@ -98,7 +99,7 @@ async def callback(
             ),
             nonce,
         )
-    except (httpx.HTTPError, OidcError):
+    except (httpx.HTTPError, OidcError, InvalidToken):
         return _login_error_redirect(settings, "verification-failed")
 
     if settings.oidc_require_verified_email and not identity.email_verified:
@@ -175,13 +176,19 @@ async def logout(
     session: Annotated[ServerSession, Depends(get_current_session)],
 ) -> Response:
     settings = get_settings()
-    id_token = (
-        decrypt(
-            session.oidc_id_token_ciphertext, settings.credential_encryption_key.get_secret_value()
-        )
-        if session.oidc_id_token_ciphertext
-        else None
-    )
+    # End the local session before anything that could fail. The stored ID
+    # token is only a hint for the provider's logout page; a session created
+    # before a credential-key rotation cannot be decrypted any more, and that
+    # must not leave someone signed in.
+    id_token = None
+    if session.oidc_id_token_ciphertext:
+        try:
+            id_token = decrypt(
+                session.oidc_id_token_ciphertext,
+                settings.credential_encryption_key.get_secret_value(),
+            )
+        except InvalidToken:
+            id_token = None
     db.delete(session)
     db.commit()
     try:

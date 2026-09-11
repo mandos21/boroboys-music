@@ -1,12 +1,15 @@
 import asyncio
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy.orm import Session
 
 from app.api.routes import auth
 from app.auth.oidc import _claims_match_provider
 from app.core.config import Settings
 from app.core.security import decrypt, encrypt, hash_secret, new_secret, secrets_match
-from app.db.models import PlatformRole
+from app.db.models import PlatformRole, ServerSession, User
 
 
 def test_opaque_secrets_are_random_hashable_and_encryptable() -> None:
@@ -118,3 +121,34 @@ def test_production_configuration_rejects_default_credential_key() -> None:
         credential_encryption_key="credential-key",
     )
     assert production.app_env == "production"
+
+
+def test_logout_ends_a_session_whose_id_token_predates_a_key_rotation(
+    db: Session, make_user: Callable[..., User], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rotation re-encrypts provider credentials, not sessions; sign-out must still work."""
+    user = make_user(name="Rotated")
+    session = ServerSession(
+        user_id=user.id,
+        token_hash=hash_secret(new_secret()),
+        csrf_secret_hash=hash_secret(new_secret()),
+        oidc_id_token_ciphertext=encrypt("id-token", "a-key-this-deployment-no-longer-has"),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+    db.add(session)
+    db.commit()
+
+    class OfflineProvider:
+        def __init__(self, _settings: object) -> None:
+            pass
+
+        async def logout_url(self, id_token_hint: str | None) -> str:
+            assert id_token_hint is None
+            return "https://issuer.example/logout"
+
+    monkeypatch.setattr(auth, "OidcClient", OfflineProvider)
+    response = asyncio.run(auth.logout(db, session))
+
+    assert response.status_code == 204
+    assert response.headers["X-Logout-Redirect"] == "https://issuer.example/logout"
+    assert db.get(ServerSession, session.id) is None

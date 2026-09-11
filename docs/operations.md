@@ -63,6 +63,12 @@ transaction. Verify that every credential has the destination version, perform a
 verified backup, and only then remove the old key. Never rotate the only key before
 the re-encryption step has succeeded.
 
+Only provider credentials are re-encrypted. Browser sessions and in-flight login
+attempts also hold ciphertext under the key, but they are short-lived and are not
+rotated: a session created before the rotation can still sign out (the stored
+ID-token hint is simply dropped from the provider logout redirect), and a login
+that straddles the rotation is asked to start again.
+
 ## Incident signals
 
 - A growing queue or repeated publication errors requires pausing publication and

@@ -9,6 +9,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from cryptography.fernet import InvalidToken
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -441,9 +442,15 @@ def get_spotify_access_token(db: Session, account_id: uuid.UUID) -> str:
     if credential is None:
         raise ValueError("publisher has no credential")
     settings = get_settings()
-    payload = json.loads(
-        decrypt(credential.ciphertext, settings.credential_encryption_key.get_secret_value())
-    )
+    try:
+        payload = json.loads(
+            decrypt(credential.ciphertext, settings.credential_encryption_key.get_secret_value())
+        )
+    except InvalidToken:
+        # Encrypted under a key this deployment no longer has: the credential
+        # rotation step was skipped for this row, or the key was changed
+        # outright. Either way the listener has to link the account again.
+        raise ValueError("publisher credential needs reauthorization") from None
     token = payload.get("access_token") if isinstance(payload, dict) else None
     if not isinstance(token, str):
         raise ValueError("publisher credential is malformed")
