@@ -82,7 +82,16 @@ export function RoundPage() {
       const change: RoundParticipationUpdate = { declined_further_submissions: declined };
       return patch<RoundParticipation>(`/rounds/${roundId}/participation`, change);
     },
-    onSuccess: () => invalidate(),
+    // The response already carries the new flag. Writing it straight into
+    // the cached round moves the switch immediately, instead of leaving it
+    // stale but re-enabled until a full round refetch lands.
+    onMutate: () => queryClient.cancelQueries({ queryKey: queryKeys.round(roundId) }),
+    onSuccess: (data) =>
+      queryClient.setQueryData<Round>(queryKeys.round(roundId), (current) =>
+        current
+          ? { ...current, declinedFurtherSubmissions: data.declinedFurtherSubmissions }
+          : current,
+      ),
     onError: () =>
       showToast({
         title: "Couldn’t save that",

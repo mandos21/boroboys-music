@@ -100,5 +100,13 @@ describe("RoundPage", () => {
     await waitFor(() =>
       expect(screen.getByText(/you won.t get deadline reminders for it/).textContent).toBeTruthy(),
     );
+    // The PATCH response is enough to update the page; nothing is refetched.
+    expect(requests.filter((request) => request.method === "GET").map((r) => r.url)).toEqual(
+      requests
+        .filter((request) => request.method === "GET")
+        .map((r) => r.url)
+        .filter((url, index, urls) => urls.indexOf(url) === index),
+    );
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
   });
 });
