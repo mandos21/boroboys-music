@@ -93,7 +93,13 @@ def evaluate_track(
                 status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
             )
     track = _find_or_create_track(db, _canonical_track_input(db, user, payload.track))
-    decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
+    decisions = evaluate_submission(
+        db,
+        round_,
+        track.id,
+        round_.policy_snapshot,
+        replacing_submission_id=payload.replacing_submission_id,
+    )
     db.commit()
     defer_evidence_refresh(str(round_.id), str(track.id))
     defer_track_genre_enrichment(str(track.id))
@@ -216,7 +222,9 @@ def update_submission(
     decisions = []
     if canonical_track is not None:
         track = _find_or_create_track(db, canonical_track)
-        decisions = evaluate_submission(db, round_, track.id, round_.policy_snapshot)
+        decisions = evaluate_submission(
+            db, round_, track.id, round_.policy_snapshot, replacing_submission_id=submission.id
+        )
         if any(item.decision is EvaluationDecision.REJECT for item in decisions):
             return {
                 "accepted": False,

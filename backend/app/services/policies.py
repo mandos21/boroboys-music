@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, true
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -29,8 +29,22 @@ class PolicyResult:
 
 
 def evaluate_submission(
-    db: Session, round_: Round, track_id: uuid.UUID, policies: list[dict[str, Any]]
+    db: Session,
+    round_: Round,
+    track_id: uuid.UUID,
+    policies: list[dict[str, Any]],
+    *,
+    replacing_submission_id: uuid.UUID | None = None,
 ) -> list[PolicyResult]:
+    """Evaluate a candidate track against the round's policy snapshot.
+
+    When a contributor is replacing one of their own entries, that entry is
+    not a duplicate of the candidate - otherwise re-submitting the same track
+    with a new note would be refused as a repeat of itself.
+    """
+    not_the_replaced_entry = (
+        Submission.id != replacing_submission_id if replacing_submission_id is not None else true()
+    )
     results: list[PolicyResult] = []
     for policy in policies:
         if not policy.get("enabled", True):
@@ -42,6 +56,7 @@ def evaluate_submission(
                     Submission.round_id == round_.id,
                     Submission.track_id == track_id,
                     Submission.status == SubmissionStatus.ACCEPTED,
+                    not_the_replaced_entry,
                 )
             )
             if duplicate:
@@ -62,6 +77,7 @@ def evaluate_submission(
                     Round.series_id == round_.series_id,
                     Submission.track_id == track_id,
                     Submission.status == SubmissionStatus.ACCEPTED,
+                    not_the_replaced_entry,
                 )
                 .limit(1)
             )

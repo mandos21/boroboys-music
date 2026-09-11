@@ -726,3 +726,49 @@ def test_a_round_cancelled_during_the_track_lookup_refuses_the_submission(
         assert error.value.status_code == 409
     with factory() as check:
         assert check.scalar(select(Submission.id).where(Submission.round_id == round_id)) is None
+
+
+def test_replacing_an_entry_with_its_own_track_is_not_a_duplicate(
+    db: Session,
+    opened_task_app: None,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+) -> None:
+    member = make_user(name="Member")
+    series = make_series()
+    round_ = make_round(series, members=[member])
+    round_.policy_snapshot = [
+        {"kind": "duplicate_in_round", "on_match": "reject"},
+        {"kind": "duplicate_in_series", "on_match": "reject"},
+    ]
+    db.commit()
+    tag = uuid.uuid4().hex[:8]
+    track = TrackInput(
+        spotify_track_id=f"same-{tag}",
+        name="Same track",
+        artist="The Testers",
+        spotify_uri=f"spotify:track:{tag}",
+    )
+    created = create_submission(round_.id, SubmissionCreate(track=track), db, member)
+    assert created["accepted"] is True
+    submission_id = uuid.UUID(str(created["id"]))
+
+    preflight = evaluate_track(
+        round_.id,
+        TrackEvaluationRequest(track=track, replacing_submission_id=submission_id),
+        db,
+        member,
+    )
+    assert preflight["canSubmit"] is True
+    assert preflight["policyResults"] == []
+
+    replaced = update_submission(submission_id, SubmissionUpdate(track=track), db, member)
+    assert replaced["accepted"] is True
+
+    # Somebody else's entry with the same track is still a duplicate.
+    other = make_user(name="Other")
+    db.add(RoundMember(round_id=round_.id, user_id=other.id))
+    db.commit()
+    refused = create_submission(round_.id, SubmissionCreate(track=track), db, other)
+    assert refused["accepted"] is False
