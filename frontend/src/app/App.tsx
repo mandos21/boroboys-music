@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, type CSSProperties, type ReactNode } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { lazy, Suspense, useEffect, type CSSProperties, type ReactNode } from "react";
 import { ChevronRight, ListMusic, Sparkles } from "lucide-react";
 import { Link, Navigate, Route, Routes, useParams, useSearchParams } from "react-router";
 
@@ -358,13 +358,17 @@ function InviteAcceptPage() {
     queryFn: () => api<Session>("/auth/session"),
     retry: false,
   });
-  const accept = useQuery({
-    queryKey: queryKeys.acceptInvite(token),
-    queryFn: () => post<{ seriesId: string }>(`/series/invites/${token}/accept`, {}),
-    enabled: Boolean(token && session.isSuccess),
-    retry: false,
+  // Accepting is a write, so it is a mutation fired once the session is
+  // known - a query here would re-POST on every window focus or remount.
+  const accept = useMutation({
+    mutationFn: (inviteToken: string) =>
+      post<{ seriesId: string }>(`/series/invites/${inviteToken}/accept`, {}),
   });
-  if (session.isLoading || accept.isLoading)
+  const { mutate: acceptInvite } = accept;
+  useEffect(() => {
+    if (token && session.isSuccess) acceptInvite(token);
+  }, [acceptInvite, session.isSuccess, token]);
+  if (session.isLoading || accept.isPending || (session.isSuccess && accept.isIdle))
     return (
       <main className="shell narrow-page-shell">
         <StatePanel kind="loading" title="Opening your invite">

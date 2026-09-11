@@ -33,6 +33,4 @@ export const queryKeys = {
   adminSeriesDetail: (seriesId: string | undefined) => ["admin-series", seriesId] as const,
   adminRound: (roundId: string | undefined) => ["admin-round", roundId] as const,
   publication: (roundId: string) => ["publication", roundId] as const,
-
-  acceptInvite: (token: string | undefined) => ["accept-invite", token] as const,
 } as const;

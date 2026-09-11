@@ -110,3 +110,43 @@ describe("application recovery screens", () => {
     );
   });
 });
+
+describe("invite acceptance", () => {
+  it("accepts the invite exactly once and then moves to the series", async () => {
+    const requests: { url: string; method: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        requests.push({ url, method: init?.method ?? "GET" });
+        if (url.endsWith("/auth/session")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                user: { id: "u1", email: null, displayName: "Mara", platformRole: "member" },
+                expiresAt: "2026-12-01T00:00:00Z",
+                csrfCookieName: "music_rounds_session_csrf",
+              }),
+              { status: 200 },
+            ),
+          );
+        }
+        if (url.endsWith("/series/invites/token-1/accept")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ seriesId: "series-9", role: "contributor" }), {
+              status: 200,
+            }),
+          );
+        }
+        // The series page is not under test; make it land on its error state.
+        return Promise.resolve(new Response(JSON.stringify({ detail: "nope" }), { status: 403 }));
+      }),
+    );
+
+    renderApp("/invites/token-1");
+
+    expect(await screen.findByRole("heading", { name: "Series unavailable" })).toBeTruthy();
+    const accepts = requests.filter((request) => request.url.endsWith("/accept"));
+    expect(accepts).toEqual([{ url: "/api/v1/series/invites/token-1/accept", method: "POST" }]);
+  });
+});
