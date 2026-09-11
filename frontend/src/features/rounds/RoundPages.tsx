@@ -171,7 +171,12 @@ function RoundOverview({
   onDeclineChange: (declined: boolean) => void;
   isSavingParticipation: boolean;
 }) {
-  const hasCapacity = mySubmissionCount === undefined || mySubmissionCount < round.submissionLimit;
+  // Until the submissions have loaded, nobody knows whether this person has
+  // room left. Rendering the controls optimistically made them flash for
+  // someone already at their limit, and left them up for good if the
+  // submissions request failed.
+  const capacityKnown = mySubmissionCount !== undefined;
+  const hasCapacity = capacityKnown && mySubmissionCount < round.submissionLimit;
   return (
     <section
       className="panel detail round-overview"
@@ -243,6 +248,10 @@ function RoundOverview({
           <p className="muted">
             You manage this round but aren&apos;t one of its contributors, so there&apos;s nothing
             for you to submit here.
+          </p>
+        ) : !capacityKnown ? (
+          <p className="muted" aria-busy="true">
+            Checking how much room you have left in this round.
           </p>
         ) : hasCapacity ? (
           <Button render={<Link to={`/rounds/${round.id}/submit`} />}>Choose a track</Button>

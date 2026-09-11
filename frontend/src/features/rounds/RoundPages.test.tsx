@@ -75,11 +75,52 @@ describe("RoundPage", () => {
     renderRound();
 
     expect(await screen.findByRole("heading", { name: "September picks" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Choose a track" })).toHaveProperty(
+    expect(await screen.findByRole("link", { name: "Choose a track" })).toHaveProperty(
       "href",
       expect.stringContaining("/rounds/round-1/submit"),
     );
     expect(await screen.findByRole("heading", { name: "Submissions" })).toBeTruthy();
+  });
+
+  it("waits for the submission list before offering capacity-dependent controls", async () => {
+    let releaseSubmissions: (entries: unknown[]) => void = () => undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = String(input);
+        if (url.endsWith("/rounds/round-1/submissions")) {
+          return new Promise<Response>((resolve) => {
+            releaseSubmissions = (entries) =>
+              resolve(new Response(JSON.stringify(entries), { status: 200 }));
+          });
+        }
+        return Promise.resolve(new Response(JSON.stringify(baseRound), { status: 200 }));
+      }),
+    );
+
+    renderRound();
+
+    expect(await screen.findByRole("heading", { name: "September picks" })).toBeTruthy();
+    expect(screen.getByText("Checking how much room you have left in this round.")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Choose a track" })).toBeNull();
+    expect(screen.queryByRole("switch")).toBeNull();
+
+    const mine = (id: string) => ({
+      id,
+      status: "accepted",
+      note: null,
+      createdAt: "2026-09-02T00:00:00Z",
+      updatedAt: "2026-09-02T00:00:00Z",
+      withdrawnAt: null,
+      isMine: true,
+      contributor: { id: "me", displayName: "Me", spotifyProfileImageUrl: null },
+      track: { spotifyTrackId: id, name: id, artist: "A", album: null, spotifyUri: null },
+    });
+    releaseSubmissions([mine("one"), mine("two")]);
+
+    expect(await screen.findByText(/You.re all set!/)).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Choose a track" })).toBeNull();
+    expect(screen.queryByRole("switch")).toBeNull();
   });
 
   it("offers no contributor controls to an administrator who is not a member", async () => {
