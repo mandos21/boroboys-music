@@ -108,6 +108,7 @@ const openRound = {
   contributorCount: 4,
   canManage: true,
   isMember: true,
+  declinedFurtherSubmissions: false,
   spotifyPlaylistUrl: null,
   artworkUrls: art.slice(0, 4),
   backgroundArtworkUrl: art[0],
@@ -256,11 +257,22 @@ function responseFor(path: string) {
       },
     };
   }
+  if (path === "/api/v1/series/series-1/insights") {
+    return {
+      genreTaggedTrackCount: 49,
+      uniqueTrackCount: 51,
+      genreSpread: genres,
+      contributors,
+    };
+  }
   if (path === "/api/v1/rounds/round-open") return openRound;
   if (path === "/api/v1/rounds/round-open/submissions") return submissions;
   if (path === "/api/v1/rounds/round-open/draft") return { track: null, note: null };
   if (path === "/api/v1/rounds/round-open/listening-suggestions") return tracks.slice(0, 3);
   if (path === "/api/v1/profiles/me") return profile;
+  if (path === "/api/v1/profiles/me/notification-settings") {
+    return { notifyReminderEmails: true, notifyRoundPublishedEmails: false };
+  }
   if (path === "/api/v1/connections") return connections;
   if (path === "/api/v1/admin/series/series-1") return adminSeries;
   if (path === "/api/v1/admin/series/series-1/members") {
