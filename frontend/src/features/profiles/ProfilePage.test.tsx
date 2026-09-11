@@ -64,17 +64,21 @@ const profile = {
   ],
 };
 
+const notificationSettings = { notifyReminderEmails: true, notifyRoundPublishedEmails: false };
+
 function renderProfile(profileStatus = 200, profileData = profile) {
   vi.stubGlobal(
     "fetch",
     vi.fn((input: string | URL | Request) => {
-      const url = String(input);
-      const body = url.includes("/profiles/me") ? profileData : [];
-      return Promise.resolve(
-        new Response(JSON.stringify(body), {
-          status: url.includes("/profiles/") ? profileStatus : 200,
-        }),
-      );
+      // Match exact paths: "/profiles/me" is a prefix of the notification
+      // settings endpoint, and each has its own payload and failure mode.
+      const path = new URL(String(input), "http://localhost").pathname;
+      const responses: Record<string, [unknown, number]> = {
+        "/api/v1/profiles/me": [profileData, profileStatus],
+        "/api/v1/profiles/me/notification-settings": [notificationSettings, 200],
+      };
+      const [body, status] = responses[path] ?? [[], 200];
+      return Promise.resolve(new Response(JSON.stringify(body), { status }));
     }),
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -111,6 +115,12 @@ describe("ProfilePage", () => {
       "href",
       expect.stringContaining("/rounds/round-1"),
     );
+    expect(await screen.findByRole("heading", { name: "Email notifications" })).toBeTruthy();
+    const switches = await screen.findAllByRole("switch");
+    expect(switches.map((toggle) => toggle.getAttribute("aria-checked"))).toEqual([
+      "true",
+      "false",
+    ]);
   });
 
   it("keeps connected services available if profile analytics fail", async () => {
@@ -120,6 +130,8 @@ describe("ProfilePage", () => {
       await screen.findByRole("heading", { name: "Listening profile unavailable" }),
     ).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Connected services" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Email notifications" })).toBeTruthy();
+    expect(await screen.findAllByRole("switch")).toHaveLength(2);
   });
 
   it("keeps a long fingerprint to five rows until the disclosure is opened", async () => {
