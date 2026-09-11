@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Album, ChevronDown, Disc3, Music2, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
 
@@ -240,25 +240,38 @@ function ProfileContent({
 function ProfileConnections() {
   return (
     <>
-      <section className="profile-connections" aria-labelledby="connections-title">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Your setup</p>
-            <h2 id="connections-title">Connected services</h2>
-          </div>
-        </div>
+      <SetupSection id="connections-title" title="Connected services" eyebrow="Your setup">
         <ConnectionsPanel />
-      </section>
-      <section className="profile-connections" aria-labelledby="notifications-title">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Your setup</p>
-            <h2 id="notifications-title">Email notifications</h2>
-          </div>
-        </div>
+      </SetupSection>
+      <SetupSection id="notifications-title" title="Email notifications">
         <NotificationSettingsPanel />
-      </section>
+      </SetupSection>
     </>
+  );
+}
+
+function SetupSection({
+  id,
+  title,
+  eyebrow,
+  children,
+}: {
+  id: string;
+  title: string;
+  /** Only the first section of the group carries the group's eyebrow. */
+  eyebrow?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="profile-setup-section" aria-labelledby={id}>
+      <div className="section-heading">
+        <div>
+          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+          <h2 id={id}>{title}</h2>
+        </div>
+      </div>
+      {children}
+    </section>
   );
 }
 

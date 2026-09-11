@@ -73,8 +73,8 @@
 .profile-submission-round a + a { color: #526179; font-weight: 700; }
 .profile-submission-round small { color: #94a3b8; font-size: .7rem; }
 .profile-load-more { display: flex; margin: 1.1rem auto 0; }
-.profile-connections { margin-top: 2.5rem; }
-.profile-connections .connection-grid { margin-top: 1rem; }
+.profile-setup-section { margin-top: 2.5rem; }
+.profile-setup-section .connection-grid { margin-top: 1rem; }
 .notification-settings { display: grid; gap: .1rem; margin-top: 1rem; }
 .notification-toggle { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: .9rem 0; border-top: 1px solid #e2e8f0; cursor: pointer; }
 .notification-toggle:first-child { border-top: none; }
