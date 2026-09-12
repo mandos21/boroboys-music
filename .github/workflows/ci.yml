@@ -37,7 +37,6 @@ jobs:
       - run: poetry run mypy app
       - run: poetry run alembic upgrade head
       - run: poetry run alembic check
-      - run: poetry run procrastinate --app=app.tasks.app schema --apply
       - run: PGPASSWORD=music_rounds createdb -h localhost -U music_rounds music_rounds_test
       - run: DATABASE_URL=postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds_test poetry run alembic upgrade head
       - run: poetry run python scripts/generate_openapi.py > /tmp/openapi.json && diff -u openapi.json /tmp/openapi.json
@@ -45,6 +44,15 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    # Visual snapshots are only pixel-stable inside the exact OS/font/browser
+    # combination Playwright ships in its own image. Running on bare
+    # ubuntu-latest (whatever font/freetype packages that image currently
+    # carries) made every visual test flake by ~1% of pixels regardless of
+    # which page changed, because the runner's font rendering drifted out
+    # from under the committed baselines. Pin the container to the exact
+    # @playwright/test version in package-lock.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
     defaults:
       run:
         working-directory: frontend
@@ -59,7 +67,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run test -- --run
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      # Browsers matching this exact Playwright version are already bundled
+      # in the container image; installing again here would be redundant.
       - run: npm run test:visual
       - run: npm run test:a11y
 
