@@ -43,8 +43,8 @@ function renderConnections(connections: unknown[], path = "/profile") {
 describe("ConnectionsPage", () => {
   it("lists every linked account for a provider so each can be disconnected", async () => {
     renderConnections([
-      connection("spotify-1", "spotify", "Main account"),
-      connection("spotify-2", "spotify", "Second account"),
+      connection("lastfm-1", "lastfm", "Main account"),
+      connection("lastfm-2", "lastfm", "Second account"),
     ]);
 
     expect(await screen.findByText("Main account")).toBeTruthy();

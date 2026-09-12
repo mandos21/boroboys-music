@@ -92,7 +92,7 @@ def evaluate_track(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
             )
-    track = _find_or_create_track(db, _canonical_track_input(db, user, payload.track))
+    track = _find_or_create_track(db, _canonical_track_input(db, payload.track))
     decisions = evaluate_submission(
         db,
         round_,
@@ -130,7 +130,7 @@ def create_submission(
     # We must not hold a row lock across remote I/O.
     initial_round, _ = _member_round(db, round_id, user.id)
     _require_open_round(initial_round)
-    canonical_track = _canonical_track_input(db, user, payload.track)
+    canonical_track = _canonical_track_input(db, payload.track)
     round_, membership = _member_round(db, round_id, user.id, lock_round=True)
     _require_open_round(round_)
     limit = _submission_limit(round_, membership)
@@ -214,7 +214,7 @@ def update_submission(
     initial_round, _ = _member_round(db, submission.round_id, user.id)
     _require_open_round(initial_round)
     canonical_track = (
-        _canonical_track_input(db, user, payload.track) if payload.track is not None else None
+        _canonical_track_input(db, payload.track) if payload.track is not None else None
     )
     round_, _ = _member_round(db, submission.round_id, user.id, lock_round=True)
     _require_open_round(round_)
