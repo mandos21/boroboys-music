@@ -57,6 +57,11 @@ jobs:
       run:
         working-directory: frontend
     steps:
+      # The Playwright image has no git, so actions/checkout would otherwise
+      # silently fall back to a non-git tarball download, leaving later git
+      # commands (the generated-schema diff below) with no repository at all.
+      - name: Install git
+        run: apt-get update && apt-get install -y --no-install-recommends git
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
