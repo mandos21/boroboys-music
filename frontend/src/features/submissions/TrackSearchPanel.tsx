@@ -1,5 +1,3 @@
-import { Link } from "react-router";
-
 import type { Track } from "./types";
 
 type TrackSearchPanelProps = {
@@ -67,8 +65,7 @@ export function TrackSearchPanel({
       )}
       {hasError && (
         <p className="error-message" role="alert">
-          Spotify search is unavailable.{" "}
-          <Link to="/settings/connections">Check your Spotify connection</Link> and try again.
+          Spotify search is unavailable right now. Try again in a moment.
         </p>
       )}
       {suggestions && suggestions.length > 0 && !query.trim() && (

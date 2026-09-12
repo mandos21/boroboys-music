@@ -40,7 +40,6 @@ from app.db.models import (
 )
 from app.services import lastfm, spotify
 from app.services.authorization import is_round_member, is_series_admin
-from app.services.publications import get_spotify_access_token
 
 
 @router.get("/{round_id}/listening-suggestions")
@@ -122,22 +121,12 @@ def search_tracks(
     user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, object]]:
     _member_round(db, round_id, user.id)
-    account = db.scalar(
-        select(ExternalAccount).where(
-            ExternalAccount.user_id == user.id,
-            ExternalAccount.provider == ExternalProvider.SPOTIFY,
-            ExternalAccount.is_active.is_(True),
-        )
-    )
-    if account is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Spotify account is not linked"
-        )
     try:
-        access_token = get_spotify_access_token(db, account.id)
-        # A refresh changes durable credentials.  Checkpoint it before the
-        # unrelated remote search so a search failure cannot discard it.
-        db.commit()
+        # Catalog search is public data, not personal to whoever is asking, so
+        # it runs on the app's own Client Credentials grant rather than
+        # requiring every contributor to hold their own Spotify authorization
+        # (Spotify's Development Mode caps that at a handful of accounts).
+        access_token = spotify.client_credentials_token(get_settings())
         matches = spotify.search_tracks(access_token, query)
     except (httpx.HTTPError, spotify.SpotifyError, ValueError):
         raise HTTPException(

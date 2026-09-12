@@ -13,10 +13,10 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import DbSession
+from app.core.config import get_settings
 from app.db.models import (
     EvidenceVisibility,
     ExternalAccount,
-    ExternalProvider,
     Round,
     RoundMember,
     RoundStatus,
@@ -28,7 +28,6 @@ from app.db.models import (
 from app.services import spotify
 from app.services.authorization import is_series_admin
 from app.services.lifecycle import reconcile_round_status
-from app.services.publications import get_spotify_access_token
 from app.services.track_metadata import sync_track_artists
 
 router = APIRouter(prefix="/rounds", tags=["rounds"])
@@ -157,29 +156,19 @@ def _active_submission_count(db: DbSession, round_id: uuid.UUID, user_id: uuid.U
     )
 
 
-def _canonical_track_input(db: DbSession, user: User, input_track: TrackInput) -> TrackInput:
+def _canonical_track_input(db: DbSession, input_track: TrackInput) -> TrackInput:
     """Resolve a client-selected Spotify ID into trusted provider metadata.
 
     Search results are a UI convenience, never an authority.  Policies and
     publication snapshots must be based on Spotify's response, not fields a
     browser can alter before posting a submission.
     """
-    account = db.scalar(
-        select(ExternalAccount).where(
-            ExternalAccount.user_id == user.id,
-            ExternalAccount.provider == ExternalProvider.SPOTIFY,
-            ExternalAccount.is_active.is_(True),
-        )
-    )
-    if account is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Spotify account is not linked"
-        )
     try:
-        access_token = get_spotify_access_token(db, account.id)
-        # Token refreshes are durable state and should survive a later provider
-        # failure. This also keeps remote I/O outside an open write transaction.
-        db.commit()
+        # Track lookup is public catalog data, so it runs on the app's own
+        # Client Credentials grant rather than requiring the submitter to
+        # hold their own Spotify authorization (Spotify's Development Mode
+        # caps that at a handful of accounts).
+        access_token = spotify.client_credentials_token(get_settings())
         matches = spotify.tracks_by_id(access_token, [input_track.spotify_track_id])
     except (httpx.HTTPError, spotify.SpotifyError, ValueError):
         raise HTTPException(
@@ -196,7 +185,7 @@ def _canonical_track_input(db: DbSession, user: User, input_track: TrackInput) -
     if track is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Spotify could not find that track for your account",
+            detail="Spotify could not find that track",
         )
     name = track.get("name")
     uri = track.get("uri")

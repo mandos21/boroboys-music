@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Disc3, Eye, Headphones, Link2, ShieldCheck, Unplug } from "lucide-react";
+import { Eye, Headphones, Link2, ShieldCheck, Unplug } from "lucide-react";
 import { useSearchParams } from "react-router";
 
 import { api, del, patch } from "../../api/client";
@@ -12,17 +12,18 @@ import { useToast } from "../../components/ui/ToastProvider";
 import { Button } from "../../components/ui/button";
 import "./connections.css";
 
+// Spotify search and track lookups run on the app's own credentials now (see
+// backend/app/api/routes/rounds/discovery.py and _common.py), not a linked
+// per-person Spotify account, because Spotify's Development Mode caps linked
+// accounts far below what this group needs. Only the series publisher's own
+// Spotify account (managed outside this page) is still used, for publishing
+// finished rounds. Last.fm has no such cap, so it's still self-service here.
 type Connection = components["schemas"]["ConnectionResponse"] & {
-  provider: "spotify" | "lastfm";
+  provider: "lastfm";
   visibility: "round_members" | "series_admins" | "private";
 };
 
 const providerInfo = {
-  spotify: {
-    description: "Search for tracks while submitting and choose a publisher for finished rounds.",
-    icon: Disc3,
-    name: "Spotify",
-  },
   lastfm: {
     description: "Optionally share cached listening history with people in your rounds.",
     icon: Headphones,
@@ -47,7 +48,13 @@ export function ConnectionsPanel() {
   const [connectionToDisconnect, setConnectionToDisconnect] = useState<Connection | null>(null);
   const connections = useQuery({
     queryKey: queryKeys.connections(),
-    queryFn: () => api<Connection[]>("/connections"),
+    // The series publisher's own account still shows up here as a "spotify"
+    // connection; this page no longer manages that, so it's filtered out
+    // below rather than rendered.
+    queryFn: () =>
+      api<(components["schemas"]["ConnectionResponse"] & { provider: "spotify" | "lastfm" })[]>(
+        "/connections",
+      ),
   });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.connections() });
   const visibility = useMutation({
@@ -84,7 +91,10 @@ export function ConnectionsPanel() {
         tone: "error",
       }),
   });
-  const active = (connections.data ?? []).filter((connection) => connection.isActive);
+  const active = (connections.data ?? []).filter(
+    (connection): connection is Connection =>
+      connection.isActive && connection.provider === "lastfm",
+  );
   const byProvider = (provider: Connection["provider"]) =>
     active.filter((connection) => connection.provider === provider);
 
@@ -111,7 +121,7 @@ export function ConnectionsPanel() {
       )}
       {!connections.isLoading && !connections.isError && (
         <div className="connection-grid">
-          {(["spotify", "lastfm"] as const).map((provider) => {
+          {(["lastfm"] as const).map((provider) => {
             const linked = byProvider(provider);
             const { description, icon: ProviderIcon, name } = providerInfo[provider];
             return (

@@ -28,13 +28,8 @@ from app.api.routes.rounds import (
     update_submission,
 )
 from app.api.routes.rounds import submissions as submission_routes
-from app.core.config import get_settings
-from app.core.security import encrypt
 from app.db.models import (
     EvaluationDecision,
-    ExternalAccount,
-    ExternalCredential,
-    ExternalProvider,
     PlatformRole,
     PolicyEvaluation,
     Round,
@@ -64,9 +59,7 @@ def opened_task_app() -> None:
 @pytest.fixture(autouse=True)
 def canonical_track_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep policy-flow tests independent from Spotify's transport adapter."""
-    monkeypatch.setattr(
-        submission_routes, "_canonical_track_input", lambda _db, _user, track: track
-    )
+    monkeypatch.setattr(submission_routes, "_canonical_track_input", lambda _db, track: track)
 
 
 def test_canonical_track_lookup_uses_spotify_not_browser_metadata(
@@ -76,28 +69,8 @@ def test_canonical_track_lookup_uses_spotify_not_browser_metadata(
     """A browser cannot alter the data policies and publications rely on."""
     monkeypatch.undo()  # Exercise the real helper instead of the policy-test fixture.
     suffix = uuid.uuid4().hex[:12]
-    user = User(oidc_issuer="https://issuer.test", oidc_subject=f"canonical-{suffix}")
-    db.add(user)
-    db.flush()
-    account = ExternalAccount(
-        user_id=user.id,
-        provider=ExternalProvider.SPOTIFY,
-        provider_subject=f"canonical-{suffix}",
-    )
-    db.add(account)
-    db.flush()
-    db.add(
-        ExternalCredential(
-            external_account_id=account.id,
-            ciphertext=encrypt(
-                '{"access_token": "spotify-access-token"}',
-                get_settings().credential_encryption_key.get_secret_value(),
-            ),
-            key_version="v1",
-        )
-    )
-    db.commit()
 
+    monkeypatch.setattr(spotify, "client_credentials_token", lambda _settings: "app-token")
     monkeypatch.setattr(
         spotify,
         "tracks_by_id",
@@ -118,7 +91,6 @@ def test_canonical_track_lookup_uses_spotify_not_browser_metadata(
     )
     canonical = submission_routes._canonical_track_input(
         db,
-        user,
         TrackInput(
             spotify_track_id=f"canonical-track-{suffix}",
             name="Browser-controlled title",
@@ -142,27 +114,7 @@ def test_canonical_track_captures_artist_ids_without_trusting_the_browser(
 ) -> None:
     monkeypatch.undo()
     suffix = uuid.uuid4().hex[:12]
-    user = User(oidc_issuer="https://issuer.test", oidc_subject=f"genre-{suffix}")
-    db.add(user)
-    db.flush()
-    account = ExternalAccount(
-        user_id=user.id,
-        provider=ExternalProvider.SPOTIFY,
-        provider_subject=f"genre-{suffix}",
-    )
-    db.add(account)
-    db.flush()
-    db.add(
-        ExternalCredential(
-            external_account_id=account.id,
-            ciphertext=encrypt(
-                '{"access_token": "spotify-access-token"}',
-                get_settings().credential_encryption_key.get_secret_value(),
-            ),
-            key_version="v1",
-        )
-    )
-    db.commit()
+    monkeypatch.setattr(spotify, "client_credentials_token", lambda _settings: "app-token")
     monkeypatch.setattr(
         spotify,
         "tracks_by_id",
@@ -177,7 +129,6 @@ def test_canonical_track_captures_artist_ids_without_trusting_the_browser(
     )
     canonical = submission_routes._canonical_track_input(
         db,
-        user,
         TrackInput(spotify_track_id=f"genre-track-{suffix}", name="Browser", artist="Browser"),
     )
 
@@ -699,7 +650,7 @@ def test_a_round_cancelled_during_the_track_lookup_refuses_the_submission(
         setup.commit()
         round_id, user_id = round_.id, contributor.id
 
-    def cancel_during_lookup(_db: Session, _user: User, track: TrackInput) -> TrackInput:
+    def cancel_during_lookup(_db: Session, track: TrackInput) -> TrackInput:
         with factory() as admin:
             admin.get(Round, round_id).status = RoundStatus.CANCELLED  # type: ignore[union-attr]
             admin.commit()
