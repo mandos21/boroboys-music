@@ -58,16 +58,15 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+      # actions/checkout only marks the workspace as a safe.directory in a
+      # throwaway HOME it swaps in for its own step, so that exemption never
+      # reaches the container's real $HOME (/github/home) that later steps
+      # use -- leaving git unable to open the repo at all in any later step.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
       - run: npm ci
-      - run: npm run generate:api
-      # git can't discover the repository from within frontend/ under this
-      # container's job runner (unclear why -- possibly a mount boundary
-      # specific to containerized jobs), so point it at the checkout root
-      # explicitly instead of relying on upward discovery from cwd.
-      - working-directory: ${{ github.workspace }}
-        run: git diff --exit-code -- frontend/src/api/schema.ts
+      - run: npm run generate:api && git diff --exit-code -- src/api/schema.ts
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
