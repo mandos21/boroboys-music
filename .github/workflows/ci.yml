@@ -61,6 +61,10 @@ jobs:
       # silently fall back to a non-git tarball download, leaving later git
       # commands (the generated-schema diff below) with no repository at all.
       - name: Install git
+        # The frontend/ working-directory default doesn't exist yet -- that's
+        # created by the checkout below -- so this step must run from the
+        # workspace root instead.
+        working-directory: ${{ github.workspace }}
         run: apt-get update && apt-get install -y --no-install-recommends git
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
