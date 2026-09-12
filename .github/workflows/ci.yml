@@ -57,20 +57,17 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      # The Playwright image has no git, so actions/checkout would otherwise
-      # silently fall back to a non-git tarball download, leaving later git
-      # commands (the generated-schema diff below) with no repository at all.
-      - name: Install git
-        # The frontend/ working-directory default doesn't exist yet -- that's
-        # created by the checkout below -- so this step must run from the
-        # workspace root instead.
-        working-directory: ${{ github.workspace }}
-        run: apt-get update && apt-get install -y --no-install-recommends git
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
       - run: npm ci
-      - run: npm run generate:api && git diff --exit-code -- src/api/schema.ts
+      - run: npm run generate:api
+      # git can't discover the repository from within frontend/ under this
+      # container's job runner (unclear why -- possibly a mount boundary
+      # specific to containerized jobs), so point it at the checkout root
+      # explicitly instead of relying on upward discovery from cwd.
+      - working-directory: ${{ github.workspace }}
+        run: git diff --exit-code -- frontend/src/api/schema.ts
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
