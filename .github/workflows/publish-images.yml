@@ -1,0 +1,64 @@
+name: publish-images
+
+# Builds the same two Dockerfiles the `images` CI job already builds and
+# smoke-tests, and publishes them so a deployment can actually pull a
+# versioned artifact instead of building from source on the target host.
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - frontend/**
+      - .github/workflows/publish-images.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: music-rounds-api
+            context: backend
+          - name: music-rounds-web
+            context: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # A sortable, immutable version tag. Deployment manifests pin this tag,
+      # never `latest`, which still moves so existing references keep working.
+      - name: Compute version
+        id: version
+        run: echo "tag=$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Report
+        run: |
+          echo "Published ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.version.outputs.tag }}" \
+            >> "$GITHUB_STEP_SUMMARY"
