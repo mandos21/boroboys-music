@@ -315,25 +315,8 @@ def add_series_member(
     """Add a member through the default group while retaining group support internally."""
     _require_series_admin(db, user, series_id)
     _require_user(db, user_id)
-    group = db.scalar(
-        select(ContributorGroup).where(
-            ContributorGroup.series_id == series_id,
-            ContributorGroup.name == "Series members",
-        )
-    )
-    if group is None:
-        group = ContributorGroup(series_id=series_id, name="Series members")
-        db.add(group)
-        db.flush()
-    existing = db.scalar(
-        select(ContributorGroupMember).where(
-            ContributorGroupMember.group_id == group.id,
-            ContributorGroupMember.user_id == user_id,
-        )
-    )
-    if existing is None:
-        db.add(ContributorGroupMember(group_id=group.id, user_id=user_id))
-        db.commit()
+    ensure_default_series_membership(db, series_id, user_id)
+    db.commit()
 
 
 @router.delete(

@@ -14,6 +14,7 @@ from app.api.routes.admin import (
     RoundUpdate,
     SeriesCreate,
     SeriesUpdate,
+    add_series_member,
     create_series,
     get_round_for_administration,
     get_series_for_administration,
@@ -128,6 +129,82 @@ def test_creating_a_series_adds_its_administrator_as_a_default_member(db: Sessio
         )
     )
     assert group_member is not None
+
+
+def test_adding_a_series_member_enrolls_them_in_the_currently_open_round(db: Session) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    admin = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"add-member-admin-{suffix}",
+        platform_role=PlatformRole.MEMBER,
+    )
+    newcomer = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"add-member-newcomer-{suffix}",
+        platform_role=PlatformRole.MEMBER,
+    )
+    series = Series(
+        name=f"Add member series {suffix}",
+        slug=f"add-member-series-{suffix}",
+        timezone="UTC",
+        default_policies=[],
+    )
+    db.add_all((admin, newcomer, series))
+    db.flush()
+    open_round = Round(
+        series_id=series.id,
+        title="Currently open",
+        timezone="UTC",
+        submission_limit=1,
+        opens_at=now - timedelta(days=1),
+        closes_at=now + timedelta(days=1),
+        publish_at=now + timedelta(days=2),
+        status=RoundStatus.OPEN,
+        policy_snapshot=[],
+    )
+    scheduled_round = Round(
+        series_id=series.id,
+        title="Not open yet",
+        timezone="UTC",
+        submission_limit=1,
+        opens_at=now + timedelta(days=2),
+        closes_at=now + timedelta(days=3),
+        publish_at=now + timedelta(days=4),
+        status=RoundStatus.SCHEDULED,
+        policy_snapshot=[],
+    )
+    db.add_all((SeriesAdmin(series_id=series.id, user_id=admin.id), open_round, scheduled_round))
+    db.commit()
+
+    add_series_member(series.id, newcomer.id, db, admin)
+
+    open_membership = db.scalar(
+        select(RoundMember).where(
+            RoundMember.round_id == open_round.id, RoundMember.user_id == newcomer.id
+        )
+    )
+    assert open_membership is not None
+    assert open_membership.removed_at is None
+    # A round that has not opened yet still picks its contributors up front,
+    # from the groups selected when it was scheduled.
+    scheduled_membership = db.scalar(
+        select(RoundMember).where(
+            RoundMember.round_id == scheduled_round.id, RoundMember.user_id == newcomer.id
+        )
+    )
+    assert scheduled_membership is None
+
+    # Adding them again is harmless, and does not disturb the membership.
+    add_series_member(series.id, newcomer.id, db, admin)
+    assert (
+        db.scalar(
+            select(RoundMember).where(
+                RoundMember.round_id == open_round.id, RoundMember.user_id == newcomer.id
+            )
+        )
+        is open_membership
+    )
 
 
 def test_round_administration_exposes_member_limit_overrides_and_removals(db: Session) -> None:
