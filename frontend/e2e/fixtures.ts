@@ -188,11 +188,14 @@ const profile = {
       sharedGenres: contributor.genres.slice(0, 3).map((genre) => genre.name),
     })),
   },
+  // A profile's history only ever shows submissions from published rounds -
+  // the currently open round's picks stay off it the same way they stay off
+  // the round page itself, until publish reveals them everywhere at once.
   submissions: Array.from({ length: 12 }, (_, index) => ({
     id: `history-${index}`,
     note: index === 0 ? "The first song I played after moving." : null,
-    roundId: index % 2 ? "round-august" : "round-open",
-    roundTitle: index % 2 ? "August favorites" : "September after dark",
+    roundId: "round-august",
+    roundTitle: "August favorites",
     seriesId: "series-1",
     seriesName: "BoroCrew After Hours",
     submittedAt: `2026-0${Math.max(1, 9 - index)}-15T18:00:00-04:00`,

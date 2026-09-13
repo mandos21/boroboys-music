@@ -20,6 +20,7 @@ from app.db.models import (
     PlatformRole,
     Round,
     RoundMember,
+    RoundStatus,
     Series,
     SeriesAdmin,
     Submission,
@@ -41,8 +42,8 @@ def test_profile_summarizes_shared_history_without_leaking_private_rounds(
     listener = make_user(name="Listener")
     contributor = make_user(name="Contributor")
     series = make_series()
-    shared_round = make_round(series, members=[listener, contributor])
-    private_round = make_round(series, members=[contributor])
+    shared_round = make_round(series, members=[listener, contributor], status=RoundStatus.PUBLISHED)
+    private_round = make_round(series, members=[contributor], status=RoundStatus.PUBLISHED)
     shared_track = make_track(
         name="Shared song",
         artist="Shared artist",
@@ -125,7 +126,7 @@ def test_profile_paginates_history_and_keeps_removed_members_out(
     viewer = make_user(name="Viewer")
     contributor = make_user(name="Contributor")
     series = make_series()
-    round_ = make_round(series, members=[viewer, contributor])
+    round_ = make_round(series, members=[viewer, contributor], status=RoundStatus.PUBLISHED)
     for index in range(3):
         track = make_track(name=f"Track {index}", artist=f"Artist {index}")
         db.add(
@@ -171,7 +172,7 @@ def test_profile_keeps_ten_artists_and_every_cached_genre(
     viewer = make_user(name="Viewer")
     contributor = make_user(name="Contributor")
     series = make_series()
-    round_ = make_round(series, members=[viewer, contributor])
+    round_ = make_round(series, members=[viewer, contributor], status=RoundStatus.PUBLISHED)
     for index in range(31):
         track = make_track(name=f"Track {index}", artist=f"Artist {index}")
         db.add_all(
@@ -206,7 +207,7 @@ def test_profile_is_visible_to_series_and_platform_administrators(
     platform_admin = make_user(name="Platform admin")
     platform_admin.platform_role = PlatformRole.ADMIN
     series = make_series()
-    round_ = make_round(series, members=[contributor])
+    round_ = make_round(series, members=[contributor], status=RoundStatus.PUBLISHED)
     track = make_track()
     db.add_all(
         (
@@ -253,6 +254,41 @@ def test_profile_does_not_reveal_unshared_contributor(
     assert error.value.status_code == 404
 
 
+def test_profile_hides_submissions_from_rounds_that_have_not_published_yet(
+    db: Session,
+    make_round: Callable[..., Round],
+    make_series: Callable[..., Series],
+    make_track: Callable[..., Track],
+    make_user: Callable[..., User],
+) -> None:
+    """A round's picks stay off every profile - even the contributor's own -
+
+    until its playlist publishes, the same secret the round page itself
+    keeps while a round is open.
+    """
+    viewer = make_user(name="Viewer")
+    contributor = make_user(name="Contributor")
+    series = make_series()
+    open_round = make_round(series, members=[viewer, contributor], status=RoundStatus.OPEN)
+    closed_round = make_round(series, members=[viewer, contributor], status=RoundStatus.CLOSED)
+    published_round = make_round(
+        series, members=[viewer, contributor], status=RoundStatus.PUBLISHED
+    )
+    for round_ in (open_round, closed_round, published_round):
+        track = make_track(name=f"Track for {round_.status.value}", artist="Artist")
+        db.add(Submission(round_id=round_.id, contributor_id=contributor.id, track_id=track.id))
+    db.commit()
+
+    visible = get_profile(contributor.id, db, viewer)
+    assert visible["stats"]["submissionCount"] == 1
+    assert [item["track"]["name"] for item in visible["submissions"]] == ["Track for published"]
+
+    # Not even the contributor's own profile reveals the other two early.
+    own = get_my_profile(db, contributor)
+    assert own["stats"]["submissionCount"] == 1
+    assert [item["track"]["name"] for item in own["submissions"]] == ["Track for published"]
+
+
 def test_notification_settings_default_to_enabled_and_can_be_toggled_independently(
     db: Session, make_user: Callable[..., User]
 ) -> None:
@@ -286,8 +322,13 @@ def test_affinity_ranks_listeners_from_shared_visible_rounds_only(
     kindred = make_user(name="Kindred")
     stranger = make_user(name="Stranger")
     series = make_series()
-    shared = make_round(series, members=[viewer, profile, kindred], submission_limit=2)
-    hidden = make_round(series, members=[profile, stranger])
+    shared = make_round(
+        series,
+        members=[viewer, profile, kindred],
+        submission_limit=2,
+        status=RoundStatus.PUBLISHED,
+    )
+    hidden = make_round(series, members=[profile, stranger], status=RoundStatus.PUBLISHED)
 
     def tagged(name: str, *genres: str) -> Track:
         track = make_track(name=name, artist=name)

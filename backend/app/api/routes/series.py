@@ -400,7 +400,9 @@ def _series_summary_stats(db: DbSession, rounds: list[Round]) -> dict[str, objec
             "artistCount": 0,
             "contributors": [],
         }
-    round_ids = [round_.id for round_ in rounds]
+    # An open round's picks are a secret from everyone but their own
+    # submitter, so they don't feed these series-wide totals either.
+    round_ids = [round_.id for round_ in rounds if round_.status is not RoundStatus.OPEN]
     rows = _series_submission_rows(db, round_ids)
     contributors: dict[uuid.UUID, dict[str, object]] = {}
     track_ids: set[uuid.UUID] = set()
@@ -433,7 +435,9 @@ def _series_genre_insights(db: DbSession, rounds: list[Round]) -> dict[str, obje
             "genreSpread": [],
             "contributors": [],
         }
-    round_ids = [round_.id for round_ in rounds]
+    # Same secrecy as the series summary stats: an open round's picks don't
+    # feed the genre fingerprint until it closes.
+    round_ids = [round_.id for round_ in rounds if round_.status is not RoundStatus.OPEN]
     rows = _series_submission_rows(db, round_ids)
     contributors: dict[uuid.UUID, dict[str, object]] = {}
     tracks_by_contributor: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)

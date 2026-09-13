@@ -24,6 +24,7 @@ from app.db.models import (
     PlatformRole,
     Round,
     RoundMember,
+    RoundStatus,
     Series,
     SeriesAdmin,
     Submission,
@@ -267,6 +268,14 @@ def _visible_submissions(
 
 
 def _visible_round_predicate(profile_user: User, viewer: User) -> ColumnElement[bool]:
+    # A round's picks stay off every profile - even the contributor's own, seen
+    # by themselves - until its playlist publishes. That is the same secret
+    # the round page itself keeps while a round is open, and a profile must
+    # not become a side channel around it.
+    return and_(Round.status == RoundStatus.PUBLISHED, _access_predicate(profile_user, viewer))
+
+
+def _access_predicate(profile_user: User, viewer: User) -> ColumnElement[bool]:
     if profile_user.id == viewer.id or viewer.platform_role is PlatformRole.ADMIN:
         return true()
     return or_(
