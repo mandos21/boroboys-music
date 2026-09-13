@@ -291,6 +291,7 @@ export function AdminSeriesPage() {
           onScheduled={invalidate}
         />
       </div>
+      <InvitePanel seriesId={series.id} />
       <section className="panel admin-history" id="history">
         <h2>Rounds</h2>
         {series.rounds.length === 0 ? (
@@ -312,7 +313,6 @@ export function AdminSeriesPage() {
           </div>
         )}
       </section>
-      <InvitePanel seriesId={series.id} />
       <HistoricalImportPanel
         seriesId={series.id}
         timezone={series.timezone}
