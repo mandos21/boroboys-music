@@ -19,6 +19,8 @@ export const queryKeys = {
 
   round: (roundId: string | undefined) => ["round", roundId] as const,
   roundSubmissions: (roundId: string | undefined) => ["round-submissions", roundId] as const,
+  roundSubmissionCounts: (roundId: string | undefined) =>
+    ["round-submission-counts", roundId] as const,
   roundUsers: (seriesId: string | undefined, query: string) =>
     ["round-users", seriesId, query] as const,
   submissionDraft: (roundId: string | undefined) => ["submission-draft", roundId] as const,

@@ -94,6 +94,9 @@ describe("RoundPage", () => {
               resolve(new Response(JSON.stringify(entries), { status: 200 }));
           });
         }
+        if (url.endsWith("/rounds/round-1/submission-counts")) {
+          return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+        }
         return Promise.resolve(new Response(JSON.stringify(baseRound), { status: 200 }));
       }),
     );
@@ -163,5 +166,69 @@ describe("RoundPage", () => {
         .filter((url, index, urls) => urls.indexOf(url) === index),
     );
     expect(toggle.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("hides other contributors' picks while the round is open, showing counts instead", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = String(input);
+        if (url.endsWith("/rounds/round-1/submissions")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify([
+                {
+                  id: "mine",
+                  status: "accepted",
+                  note: null,
+                  createdAt: "2026-09-02T00:00:00Z",
+                  updatedAt: "2026-09-02T00:00:00Z",
+                  withdrawnAt: null,
+                  isMine: true,
+                  contributor: { id: "me", displayName: "Me", spotifyProfileImageUrl: null },
+                  track: {
+                    spotifyTrackId: "mine",
+                    name: "My Song",
+                    artist: "A",
+                    album: null,
+                    spotifyUri: null,
+                  },
+                },
+              ]),
+              { status: 200 },
+            ),
+          );
+        }
+        if (url.endsWith("/rounds/round-1/submission-counts")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify([
+                {
+                  contributor: { id: "me", displayName: "Me", spotifyProfileImageUrl: null },
+                  count: 1,
+                },
+                {
+                  contributor: {
+                    id: "friend",
+                    displayName: "Friend",
+                    spotifyProfileImageUrl: null,
+                  },
+                  count: 2,
+                },
+              ]),
+              { status: 200 },
+            ),
+          );
+        }
+        return Promise.resolve(new Response(JSON.stringify(baseRound), { status: 200 }));
+      }),
+    );
+
+    renderRound();
+
+    expect(await screen.findByText("My Song")).toBeTruthy();
+    // The other contributor shows up only as a count, never a track.
+    expect(screen.getByText("Friend")).toBeTruthy();
+    expect(screen.queryByText(/Friend.*Song/)).toBeNull();
   });
 });

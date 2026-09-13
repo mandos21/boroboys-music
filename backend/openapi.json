@@ -891,6 +891,23 @@
         "title": "ContributorResponse",
         "type": "object"
       },
+      "ContributorSubmissionCountResponse": {
+        "properties": {
+          "contributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contributor",
+          "count"
+        ],
+        "title": "ContributorSubmissionCountResponse",
+        "type": "object"
+      },
       "EvidenceItemResponse": {
         "properties": {
           "accountId": {
@@ -5366,9 +5383,57 @@
         ]
       }
     },
+    "/api/v1/rounds/{round_id}/submission-counts": {
+      "get": {
+        "description": "How many tracks each active round member has shared, never which ones.\n\nLets the group see who's still quiet while a round is open without\nspoiling anyone's picks before `/submissions` reveals them at close.",
+        "operationId": "list_round_submission_counts_api_v1_rounds__round_id__submission_counts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContributorSubmissionCountResponse"
+                  },
+                  "title": "Response List Round Submission Counts Api V1 Rounds  Round Id  Submission Counts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Round Submission Counts",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
     "/api/v1/rounds/{round_id}/submissions": {
       "get": {
-        "description": "Show accepted entries to round members and a user's withdrawn entries to them.\n\nThe active membership check is intentional: a person removed from a private\nround must not retain a general read capability merely because their old\nsubmission remains attributable in publication history.",
+        "description": "Show accepted entries to round members and a user's withdrawn entries to them.\n\nThe active membership check is intentional: a person removed from a private\nround must not retain a general read capability merely because their old\nsubmission remains attributable in publication history.\n\nWhile a round is still open, nobody else's picks are revealed here at\nall - only the viewer's own entries - so the reveal stays a surprise\nuntil the round closes. Use `/submission-counts` for a spoiler-free view\nof how much the group has shared so far.",
         "operationId": "list_round_submissions_api_v1_rounds__round_id__submissions_get",
         "parameters": [
           {

@@ -9,7 +9,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.routes.rounds import get_round, list_round_submissions
+from app.api.routes.rounds import get_round, list_round_submission_counts, list_round_submissions
 from app.api.routes.series import (
     _series_genre_insights,
     accept_series_invite,
@@ -398,6 +398,108 @@ def test_round_submissions_fall_back_to_the_address_local_part_for_unnamed_contr
 
     # Identifies the person to their friends without publishing their address.
     assert entries[0]["contributor"]["displayName"] == f"listener-{suffix}"
+
+
+def test_open_round_hides_other_contributors_submissions_until_it_closes(db: Session) -> None:
+    suffix = uuid.uuid4().hex[:12]
+    now = datetime.now(UTC)
+    contributor_one = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"secret-one-{suffix}",
+        display_name="Contributor One",
+        platform_role=PlatformRole.MEMBER,
+    )
+    contributor_two = User(
+        oidc_issuer="https://issuer.test",
+        oidc_subject=f"secret-two-{suffix}",
+        display_name="Contributor Two",
+        platform_role=PlatformRole.MEMBER,
+    )
+    series = Series(
+        name=f"Secret round {suffix}",
+        slug=f"secret-round-{suffix}",
+        timezone="UTC",
+        default_policies=[],
+    )
+    db.add_all((contributor_one, contributor_two, series))
+    db.flush()
+    round_ = Round(
+        series_id=series.id,
+        title="Still open",
+        timezone="UTC",
+        submission_limit=2,
+        opens_at=now - timedelta(days=1),
+        closes_at=now + timedelta(days=1),
+        publish_at=now + timedelta(days=2),
+        status=RoundStatus.OPEN,
+        policy_snapshot=[],
+    )
+    track_one = Track(
+        spotify_track_id=f"secret-track-one-{suffix}",
+        name="Song One",
+        artist="A",
+        artwork_url="https://example.test/one.jpg",
+    )
+    track_two = Track(
+        spotify_track_id=f"secret-track-two-{suffix}",
+        name="Song Two",
+        artist="B",
+        artwork_url="https://example.test/two.jpg",
+    )
+    db.add_all((round_, track_one, track_two))
+    db.flush()
+    db.add_all(
+        (
+            RoundMember(round_id=round_.id, user_id=contributor_one.id),
+            RoundMember(round_id=round_.id, user_id=contributor_two.id),
+            Submission(
+                round_id=round_.id,
+                contributor_id=contributor_one.id,
+                track_id=track_one.id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+            Submission(
+                round_id=round_.id,
+                contributor_id=contributor_two.id,
+                track_id=track_two.id,
+                status=SubmissionStatus.ACCEPTED,
+            ),
+        )
+    )
+    db.commit()
+
+    # While open, each contributor sees only their own entry.
+    own_view = list_round_submissions(round_.id, db, contributor_one)
+    assert [entry["contributor"]["id"] for entry in own_view] == [str(contributor_one.id)]
+
+    # The counts endpoint says how much has been shared without naming tracks.
+    count_entries = list_round_submission_counts(round_.id, db, contributor_one)
+    assert all("track" not in entry for entry in count_entries)
+    counts = {entry["contributor"]["id"]: entry["count"] for entry in count_entries}
+    assert counts == {str(contributor_one.id): 1, str(contributor_two.id): 1}
+
+    # The round's own cover art withholds submitted album art too.
+    detail = get_round(round_.id, db, contributor_one)
+    assert detail["backgroundArtworkUrl"] is None
+    assert detail["artworkUrls"] == []
+
+    # Once the round closes, everyone's picks (and art) are revealed.
+    round_.status = RoundStatus.CLOSED
+    db.commit()
+    closed_view = list_round_submissions(round_.id, db, contributor_one)
+    assert {entry["contributor"]["id"] for entry in closed_view} == {
+        str(contributor_one.id),
+        str(contributor_two.id),
+    }
+    closed_detail = get_round(round_.id, db, contributor_one)
+    assert closed_detail["backgroundArtworkUrl"] in {
+        "https://example.test/one.jpg",
+        "https://example.test/two.jpg",
+    }
+    assert set(closed_detail["artworkUrls"]) == {
+        "https://example.test/one.jpg",
+        "https://example.test/two.jpg",
+    }
 
 
 def test_series_stats_returns_every_cached_genre_for_the_expandable_fingerprint(

@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Clock3, Disc3, ListMusic, UsersRound } from "lucide-react";
+import { CalendarDays, CircleHelp, Clock3, Disc3, ListMusic, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { api, patch, post } from "../../api/client";
@@ -20,9 +20,11 @@ import { DeferredSeriesInsights } from "./DeferredSeriesInsights";
 
 type Round = components["schemas"]["RoundDetailResponse"];
 type Submission = components["schemas"]["SubmissionResponse"];
+type ContributorCount = components["schemas"]["ContributorSubmissionCountResponse"];
 type SeriesHistory = components["schemas"]["SeriesHistoryResponse"];
 type RoundParticipation = components["schemas"]["RoundParticipationResponse"];
 type RoundParticipationUpdate = components["schemas"]["RoundParticipationUpdate"];
+type Session = components["schemas"]["SessionResponse"];
 
 export function RoundPage() {
   const { roundId } = useParams();
@@ -41,8 +43,24 @@ export function RoundPage() {
     enabled: Boolean(roundId) && round.isSuccess,
     retry: false,
   });
+  const roundIsOpen = round.data?.status === "open";
+  // Only fetched while the round is open: this is how a spoiler-free "who's
+  // shared so far" tally is shown without the full submissions list, which
+  // the backend already restricts to the viewer's own entries at that point.
+  const submissionCounts = useQuery({
+    queryKey: queryKeys.roundSubmissionCounts(roundId),
+    queryFn: () => api<ContributorCount[]>(`/rounds/${roundId}/submission-counts`),
+    enabled: Boolean(roundId) && roundIsOpen,
+    retry: false,
+  });
+  const session = useQuery({
+    queryKey: queryKeys.session(),
+    queryFn: () => api<Session>("/auth/session"),
+    retry: false,
+  });
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissions(roundId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissionCounts(roundId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.round(roundId) });
   };
   const withdraw = useMutation({
@@ -124,7 +142,9 @@ export function RoundPage() {
       <RoundSubmissions
         roundId={item.id}
         submissions={submissions}
+        submissionCounts={submissionCounts}
         roundIsOpen={item.status === "open"}
+        viewerId={session.data?.user?.id}
         onWithdraw={setSubmissionToWithdraw}
         onSaveNote={(id, note) => updateNote.mutate({ submissionId: id, note })}
       />
@@ -188,116 +208,123 @@ function RoundOverview({
         } as CSSProperties
       }
     >
-      <span className={`status ${round.status}`}>{round.status}</span>
-      <h1>{round.title}</h1>
-      <p>
-        Share up to {round.submissionLimit} track{round.submissionLimit === 1 ? "" : "s"} with this
-        group before the release date.
-      </p>
-      {round.prompt && <p className="round-prompt">Prompt: {round.prompt}</p>}
       {round.status === "open" && (
-        <p className="round-deadline">
-          {formatDeadline(round.closesAt)}
-          <small>{formatDate(round.closesAt)}</small>
-        </p>
+        <div className="round-cover-placeholder" aria-hidden="true">
+          <CircleHelp size={168} strokeWidth={1.25} />
+        </div>
       )}
-      <div className="round-summary" aria-label="Round summary">
-        <div>
-          <ListMusic aria-hidden="true" size={18} />
-          <span>
-            <strong>
-              {mySubmissionCount === undefined
-                ? "…"
-                : `${mySubmissionCount} of ${round.submissionLimit}`}
-            </strong>
-            <small>Your submissions</small>
-          </span>
-        </div>
-        <div>
-          <UsersRound aria-hidden="true" size={18} />
-          <span>
-            <strong>{round.status === "open" ? "Open now" : round.status}</strong>
-            <small>Round status</small>
-          </span>
-        </div>
-      </div>
-      <div className="timeline">
-        <div>
-          <strong>
-            <CalendarDays aria-hidden="true" size={14} /> Opens
-          </strong>
-          <span>{formatDate(round.opensAt)}</span>
-        </div>
-        <div>
-          <strong>
-            <Clock3 aria-hidden="true" size={14} /> Closes
-          </strong>
-          <span>{formatDate(round.closesAt)}</span>
-        </div>
-        <div>
-          <strong>
-            <CalendarDays aria-hidden="true" size={14} /> Releases
-          </strong>
-          <span>{formatDate(round.publishAt)}</span>
-        </div>
-      </div>
-      <div className="round-overview-actions">
-        {round.status !== "open" ? (
-          <p className="muted">Submissions are currently closed.</p>
-        ) : !round.isMember ? (
-          <p className="muted">
-            You manage this round but aren&apos;t one of its contributors, so there&apos;s nothing
-            for you to submit here.
-          </p>
-        ) : !capacityKnown ? (
-          <p className="muted" aria-busy="true">
-            Checking how much room you have left in this round.
-          </p>
-        ) : hasCapacity ? (
-          // The decline toggle lives in the same branch as the submit action:
-          // both exist only while there is still something left to submit.
-          <>
-            <Button render={<Link to={`/rounds/${round.id}/submit`} />}>Choose a track</Button>
-            <label className="round-decline-toggle">
-              <Switch
-                size="sm"
-                checked={round.declinedFurtherSubmissions}
-                onCheckedChange={onDeclineChange}
-                disabled={isSavingParticipation}
-              />
-              <span>
-                I&apos;m not submitting any more this round
-                {round.declinedFurtherSubmissions && " — you won’t get deadline reminders for it"}
-              </span>
-            </label>
-          </>
-        ) : (
-          <p className="round-capacity-note">
-            You&apos;re all set! You can still change your mind before the end of the round by
-            modifying your submissions below.
+      <div className="round-overview-content">
+        <span className={`status ${round.status}`}>{round.status}</span>
+        <h1>{round.title}</h1>
+        <p>
+          Share up to {round.submissionLimit} track{round.submissionLimit === 1 ? "" : "s"} with
+          this group before the release date.
+        </p>
+        {round.prompt && <p className="round-prompt">Prompt: {round.prompt}</p>}
+        {round.status === "open" && (
+          <p className="round-deadline">
+            {formatDeadline(round.closesAt)}
+            <small>{formatDate(round.closesAt)}</small>
           </p>
         )}
-        <div className="round-secondary-actions">
-          {round.spotifyPlaylistUrl && (
-            <a
-              className="history-link"
-              href={round.spotifyPlaylistUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open Spotify playlist
-            </a>
+        <div className="round-summary" aria-label="Round summary">
+          <div>
+            <ListMusic aria-hidden="true" size={18} />
+            <span>
+              <strong>
+                {mySubmissionCount === undefined
+                  ? "…"
+                  : `${mySubmissionCount} of ${round.submissionLimit}`}
+              </strong>
+              <small>Your submissions</small>
+            </span>
+          </div>
+          <div>
+            <UsersRound aria-hidden="true" size={18} />
+            <span>
+              <strong>{round.status === "open" ? "Open now" : round.status}</strong>
+              <small>Round status</small>
+            </span>
+          </div>
+        </div>
+        <div className="timeline">
+          <div>
+            <strong>
+              <CalendarDays aria-hidden="true" size={14} /> Opens
+            </strong>
+            <span>{formatDate(round.opensAt)}</span>
+          </div>
+          <div>
+            <strong>
+              <Clock3 aria-hidden="true" size={14} /> Closes
+            </strong>
+            <span>{formatDate(round.closesAt)}</span>
+          </div>
+          <div>
+            <strong>
+              <CalendarDays aria-hidden="true" size={14} /> Releases
+            </strong>
+            <span>{formatDate(round.publishAt)}</span>
+          </div>
+        </div>
+        <div className="round-overview-actions">
+          {round.status !== "open" ? (
+            <p className="muted">Submissions are currently closed.</p>
+          ) : !round.isMember ? (
+            <p className="muted">
+              You manage this round but aren&apos;t one of its contributors, so there&apos;s nothing
+              for you to submit here.
+            </p>
+          ) : !capacityKnown ? (
+            <p className="muted" aria-busy="true">
+              Checking how much room you have left in this round.
+            </p>
+          ) : hasCapacity ? (
+            // The decline toggle lives in the same branch as the submit action:
+            // both exist only while there is still something left to submit.
+            <>
+              <Button render={<Link to={`/rounds/${round.id}/submit`} />}>Choose a track</Button>
+              <label className="round-decline-toggle">
+                <Switch
+                  size="sm"
+                  checked={round.declinedFurtherSubmissions}
+                  onCheckedChange={onDeclineChange}
+                  disabled={isSavingParticipation}
+                />
+                <span>
+                  I&apos;m not submitting any more this round
+                  {round.declinedFurtherSubmissions && " — you won’t get deadline reminders for it"}
+                </span>
+              </label>
+            </>
+          ) : (
+            <p className="round-capacity-note">
+              You&apos;re all set! You can still change your mind before the end of the round by
+              modifying your submissions below.
+            </p>
           )}
-          {round.seriesId && (
-            <Link className="history-link" to={`/series/${round.seriesId}`}>
-              View series history
-            </Link>
-          )}
-          {round.canManage && (
-            <Link className="history-link" to={`/admin/rounds/${round.id}`}>
-              Manage this round
-            </Link>
-          )}
+          <div className="round-secondary-actions">
+            {round.spotifyPlaylistUrl && (
+              <a
+                className="history-link"
+                href={round.spotifyPlaylistUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open Spotify playlist
+              </a>
+            )}
+            {round.seriesId && (
+              <Link className="history-link" to={`/series/${round.seriesId}`}>
+                View series history
+              </Link>
+            )}
+            {round.canManage && (
+              <Link className="history-link" to={`/admin/rounds/${round.id}`}>
+                Manage this round
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </section>
@@ -352,13 +379,17 @@ function NowSpinning({ tracks }: { tracks: string[] }) {
 function RoundSubmissions({
   roundId,
   submissions,
+  submissionCounts,
   roundIsOpen,
+  viewerId,
   onWithdraw,
   onSaveNote,
 }: {
   roundId: string;
   submissions: ReturnType<typeof useQuery<Submission[]>>;
+  submissionCounts: ReturnType<typeof useQuery<ContributorCount[]>>;
   roundIsOpen: boolean;
+  viewerId: string | undefined;
   onWithdraw: (submission: Submission) => void;
   onSaveNote: (id: string, note: string | null) => void;
 }) {
@@ -374,7 +405,14 @@ function RoundSubmissions({
         Refresh the page to try again.
       </StatePanel>
     );
+  // While a round is open, the API already limits `submissions` to the
+  // viewer's own entries - everyone else's picks stay a secret until the
+  // round closes, and `submissionCounts` is how the group sees participation
+  // in the meantime without spoiling anything.
   const entries = submissions.data ?? [];
+  const totalTrackCount = roundIsOpen
+    ? (submissionCounts.data ?? []).reduce((sum, entry) => sum + entry.count, 0)
+    : entries.filter((entry) => entry.status === "accepted").length;
   return (
     <section className="panel submission-history" aria-labelledby="submissions-heading">
       <div className="section-heading">
@@ -383,13 +421,22 @@ function RoundSubmissions({
           <h2 id="submissions-heading">Submissions</h2>
         </div>
         <span className="submission-count">
-          {entries.filter((entry) => entry.status === "accepted").length} track
-          {entries.filter((entry) => entry.status === "accepted").length === 1 ? "" : "s"}
+          {totalTrackCount} track
+          {totalTrackCount === 1 ? "" : "s"}
         </span>
       </div>
+      {roundIsOpen && <RoundParticipantCounts counts={submissionCounts} viewerId={viewerId} />}
       {entries.length === 0 ? (
-        <StatePanel title="The playlist is waiting for its first track">
-          Be the one to set the tone for this round.
+        <StatePanel
+          title={
+            roundIsOpen
+              ? "You haven’t shared a track yet"
+              : "The playlist is waiting for its first track"
+          }
+        >
+          {roundIsOpen
+            ? "Everyone else’s picks stay secret until the round closes."
+            : "Be the one to set the tone for this round."}
         </StatePanel>
       ) : (
         <ul>
@@ -475,6 +522,47 @@ function RoundSubmissions({
         </ul>
       )}
     </section>
+  );
+}
+
+function RoundParticipantCounts({
+  counts,
+  viewerId,
+}: {
+  counts: ReturnType<typeof useQuery<ContributorCount[]>>;
+  viewerId: string | undefined;
+}) {
+  const entries = counts.data ?? [];
+  if (entries.length === 0) return null;
+  return (
+    <ul className="round-participant-counts" aria-label="Who has shared so far">
+      {entries.map((entry) => (
+        <li key={entry.contributor.id}>
+          {entry.contributor.spotifyProfileImageUrl ? (
+            <img
+              className="contributor-avatar"
+              src={entry.contributor.spotifyProfileImageUrl}
+              alt=""
+            />
+          ) : (
+            <span
+              className="contributor-avatar contributor-avatar-fallback"
+              style={avatarStyle(entry.contributor.displayName)}
+              aria-hidden="true"
+            >
+              {entry.contributor.displayName.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          <span>
+            {entry.contributor.displayName}
+            {entry.contributor.id === viewerId ? " (you)" : ""}
+          </span>
+          <strong>
+            {entry.count} track{entry.count === 1 ? "" : "s"}
+          </strong>
+        </li>
+      ))}
+    </ul>
   );
 }
 

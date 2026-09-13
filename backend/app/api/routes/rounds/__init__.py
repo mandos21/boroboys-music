@@ -9,6 +9,7 @@ from app.api.routes.rounds._common import TrackInput, _may_see_evidence, router
 from app.api.routes.rounds.discovery import (
     get_evidence,
     get_listening_suggestions,
+    list_round_submission_counts,
     list_round_submissions,
     search_tracks,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "get_round",
     "get_submission_draft",
     "list_my_rounds",
+    "list_round_submission_counts",
     "list_round_submissions",
     "router",
     "save_submission_draft",

@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import DbSession, get_current_user
 from app.api.payloads import (
@@ -22,6 +22,7 @@ from app.api.routes.rounds._common import (
     router,
 )
 from app.api.schemas import (
+    ContributorSubmissionCountResponse,
     EvidenceResponse,
     SubmissionResponse,
     TrackResponse,
@@ -33,6 +34,7 @@ from app.db.models import (
     ListeningEvidence,
     Round,
     RoundMember,
+    RoundStatus,
     Submission,
     SubmissionStatus,
     Track,
@@ -40,6 +42,7 @@ from app.db.models import (
 )
 from app.services import lastfm, spotify
 from app.services.authorization import is_round_member, is_series_admin
+from app.services.lifecycle import reconcile_round_status
 
 
 @router.get("/{round_id}/listening-suggestions")
@@ -75,11 +78,21 @@ def list_round_submissions(
     The active membership check is intentional: a person removed from a private
     round must not retain a general read capability merely because their old
     submission remains attributable in publication history.
+
+    While a round is still open, nobody else's picks are revealed here at
+    all - only the viewer's own entries - so the reveal stays a surprise
+    until the round closes. Use `/submission-counts` for a spoiler-free view
+    of how much the group has shared so far.
     """
-    _, membership = _viewer_round(db, round_id, user)
-    visible_statuses = Submission.status == SubmissionStatus.ACCEPTED
-    if membership is not None:
-        visible_statuses = visible_statuses | (Submission.contributor_id == user.id)
+    round_, membership = _viewer_round(db, round_id, user)
+    if reconcile_round_status(round_):
+        db.commit()
+    if round_.status is RoundStatus.OPEN:
+        visible_statuses = Submission.contributor_id == user.id
+    else:
+        visible_statuses = Submission.status == SubmissionStatus.ACCEPTED
+        if membership is not None:
+            visible_statuses = visible_statuses | (Submission.contributor_id == user.id)
     spotify_profile_image = spotify_profile_image_subquery(Submission.contributor_id)
     rows = db.execute(
         select(Submission, Track, User, spotify_profile_image)
@@ -110,6 +123,48 @@ def list_round_submissions(
             "track": _track_payload(track),
         }
         for submission, track, contributor, profile_image_url in rows
+    ]
+
+
+@router.get(
+    "/{round_id}/submission-counts", response_model=list[ContributorSubmissionCountResponse]
+)
+def list_round_submission_counts(
+    round_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict[str, object]]:
+    """How many tracks each active round member has shared, never which ones.
+
+    Lets the group see who's still quiet while a round is open without
+    spoiling anyone's picks before `/submissions` reveals them at close.
+    """
+    _viewer_round(db, round_id, user)
+    spotify_profile_image = spotify_profile_image_subquery(RoundMember.user_id)
+    counts = (
+        select(Submission.contributor_id, func.count().label("count"))
+        .where(Submission.round_id == round_id, Submission.status == SubmissionStatus.ACCEPTED)
+        .group_by(Submission.contributor_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(User, spotify_profile_image, func.coalesce(counts.c.count, 0))
+        .select_from(RoundMember)
+        .join(User, User.id == RoundMember.user_id)
+        .outerjoin(counts, counts.c.contributor_id == RoundMember.user_id)
+        .where(RoundMember.round_id == round_id, RoundMember.removed_at.is_(None))
+        .order_by(User.display_name, User.email, User.id)
+    )
+    return [
+        {
+            "contributor": {
+                "id": str(member.id),
+                "displayName": contributor_display_name(member.display_name, member.email),
+                "spotifyProfileImageUrl": profile_image_url,
+            },
+            "count": int(count),
+        }
+        for member, profile_image_url, count in rows
     ]
 
 

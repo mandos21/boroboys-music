@@ -149,7 +149,11 @@ def get_series_history(
     """
     series, is_admin, rounds = _series_view(db, series_id, user)
     stats = _series_summary_stats(db, rounds)
-    artwork_by_round = round_artwork_urls_by_round(db, [round_.id for round_ in rounds])
+    # An open round's submissions are a secret until it closes, so its
+    # artwork is withheld from the series history the same way.
+    artwork_by_round = round_artwork_urls_by_round(
+        db, [round_.id for round_ in rounds if round_.status is not RoundStatus.OPEN]
+    )
     fallback_artwork_url = (
         _fallback_artwork_url(rounds, artwork_by_round)
         if not series.cover_image_url and not series.accent_color
@@ -248,18 +252,24 @@ def _series_payloads(
                 .group_by(RoundMember.round_id)
             )
         }
-        for round_id, artwork_url in db.execute(
-            select(Submission.round_id, Track.artwork_url)
-            .join(Track, Track.id == Submission.track_id)
-            .where(
-                Submission.round_id.in_(round_ids),
-                Submission.status == SubmissionStatus.ACCEPTED,
-                Track.artwork_url.is_not(None),
-            )
-            .order_by(Submission.created_at, Submission.id)
-        ):
-            if isinstance(artwork_url, str):
-                artwork_by_round.setdefault(round_id, []).append(artwork_url)
+        # An open round's submissions are a secret until it closes, so its
+        # artwork is withheld from the dashboard cards the same way.
+        artwork_round_ids = [
+            round_.id for round_ in visible_rounds if round_.status is not RoundStatus.OPEN
+        ]
+        if artwork_round_ids:
+            for round_id, artwork_url in db.execute(
+                select(Submission.round_id, Track.artwork_url)
+                .join(Track, Track.id == Submission.track_id)
+                .where(
+                    Submission.round_id.in_(artwork_round_ids),
+                    Submission.status == SubmissionStatus.ACCEPTED,
+                    Track.artwork_url.is_not(None),
+                )
+                .order_by(Submission.created_at, Submission.id)
+            ):
+                if isinstance(artwork_url, str):
+                    artwork_by_round.setdefault(round_id, []).append(artwork_url)
 
     rounds_by_series: dict[uuid.UUID, list[Round]] = {series_id: [] for series_id in series_ids}
     for round_ in visible_rounds:

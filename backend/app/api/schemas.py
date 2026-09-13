@@ -118,6 +118,11 @@ class SubmissionResponse(ApiResponse):
     track: TrackResponse
 
 
+class ContributorSubmissionCountResponse(ApiResponse):
+    contributor: ContributorResponse
+    count: int
+
+
 class ProfileStatItemResponse(ApiResponse):
     name: str
     count: int

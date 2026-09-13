@@ -94,6 +94,19 @@ const submissions = tracks.map((track, index) => ({
   track,
 }));
 
+// Mirrors what the API actually returns for an open round: everyone's picks
+// are a secret except the viewer's own, and a spoiler-free count stands in
+// for the rest.
+const openRoundSubmissions = submissions.filter((submission) => submission.isMine);
+const openRoundSubmissionCounts = contributors.map((contributor) => ({
+  contributor: {
+    id: contributor.id,
+    displayName: contributor.displayName,
+    spotifyProfileImageUrl: contributor.spotifyProfileImageUrl,
+  },
+  count: 1,
+}));
+
 const openRound = {
   id: "round-open",
   seriesId: "series-1",
@@ -110,8 +123,10 @@ const openRound = {
   isMember: true,
   declinedFurtherSubmissions: false,
   spotifyPlaylistUrl: null,
-  artworkUrls: art.slice(0, 4),
-  backgroundArtworkUrl: art[0],
+  // Open-round art stays hidden - the same secret the submissions list keeps -
+  // until the round closes.
+  artworkUrls: [],
+  backgroundArtworkUrl: null,
 };
 
 const publishedRound = {
@@ -266,7 +281,8 @@ function responseFor(path: string) {
     };
   }
   if (path === "/api/v1/rounds/round-open") return openRound;
-  if (path === "/api/v1/rounds/round-open/submissions") return submissions;
+  if (path === "/api/v1/rounds/round-open/submissions") return openRoundSubmissions;
+  if (path === "/api/v1/rounds/round-open/submission-counts") return openRoundSubmissionCounts;
   if (path === "/api/v1/rounds/round-open/draft") return { track: null, note: null };
   if (path === "/api/v1/rounds/round-open/listening-suggestions") return tracks.slice(0, 3);
   if (path === "/api/v1/profiles/me") return profile;

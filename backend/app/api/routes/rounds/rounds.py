@@ -33,6 +33,7 @@ from app.db.models import (
     Publication,
     Round,
     RoundMember,
+    RoundStatus,
     Submission,
     SubmissionDraft,
     SubmissionStatus,
@@ -100,24 +101,34 @@ def get_round(
             Publication.spotify_playlist_id.is_not(None),
         )
     )
+    # While a round is open, its submissions are a secret from everyone but
+    # their own submitter - so no album art from them leaks into the round's
+    # backdrop or mosaic either. Both reveal once the round closes.
+    reveal_artwork = round_.status is not RoundStatus.OPEN
     # A stable choice per round. Re-rolling this on every request made the round
     # header change its backdrop each time the page refetched.
-    artwork_urls: list[str] = list(
-        db.scalars(
-            select(Track.artwork_url)
-            .join(Submission, Submission.track_id == Track.id)
-            .where(
-                Submission.round_id == round_.id,
-                Submission.status == SubmissionStatus.ACCEPTED,
-                Track.artwork_url.is_not(None),
+    artwork_urls: list[str] = (
+        list(
+            db.scalars(
+                select(Track.artwork_url)
+                .join(Submission, Submission.track_id == Track.id)
+                .where(
+                    Submission.round_id == round_.id,
+                    Submission.status == SubmissionStatus.ACCEPTED,
+                    Track.artwork_url.is_not(None),
+                )
+                .order_by(Submission.created_at, Submission.id)
             )
-            .order_by(Submission.created_at, Submission.id)
         )
+        if reveal_artwork
+        else []
     )
     background_artwork_url = stable_pick(artwork_urls, round_.id)
     # The same balanced selection the series history uses, so a release recap
     # does not need a second implementation of it in the browser.
-    balanced_artwork = round_artwork_urls_by_round(db, [round_.id]).get(round_.id, [])
+    balanced_artwork = (
+        round_artwork_urls_by_round(db, [round_.id]).get(round_.id, []) if reveal_artwork else []
+    )
     submitted_count = int(
         db.scalar(
             select(func.count(func.distinct(Submission.contributor_id))).where(

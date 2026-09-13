@@ -732,6 +732,29 @@ export interface paths {
         patch: operations["update_round_participation_api_v1_rounds__round_id__participation_patch"];
         trace?: never;
     };
+    "/api/v1/rounds/{round_id}/submission-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Round Submission Counts
+         * @description How many tracks each active round member has shared, never which ones.
+         *
+         *     Lets the group see who's still quiet while a round is open without
+         *     spoiling anyone's picks before `/submissions` reveals them at close.
+         */
+        get: operations["list_round_submission_counts_api_v1_rounds__round_id__submission_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rounds/{round_id}/submissions": {
         parameters: {
             query?: never;
@@ -746,6 +769,11 @@ export interface paths {
          *     The active membership check is intentional: a person removed from a private
          *     round must not retain a general read capability merely because their old
          *     submission remains attributable in publication history.
+         *
+         *     While a round is still open, nobody else's picks are revealed here at
+         *     all - only the viewer's own entries - so the reveal stays a surprise
+         *     until the round closes. Use `/submission-counts` for a spoiler-free view
+         *     of how much the group has shared so far.
          */
         get: operations["list_round_submissions_api_v1_rounds__round_id__submissions_get"];
         put?: never;
@@ -1180,6 +1208,12 @@ export interface components {
             id: string;
             /** Spotifyprofileimageurl */
             spotifyProfileImageUrl: string | null;
+        };
+        /** ContributorSubmissionCountResponse */
+        ContributorSubmissionCountResponse: {
+            contributor: components["schemas"]["ContributorResponse"];
+            /** Count */
+            count: number;
         };
         /** EvidenceItemResponse */
         EvidenceItemResponse: {
@@ -3401,6 +3435,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoundParticipationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_round_submission_counts_api_v1_rounds__round_id__submission_counts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributorSubmissionCountResponse"][];
                 };
             };
             /** @description Validation Error */
