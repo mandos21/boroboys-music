@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -230,5 +231,82 @@ describe("RoundPage", () => {
     // The other contributor shows up only as a count, never a track.
     expect(screen.getByText("Friend")).toBeTruthy();
     expect(screen.queryByText(/Friend.*Song/)).toBeNull();
+  });
+
+  it("keeps the note editor collapsed until 'Edit note' is clicked, then saves it", async () => {
+    const user = userEvent.setup();
+    const requests: { url: string; method: string; body: unknown }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        requests.push({
+          url,
+          method,
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        if (url.endsWith("/rounds/round-1/submissions")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify([
+                {
+                  id: "mine",
+                  status: "accepted",
+                  note: "Original note",
+                  createdAt: "2026-09-02T00:00:00Z",
+                  updatedAt: "2026-09-02T00:00:00Z",
+                  withdrawnAt: null,
+                  isMine: true,
+                  contributor: { id: "me", displayName: "Me", spotifyProfileImageUrl: null },
+                  track: {
+                    spotifyTrackId: "mine",
+                    name: "My Song",
+                    artist: "A",
+                    album: null,
+                    spotifyUri: null,
+                  },
+                },
+              ]),
+              { status: 200 },
+            ),
+          );
+        }
+        if (url.endsWith("/rounds/round-1/submission-counts")) {
+          return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+        }
+        if (url.endsWith("/rounds/submissions/mine")) {
+          return Promise.resolve(new Response(JSON.stringify(null), { status: 200 }));
+        }
+        return Promise.resolve(new Response(JSON.stringify(baseRound), { status: 200 }));
+      }),
+    );
+
+    renderRound();
+
+    expect(await screen.findByText("My Song")).toBeTruthy();
+    expect(screen.queryByLabelText("Note")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Edit note" }));
+    const textarea = screen.getByLabelText("Note") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("Original note");
+
+    await user.clear(textarea);
+    await user.type(textarea, "Updated note");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+
+    await waitFor(() =>
+      expect(requests.some((request) => request.url.endsWith("/rounds/submissions/mine"))).toBe(
+        true,
+      ),
+    );
+    const saveRequest = requests.find((request) =>
+      request.url.endsWith("/rounds/submissions/mine"),
+    );
+    expect(saveRequest?.method).toBe("PATCH");
+    expect(saveRequest?.body).toEqual({ note: "Updated note" });
+
+    // The editor collapses back down after saving.
+    expect(screen.queryByLabelText("Note")).toBeNull();
   });
 });

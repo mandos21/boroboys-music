@@ -8,7 +8,6 @@ import { queryKeys } from "../../api/queryKeys";
 import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Button } from "../../components/ui/button";
-import { Disclosure } from "../../components/ui/Disclosure";
 import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
@@ -486,42 +485,67 @@ function RoundSubmissions({
               </Link>
               {entry.note && <p>{entry.note}</p>}
               {entry.isMine && entry.status === "accepted" && roundIsOpen && (
-                <Disclosure
-                  className="submission-management"
-                  title="Manage your submission"
-                  description="Edit its note, replace the track, or withdraw it."
-                >
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const form = new FormData(event.currentTarget);
-                      onSaveNote(entry.id, String(form.get("note") || "").trim() || null);
-                    }}
-                  >
-                    <label htmlFor={`note-${entry.id}`}>Note</label>
-                    <textarea
-                      id={`note-${entry.id}`}
-                      name="note"
-                      defaultValue={entry.note ?? ""}
-                      maxLength={4000}
-                    />
-                    <div className="inline-actions">
-                      <button type="submit">Save note</button>
-                      <Link to={`/rounds/${roundId}/submit?replace=${entry.id}`}>
-                        Replace track
-                      </Link>
-                      <button type="button" className="danger" onClick={() => onWithdraw(entry)}>
-                        Withdraw
-                      </button>
-                    </div>
-                  </form>
-                </Disclosure>
+                <SubmissionActions
+                  roundId={roundId}
+                  submission={entry}
+                  onSaveNote={onSaveNote}
+                  onWithdraw={onWithdraw}
+                />
               )}
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+function SubmissionActions({
+  roundId,
+  submission,
+  onSaveNote,
+  onWithdraw,
+}: {
+  roundId: string;
+  submission: Submission;
+  onSaveNote: (id: string, note: string | null) => void;
+  onWithdraw: (submission: Submission) => void;
+}) {
+  const [editingNote, setEditingNote] = useState(false);
+  return (
+    <div className="submission-actions">
+      <div className="inline-actions">
+        <button type="button" onClick={() => setEditingNote((open) => !open)}>
+          {editingNote ? "Cancel" : submission.note ? "Edit note" : "Add a note"}
+        </button>
+        <Link to={`/rounds/${roundId}/submit?replace=${submission.id}`}>Replace track</Link>
+        <button type="button" className="danger" onClick={() => onWithdraw(submission)}>
+          Withdraw
+        </button>
+      </div>
+      {editingNote && (
+        <form
+          className="submission-note-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            onSaveNote(submission.id, String(form.get("note") || "").trim() || null);
+            setEditingNote(false);
+          }}
+        >
+          <label htmlFor={`note-${submission.id}`}>Note</label>
+          <textarea
+            id={`note-${submission.id}`}
+            name="note"
+            defaultValue={submission.note ?? ""}
+            maxLength={4000}
+          />
+          <div className="inline-actions">
+            <button type="submit">Save note</button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 

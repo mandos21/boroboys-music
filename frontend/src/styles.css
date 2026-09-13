@@ -370,14 +370,16 @@ input:focus, textarea:focus, select:focus { border-color: #22c55e; outline: 0; b
 .submission-count { display: inline-flex; width: fit-content; padding: .32rem .55rem; border-radius: 999px; background: #f0fdf4; color: #166534; font-size: .75rem; font-weight: 800; }
 .round-participant-counts { display: grid; gap: .55rem; padding: 0; margin: 1.2rem 0 0; list-style: none; }
 .round-participant-counts li { display: flex; align-items: center; gap: .65rem; padding: .55rem .7rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
-.round-participant-counts li > span { flex: 1; min-width: 0; overflow: hidden; color: #334155; font-size: .85rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-.round-participant-counts li > strong { color: #166534; font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.round-participant-counts .contributor-avatar { flex: none; }
+.round-participant-counts li > span:not(.contributor-avatar) { flex: 1; min-width: 0; overflow: hidden; color: #334155; font-size: .85rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.round-participant-counts li > strong { flex: none; color: #166534; font-size: .78rem; font-weight: 800; white-space: nowrap; }
 .submission-history li > div span, .submission-history small { color: #64748b; font-size: .85rem; }
 .submission-history .withdrawn { opacity: .58; text-decoration: line-through; }
-.submission-history .submission-management { grid-column: 2 / -1; margin-top: .7rem; }
-.submission-history .submission-management > summary { min-height: 2.35rem; }
-.submission-history .submission-management > summary small { display: none; }
-.submission-history .submission-management form { display: grid; gap: .7rem; }
+.submission-history .submission-actions { grid-column: 2 / -1; margin-top: .6rem; }
+.submission-history .submission-actions > .inline-actions > button,
+.submission-history .submission-actions > .inline-actions > a { padding: .32rem .58rem; font-size: .78rem; }
+.submission-history .submission-note-form { display: grid; gap: .5rem; margin-top: .6rem; max-width: 28rem; }
+.submission-history .submission-note-form label { color: #64748b; font-size: .76rem; font-weight: 650; }
 .round-prompt { padding: .7rem .85rem; margin: 1rem 0 0 !important; border-left: 3px solid #22c55e; border-radius: .45rem; background: #f0fdf4; color: #365341 !important; font-weight: 700; }
 .listening-suggestions { padding: .9rem 0; border-bottom: 1px solid #e2e8f0; }
 .listening-suggestions .eyebrow { margin-bottom: .25rem; }
@@ -432,7 +434,7 @@ input:focus, textarea:focus, select:focus { border-color: #22c55e; outline: 0; b
 .series-timeline a:hover, .series-timeline a:focus-visible { border-color: #4ade80; text-decoration: none; }
 .series-timeline strong { color: #334155; font-size: .88rem; }
 .series-timeline small { color: #64748b; font-size: .76rem; }
-.inline-actions > button { padding: .42rem .65rem; border: 1px solid #cbd5e1; border-radius: .5rem; background: #fff; color: #334155; font-size: .82rem; font-weight: 750; }
+.inline-actions > button, .inline-actions > a { padding: .42rem .65rem; border: 1px solid #cbd5e1; border-radius: .5rem; background: #fff; color: #334155; font-size: .82rem; font-weight: 750; }
 
 @media (max-width: 56rem) {
   .desktop-account { display: none; }
@@ -587,7 +589,7 @@ html[data-theme="dark"] .series-stats .series-contributors { border-color: #3148
 html[data-theme="dark"] .contributor-stack .contributor-profile-link { border-color: #17231c; }
 html[data-theme="dark"] .landing-card { border-color: #386149; background: linear-gradient(155deg, #173525, #1c2d22); }
 html[data-theme="dark"] .landing-card::after { background: #265e3b; }
-html[data-theme="dark"] input, html[data-theme="dark"] textarea, html[data-theme="dark"] select, html[data-theme="dark"] .track-result, html[data-theme="dark"] .inline-actions > button { border-color: #405a49; background: #101914; color: #edf7ef; }
+html[data-theme="dark"] input, html[data-theme="dark"] textarea, html[data-theme="dark"] select, html[data-theme="dark"] .track-result, html[data-theme="dark"] .inline-actions > button, html[data-theme="dark"] .inline-actions > a { border-color: #405a49; background: #101914; color: #edf7ef; }
 html[data-theme="dark"] input::placeholder, html[data-theme="dark"] textarea::placeholder { color: #789080; }
 html[data-theme="dark"] input:hover, html[data-theme="dark"] textarea:hover, html[data-theme="dark"] select:hover, html[data-theme="dark"] .track-result:hover { border-color: #5cb878; background: #193023; }
 html[data-theme="dark"] .timeline, html[data-theme="dark"] .selected-track, html[data-theme="dark"] .policy-results, html[data-theme="dark"] .evidence, html[data-theme="dark"] .series-round-item, html[data-theme="dark"] .submission-history li { border-color: #31483a; }
