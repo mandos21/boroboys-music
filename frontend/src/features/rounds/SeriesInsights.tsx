@@ -295,7 +295,7 @@ function SeriesGenreMix({
                         {item.groups.map((group) => (
                           <i
                             key={group.group}
-                            className={`${genreGroupClass(group.group)}${selection && activeGroup !== group.group ? " is-muted" : ""}`}
+                            className={`${genreGroupClass(group.group)}${activeGroup !== null && activeGroup !== group.group ? " is-muted" : ""}`}
                             style={
                               {
                                 "--share": `${(group.count / item.total) * 100}%`,
@@ -387,6 +387,8 @@ function contributorTagCount(item: ContributorMix, selection: ActiveSelection) {
     return item.groups.find((group) => group.group === selection.group)?.count ?? 0;
   if (selection?.kind === "genre")
     return item.contributor.genres.find((genre) => genre.name === selection.genreName)?.count ?? 0;
+  if (selection?.kind === "contributor")
+    return item.contributor.id === selection.contributorId ? item.total : 0;
   return item.total;
 }
 

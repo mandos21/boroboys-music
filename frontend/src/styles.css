@@ -370,8 +370,11 @@ input:focus, textarea:focus, select:focus { border-color: #22c55e; outline: 0; b
 .submission-count { display: inline-flex; width: fit-content; padding: .32rem .55rem; border-radius: 999px; background: #f0fdf4; color: #166534; font-size: .75rem; font-weight: 800; }
 .round-participant-counts { display: grid; gap: .55rem; padding: 0; margin: 1.2rem 0 0; list-style: none; }
 .round-participant-counts li { display: flex; align-items: center; gap: .65rem; padding: .55rem .7rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
+.round-participant-link { display: flex; flex: 1; align-items: center; gap: .65rem; min-width: 0; border-radius: .45rem; }
+.round-participant-link:hover { text-decoration: none; }
+.round-participant-link:hover span:not(.contributor-avatar) { text-decoration: underline; }
 .round-participant-counts .contributor-avatar { flex: none; }
-.round-participant-counts li > span:not(.contributor-avatar) { flex: 1; min-width: 0; overflow: hidden; color: #334155; font-size: .85rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.round-participant-link > span:not(.contributor-avatar) { flex: 1; min-width: 0; overflow: hidden; color: #334155; font-size: .85rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .round-participant-counts li > strong { flex: none; color: #166534; font-size: .78rem; font-weight: 800; white-space: nowrap; }
 .submission-history li > div span, .submission-history small { color: #64748b; font-size: .85rem; }
 .submission-history .withdrawn { opacity: .58; text-decoration: line-through; }
@@ -562,7 +565,7 @@ html[data-theme="dark"] .listening-suggestions, html[data-theme="dark"] .now-spi
 html[data-theme="dark"] .release-recap p:not(.eyebrow), html[data-theme="dark"] .now-spinning strong, html[data-theme="dark"] .listening-suggestions button small { color: #a7bbae; }
 html[data-theme="dark"] .submission-history li > p { border-color: #4b8a60; background: #172a20; color: #c5d6c8; }
 html[data-theme="dark"] .round-participant-counts li { border-color: #31483a; background: #172a20; }
-html[data-theme="dark"] .round-participant-counts li > span { color: #dce8e0; }
+html[data-theme="dark"] .round-participant-link > span { color: #dce8e0; }
 html[data-theme="dark"] .round-participant-counts li > strong { color: #86efac; }
 html[data-theme="dark"] .invite-link button, html[data-theme="dark"] .series-timeline a { border-color: #42684d; background: #172a20; color: #bbf7d0; }
 html[data-theme="dark"] .series-timeline strong { color: #dce8e0; }

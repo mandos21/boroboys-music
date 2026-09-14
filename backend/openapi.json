@@ -246,6 +246,17 @@
       },
       "AdminRoundDetailResponse": {
         "properties": {
+          "attributionRevealDelaySeconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributionrevealdelayseconds"
+          },
           "closesAt": {
             "format": "date-time",
             "title": "Closesat",
@@ -333,6 +344,7 @@
           "submissionLimit",
           "prompt",
           "publisherAccountId",
+          "attributionRevealDelaySeconds",
           "seriesId",
           "timezone",
           "policySnapshot",
@@ -405,6 +417,17 @@
       },
       "AdminRoundResponse": {
         "properties": {
+          "attributionRevealDelaySeconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributionrevealdelayseconds"
+          },
           "closesAt": {
             "format": "date-time",
             "title": "Closesat",
@@ -468,7 +491,8 @@
           "publishAt",
           "submissionLimit",
           "prompt",
-          "publisherAccountId"
+          "publisherAccountId",
+          "attributionRevealDelaySeconds"
         ],
         "title": "AdminRoundResponse",
         "type": "object"
@@ -518,6 +542,17 @@
               }
             ],
             "title": "Coverimageurl"
+          },
+          "defaultAttributionRevealDelaySeconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultattributionrevealdelayseconds"
           },
           "defaultPolicies": {
             "items": {
@@ -597,6 +632,7 @@
           "isArchived",
           "coverImageUrl",
           "accentColor",
+          "defaultAttributionRevealDelaySeconds",
           "groups",
           "rounds"
         ],
@@ -630,6 +666,17 @@
               }
             ],
             "title": "Coverimageurl"
+          },
+          "defaultAttributionRevealDelaySeconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultattributionrevealdelayseconds"
           },
           "defaultPolicies": {
             "items": {
@@ -694,7 +741,8 @@
           "autoStartNextRound",
           "isArchived",
           "coverImageUrl",
-          "accentColor"
+          "accentColor",
+          "defaultAttributionRevealDelaySeconds"
         ],
         "title": "AdminSeriesResponse",
         "type": "object"
@@ -734,6 +782,222 @@
           "email"
         ],
         "title": "AdminUserResponse",
+        "type": "object"
+      },
+      "AttributionGameResponse": {
+        "properties": {
+          "correctCount": {
+            "title": "Correctcount",
+            "type": "integer"
+          },
+          "submittedAt": {
+            "format": "date-time",
+            "title": "Submittedat",
+            "type": "string"
+          },
+          "totalCount": {
+            "title": "Totalcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "submittedAt",
+          "correctCount",
+          "totalCount"
+        ],
+        "title": "AttributionGameResponse",
+        "type": "object"
+      },
+      "AttributionGuessInput": {
+        "properties": {
+          "contributor_id": {
+            "format": "uuid",
+            "title": "Contributor Id",
+            "type": "string"
+          },
+          "submission_id": {
+            "format": "uuid",
+            "title": "Submission Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submission_id",
+          "contributor_id"
+        ],
+        "title": "AttributionGuessInput",
+        "type": "object"
+      },
+      "AttributionGuessResultResponse": {
+        "properties": {
+          "actualContributorId": {
+            "title": "Actualcontributorid",
+            "type": "string"
+          },
+          "guessedContributorId": {
+            "title": "Guessedcontributorid",
+            "type": "string"
+          },
+          "isCorrect": {
+            "title": "Iscorrect",
+            "type": "boolean"
+          },
+          "submissionId": {
+            "title": "Submissionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submissionId",
+          "guessedContributorId",
+          "actualContributorId",
+          "isCorrect"
+        ],
+        "title": "AttributionGuessResultResponse",
+        "type": "object"
+      },
+      "AttributionGuessesSubmit": {
+        "properties": {
+          "guesses": {
+            "items": {
+              "$ref": "#/components/schemas/AttributionGuessInput"
+            },
+            "title": "Guesses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "guesses"
+        ],
+        "title": "AttributionGuessesSubmit",
+        "type": "object"
+      },
+      "AttributionLeaderboardEntryResponse": {
+        "properties": {
+          "contributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "correctCount": {
+            "title": "Correctcount",
+            "type": "integer"
+          },
+          "totalCount": {
+            "title": "Totalcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contributor",
+          "correctCount",
+          "totalCount"
+        ],
+        "title": "AttributionLeaderboardEntryResponse",
+        "type": "object"
+      },
+      "AttributionRosterMemberResponse": {
+        "properties": {
+          "contributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "maxGuesses": {
+            "title": "Maxguesses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contributor",
+          "maxGuesses"
+        ],
+        "title": "AttributionRosterMemberResponse",
+        "type": "object"
+      },
+      "AttributionStatusResponse": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttributionGameResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "leaderboard": {
+            "items": {
+              "$ref": "#/components/schemas/AttributionLeaderboardEntryResponse"
+            },
+            "title": "Leaderboard",
+            "type": "array"
+          },
+          "published": {
+            "title": "Published",
+            "type": "boolean"
+          },
+          "revealAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revealat"
+          },
+          "revealed": {
+            "title": "Revealed",
+            "type": "boolean"
+          },
+          "roster": {
+            "items": {
+              "$ref": "#/components/schemas/AttributionRosterMemberResponse"
+            },
+            "title": "Roster",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled",
+          "published",
+          "revealed",
+          "revealAt",
+          "roster",
+          "game",
+          "leaderboard"
+        ],
+        "title": "AttributionStatusResponse",
+        "type": "object"
+      },
+      "AttributionSubmitResponse": {
+        "properties": {
+          "correctCount": {
+            "title": "Correctcount",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/AttributionGuessResultResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "totalCount": {
+            "title": "Totalcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "correctCount",
+          "totalCount",
+          "results"
+        ],
+        "title": "AttributionSubmitResponse",
         "type": "object"
       },
       "CalendarRoundPlan": {
@@ -1287,6 +1551,42 @@
         "title": "ProfileAffinityResponse",
         "type": "object"
       },
+      "ProfileAttributionResponse": {
+        "description": "How well this listener guesses who submitted what, across every played round.",
+        "properties": {
+          "accuracyPercent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracypercent"
+          },
+          "correctCount": {
+            "title": "Correctcount",
+            "type": "integer"
+          },
+          "roundsPlayed": {
+            "title": "Roundsplayed",
+            "type": "integer"
+          },
+          "totalCount": {
+            "title": "Totalcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "roundsPlayed",
+          "correctCount",
+          "totalCount",
+          "accuracyPercent"
+        ],
+        "title": "ProfileAttributionResponse",
+        "type": "object"
+      },
       "ProfileGenreItemResponse": {
         "description": "A genre plus the family group it belongs to, so the client can colour\nrelated genres alike instead of by their rank in the list.",
         "properties": {
@@ -1402,6 +1702,9 @@
             "title": "Affinity",
             "type": "array"
           },
+          "attribution": {
+            "$ref": "#/components/schemas/ProfileAttributionResponse"
+          },
           "diversityScore": {
             "title": "Diversityscore",
             "type": "integer"
@@ -1455,7 +1758,8 @@
           "diversityScore",
           "topArtists",
           "genreSpread",
-          "affinity"
+          "affinity",
+          "attribution"
         ],
         "title": "ProfileStatsResponse",
         "type": "object"
@@ -1597,6 +1901,18 @@
       },
       "RoundCreate": {
         "properties": {
+          "attribution_reveal_delay_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution Reveal Delay Seconds"
+          },
           "closes_at": {
             "format": "date-time",
             "title": "Closes At",
@@ -1980,6 +2296,18 @@
       },
       "RoundUpdate": {
         "properties": {
+          "attribution_reveal_delay_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution Reveal Delay Seconds"
+          },
           "closes_at": {
             "anyOf": [
               {
@@ -2143,6 +2471,18 @@
               }
             ],
             "title": "Cover Image Url"
+          },
+          "default_attribution_reveal_delay_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Attribution Reveal Delay Seconds"
           },
           "default_policies": {
             "items": {
@@ -2554,6 +2894,18 @@
             ],
             "title": "Cover Image Url"
           },
+          "default_attribution_reveal_delay_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Attribution Reveal Delay Seconds"
+          },
           "default_policies": {
             "anyOf": [
               {
@@ -2803,7 +3155,14 @@
       "SubmissionResponse": {
         "properties": {
           "contributor": {
-            "$ref": "#/components/schemas/ContributorResponse"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContributorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "createdAt": {
             "format": "date-time",
@@ -5124,6 +5483,102 @@
         ]
       }
     },
+    "/api/v1/rounds/{round_id}/attribution": {
+      "get": {
+        "operationId": "get_attribution_status_api_v1_rounds__round_id__attribution_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttributionStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Attribution Status",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
+    "/api/v1/rounds/{round_id}/attribution/guesses": {
+      "post": {
+        "operationId": "submit_attribution_guesses_api_v1_rounds__round_id__attribution_guesses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttributionGuessesSubmit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttributionSubmitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Attribution Guesses",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
     "/api/v1/rounds/{round_id}/draft": {
       "get": {
         "operationId": "get_submission_draft_api_v1_rounds__round_id__draft_get",
@@ -5385,7 +5840,7 @@
     },
     "/api/v1/rounds/{round_id}/submission-counts": {
       "get": {
-        "description": "How many tracks each active round member has shared, never which ones.\n\nLets the group see who's still quiet while a round is open without\nspoiling anyone's picks before `/submissions` reveals them at close.",
+        "description": "How many tracks each active round member has shared, never which ones.\n\nLets the group see who's still quiet while a round is open without\nspoiling anyone's picks before `/submissions` reveals them at publication.\nOnce published, exact per-person counts would let a guesser in the\nattribution game deduce assignments by elimination, so this stays empty\nfor a viewer until their own reveal condition is met too.",
         "operationId": "list_round_submission_counts_api_v1_rounds__round_id__submission_counts_get",
         "parameters": [
           {
@@ -5433,7 +5888,7 @@
     },
     "/api/v1/rounds/{round_id}/submissions": {
       "get": {
-        "description": "Show accepted entries to round members and a user's withdrawn entries to them.\n\nThe active membership check is intentional: a person removed from a private\nround must not retain a general read capability merely because their old\nsubmission remains attributable in publication history.\n\nWhile a round is still open, nobody else's picks are revealed here at\nall - only the viewer's own entries - so the reveal stays a surprise\nuntil the round closes. Use `/submission-counts` for a spoiler-free view\nof how much the group has shared so far.",
+        "description": "Show accepted entries to round members and a user's withdrawn entries to them.\n\nThe active membership check is intentional: a person removed from a private\nround must not retain a general read capability merely because their old\nsubmission remains attributable in publication history.\n\nNobody else's picks are revealed here until the round actually publishes -\nbefore that, only the viewer's own entries come back, whether the round is\nstill open or sitting closed and waiting on Spotify. Use\n`/submission-counts` for a spoiler-free view of how much the group has\nshared so far.\n\nOnce published, tracks appear for everyone so the attribution guessing\ngame has something to play with, but *who* submitted each one stays\nhidden - contributor and note come back null - until this viewer's\npersonal reveal condition is met (see `app.services.attribution`).",
         "operationId": "list_round_submissions_api_v1_rounds__round_id__submissions_get",
         "parameters": [
           {

@@ -6,6 +6,12 @@ because the tests call them directly rather than through HTTP.
 """
 
 from app.api.routes.rounds._common import TrackInput, _may_see_evidence, router
+from app.api.routes.rounds.attribution import (
+    AttributionGuessesSubmit,
+    AttributionGuessInput,
+    get_attribution_status,
+    submit_attribution_guesses,
+)
 from app.api.routes.rounds.discovery import (
     get_evidence,
     get_listening_suggestions,
@@ -33,6 +39,8 @@ from app.api.routes.rounds.submissions import (
 )
 
 __all__ = [
+    "AttributionGuessInput",
+    "AttributionGuessesSubmit",
     "RoundParticipationUpdate",
     "SubmissionCreate",
     "SubmissionDraftUpdate",
@@ -42,6 +50,7 @@ __all__ = [
     "_may_see_evidence",
     "create_submission",
     "evaluate_track",
+    "get_attribution_status",
     "get_evidence",
     "get_listening_suggestions",
     "get_round",
@@ -52,6 +61,7 @@ __all__ = [
     "router",
     "save_submission_draft",
     "search_tracks",
+    "submit_attribution_guesses",
     "update_round_participation",
     "update_submission",
     "withdraw_submission",

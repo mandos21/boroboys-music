@@ -32,15 +32,15 @@ from app.db.models import (
     ExternalAccount,
     ExternalProvider,
     ListeningEvidence,
+    PublicationItem,
     Round,
     RoundMember,
-    RoundStatus,
     Submission,
     SubmissionStatus,
     Track,
     User,
 )
-from app.services import lastfm, spotify
+from app.services import attribution, lastfm, spotify
 from app.services.authorization import is_round_member, is_series_admin
 from app.services.lifecycle import reconcile_round_status
 
@@ -79,22 +79,31 @@ def list_round_submissions(
     round must not retain a general read capability merely because their old
     submission remains attributable in publication history.
 
-    While a round is still open, nobody else's picks are revealed here at
-    all - only the viewer's own entries - so the reveal stays a surprise
-    until the round closes. Use `/submission-counts` for a spoiler-free view
-    of how much the group has shared so far.
+    Nobody else's picks are revealed here until the round actually publishes -
+    before that, only the viewer's own entries come back, whether the round is
+    still open or sitting closed and waiting on Spotify. Use
+    `/submission-counts` for a spoiler-free view of how much the group has
+    shared so far.
+
+    Once published, tracks appear for everyone so the attribution guessing
+    game has something to play with, but *who* submitted each one stays
+    hidden - contributor and note come back null - until this viewer's
+    personal reveal condition is met (see `app.services.attribution`).
     """
     round_, membership = _viewer_round(db, round_id, user)
     if reconcile_round_status(round_):
         db.commit()
-    if round_.status is RoundStatus.OPEN:
+    publication = attribution.get_publication(db, round_id)
+    has_published = publication is not None and publication.published_at is not None
+    if not has_published:
         visible_statuses = Submission.contributor_id == user.id
     else:
         visible_statuses = Submission.status == SubmissionStatus.ACCEPTED
         if membership is not None:
             visible_statuses = visible_statuses | (Submission.contributor_id == user.id)
+    revealed = has_published and attribution.is_revealed_for(db, round_, publication, user.id)
     spotify_profile_image = spotify_profile_image_subquery(Submission.contributor_id)
-    rows = db.execute(
+    query = (
         select(Submission, Track, User, spotify_profile_image)
         .join(Track, Track.id == Submission.track_id)
         .join(User, User.id == Submission.contributor_id)
@@ -102,24 +111,36 @@ def list_round_submissions(
             Submission.round_id == round_id,
             visible_statuses,
         )
-        .order_by(Submission.created_at.asc())
     )
+    if has_published:
+        # The published playlist's own (shuffled) order, so the guessing game
+        # can't be won by noticing which tracks were submitted back to back.
+        query = query.join(
+            PublicationItem, PublicationItem.submission_id == Submission.id
+        ).order_by(PublicationItem.position.asc())
+    else:
+        query = query.order_by(Submission.created_at.asc())
+    rows = db.execute(query)
     return [
         {
             "id": str(submission.id),
             "status": submission.status.value,
-            "note": submission.note,
+            "note": submission.note if (revealed or submission.contributor_id == user.id) else None,
             "createdAt": submission.created_at.isoformat(),
             "updatedAt": submission.updated_at.isoformat(),
             "withdrawnAt": submission.withdrawn_at.isoformat() if submission.withdrawn_at else None,
             "isMine": submission.contributor_id == user.id,
-            "contributor": {
-                "id": str(contributor.id),
-                "displayName": contributor_display_name(
-                    contributor.display_name, contributor.email
-                ),
-                "spotifyProfileImageUrl": profile_image_url,
-            },
+            "contributor": (
+                {
+                    "id": str(contributor.id),
+                    "displayName": contributor_display_name(
+                        contributor.display_name, contributor.email
+                    ),
+                    "spotifyProfileImageUrl": profile_image_url,
+                }
+                if revealed or submission.contributor_id == user.id
+                else None
+            ),
             "track": _track_payload(track),
         }
         for submission, track, contributor, profile_image_url in rows
@@ -137,9 +158,16 @@ def list_round_submission_counts(
     """How many tracks each active round member has shared, never which ones.
 
     Lets the group see who's still quiet while a round is open without
-    spoiling anyone's picks before `/submissions` reveals them at close.
+    spoiling anyone's picks before `/submissions` reveals them at publication.
+    Once published, exact per-person counts would let a guesser in the
+    attribution game deduce assignments by elimination, so this stays empty
+    for a viewer until their own reveal condition is met too.
     """
-    _viewer_round(db, round_id, user)
+    round_, _membership = _viewer_round(db, round_id, user)
+    publication = attribution.get_publication(db, round_id)
+    has_published = publication is not None and publication.published_at is not None
+    if has_published and not attribution.is_revealed_for(db, round_, publication, user.id):
+        return []
     spotify_profile_image = spotify_profile_image_subquery(RoundMember.user_id)
     counts = (
         select(Submission.contributor_id, func.count().label("count"))

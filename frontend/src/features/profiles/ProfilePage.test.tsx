@@ -39,6 +39,12 @@ const profile = {
         sharedRoundCount: 4,
       },
     ],
+    attribution: {
+      roundsPlayed: 2,
+      correctCount: 7,
+      totalCount: 9,
+      accuracyPercent: 78 as number | null,
+    },
   },
   historyCount: 3,
   nextCursor: null,
@@ -115,6 +121,19 @@ describe("ProfilePage", () => {
       "href",
       expect.stringContaining("/rounds/round-1"),
     );
+    // The "closest ears" avatar and name both open the listener's own
+    // profile page, not the old (dead) "/profiles/:id" path.
+    expect(screen.getByRole("link", { name: "A Close Listener" })).toHaveProperty(
+      "href",
+      expect.stringContaining("/people/user-2"),
+    );
+    expect(screen.getByRole("link", { name: "Open A Close Listener's profile" })).toHaveProperty(
+      "href",
+      expect.stringContaining("/people/user-2"),
+    );
+    expect(screen.getByRole("heading", { name: "How well do you know your friends" })).toBeTruthy();
+    expect(screen.getByText("78%")).toBeTruthy();
+    expect(screen.getByText("7 of 9 guesses correct")).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Email notifications" })).toBeTruthy();
     const switches = await screen.findAllByRole("switch");
     expect(switches.map((toggle) => toggle.getAttribute("aria-checked"))).toEqual([
@@ -132,6 +151,26 @@ describe("ProfilePage", () => {
     expect(screen.getByRole("heading", { name: "Connected services" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Email notifications" })).toBeTruthy();
     expect(await screen.findAllByRole("switch")).toHaveLength(2);
+  });
+
+  it("invites the listener to play before they've guessed in any round", async () => {
+    const neverPlayed = {
+      ...profile,
+      stats: {
+        ...profile.stats,
+        attribution: { roundsPlayed: 0, correctCount: 0, totalCount: 0, accuracyPercent: null },
+      },
+    };
+    renderProfile(200, neverPlayed);
+
+    expect(
+      await screen.findByRole("heading", { name: "How well do you know your friends" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Play a round's “Guess Who?” game once it publishes to see your score here.",
+      ),
+    ).toBeTruthy();
   });
 
   it("keeps a long fingerprint to five rows until the disclosure is opened", async () => {

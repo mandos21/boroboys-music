@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 import pytest
 from fastapi import HTTPException
@@ -17,6 +18,7 @@ from app.api.routes.profiles import (
     update_notification_settings,
 )
 from app.db.models import (
+    AttributionGame,
     PlatformRole,
     Round,
     RoundMember,
@@ -381,3 +383,64 @@ def test_affinity_ranks_listeners_from_shared_visible_rounds_only(
     # The profile's owner can see the hidden round, so the stranger shows up for them.
     own = get_my_profile(db, profile)["stats"]["affinity"]
     assert {item["displayName"] for item in own} == {"Kindred", "Stranger"}
+
+
+def test_profile_attribution_accuracy_is_scoped_by_the_same_round_visibility(
+    db: Session,
+    make_round: Callable[..., Round],
+    make_series: Callable[..., Series],
+    make_track: Callable[..., Track],
+    make_user: Callable[..., User],
+) -> None:
+    listener = make_user(name="Listener")
+    viewer = make_user(name="Viewer")
+    series = make_series()
+    shared_round = make_round(series, members=[listener, viewer], status=RoundStatus.PUBLISHED)
+    private_round = make_round(series, members=[listener], status=RoundStatus.PUBLISHED)
+    # A visible submission is required so the profile isn't treated as
+    # nonexistent-to-this-viewer before its attribution stats are checked.
+    db.add(
+        Submission(
+            round_id=shared_round.id,
+            contributor_id=listener.id,
+            track_id=make_track().id,
+            status=SubmissionStatus.ACCEPTED,
+        )
+    )
+    db.add_all(
+        (
+            AttributionGame(
+                round_id=shared_round.id,
+                user_id=listener.id,
+                submitted_at=datetime.now(UTC),
+                correct_count=3,
+                total_count=4,
+            ),
+            AttributionGame(
+                round_id=private_round.id,
+                user_id=listener.id,
+                submitted_at=datetime.now(UTC),
+                correct_count=10,
+                total_count=10,
+            ),
+        )
+    )
+    db.commit()
+
+    # A viewer who can't see the private round only gets that game's stats.
+    visible = get_profile(listener.id, db, viewer)["stats"]["attribution"]
+    assert visible == {
+        "roundsPlayed": 1,
+        "correctCount": 3,
+        "totalCount": 4,
+        "accuracyPercent": 75,
+    }
+
+    # The listener's own profile combines every round they've played.
+    own = get_my_profile(db, listener)["stats"]["attribution"]
+    assert own == {
+        "roundsPlayed": 2,
+        "correctCount": 13,
+        "totalCount": 14,
+        "accuracyPercent": 93,
+    }

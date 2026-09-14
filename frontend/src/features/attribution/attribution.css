@@ -1,0 +1,81 @@
+.attribution-game { display: flex; flex-direction: column; gap: 1rem; }
+.attribution-countdown { font-size: .8rem; font-weight: 700; color: #166534; white-space: nowrap; }
+.attribution-instructions { margin: 0; color: #64748b; font-size: .85rem; }
+
+.attribution-tray { display: flex; flex-wrap: wrap; gap: .55rem; min-height: 3.4rem; padding: .75rem; border: 1px dashed #cbd5e1; border-radius: .85rem; background: #f8fafc; }
+.attribution-tray-empty { margin: 0; align-self: center; color: #64748b; font-size: .85rem; }
+.attribution-own-tracks { display: flex; flex-direction: column; gap: .4rem; }
+.attribution-own-tracks-label { margin: 0; color: #64748b; font-size: .78rem; font-weight: 650; }
+.attribution-own-tray { border-style: solid; border-color: #bbf7d0; background: #f0fdf4; }
+.attribution-track-chip-readonly { cursor: default; opacity: .85; }
+.attribution-track-chip-readonly:active { cursor: default; }
+
+.attribution-track-chip { display: inline-flex; align-items: center; gap: .55rem; padding: .35rem .65rem .35rem .35rem; border: 1px solid #cbd5e1; border-radius: .7rem; background: #fff; cursor: grab; text-align: left; }
+.attribution-track-chip:active { cursor: grabbing; }
+.attribution-track-chip.selected { border-color: #16a34a; box-shadow: 0 0 0 2px rgb(22 163 74 / 25%); }
+.attribution-track-chip img { width: 2.1rem; height: 2.1rem; border-radius: .5rem; object-fit: cover; }
+.attribution-track-chip-placeholder { display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: .5rem; background: #e2e8f0; color: #64748b; }
+.attribution-track-chip strong { display: block; font-size: .82rem; }
+.attribution-track-chip small { display: block; color: #64748b; font-size: .72rem; }
+
+.attribution-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .75rem; }
+.attribution-roster-bin { display: flex; flex-direction: column; gap: .5rem; padding: .65rem; border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; min-height: 5rem; }
+.attribution-roster-bin.full { border-color: #f59e0b; background: #fffbeb; }
+.attribution-roster-header { display: flex; align-items: center; gap: .55rem; padding: 0; border: none; background: none; text-align: left; cursor: pointer; }
+.attribution-roster-header strong { display: block; font-size: .85rem; }
+.attribution-roster-header small { display: block; color: #64748b; font-size: .72rem; }
+.attribution-roster-tracks { display: flex; flex-direction: column; gap: .35rem; list-style: none; margin: 0; padding: 0; }
+.attribution-roster-tracks li { display: flex; align-items: center; gap: .35rem; }
+.attribution-roster-tracks .attribution-track-chip { flex: 1 1 auto; }
+.attribution-unassign { border: none; background: none; color: #94a3b8; font-size: 1.1rem; line-height: 1; cursor: pointer; padding: .2rem .35rem; }
+.attribution-unassign:hover { color: #be123c; }
+
+.attribution-actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.attribution-actions span { color: #64748b; font-size: .85rem; font-weight: 600; }
+
+.attribution-reveal { display: flex; flex-direction: column; gap: 1rem; align-items: center; text-align: center; }
+.attribution-score strong { display: block; font-size: 2rem; color: #166534; }
+.attribution-score span { color: #64748b; font-weight: 700; }
+
+.attribution-flip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .75rem; list-style: none; margin: 0; padding: 0; width: 100%; }
+.attribution-flip-card { perspective: 800px; height: 8.5rem; }
+.attribution-flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform .5s; transform-style: preserve-3d; }
+.attribution-flip-card.flipped .attribution-flip-card-inner { transform: rotateY(180deg); }
+.attribution-flip-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .3rem; padding: .6rem; border-radius: .75rem; backface-visibility: hidden; border: 1px solid #e2e8f0; background: #fff; }
+.attribution-flip-face img { width: 2.5rem; height: 2.5rem; border-radius: .5rem; object-fit: cover; }
+.attribution-flip-face strong { font-size: .78rem; }
+.attribution-flip-face span { font-size: .74rem; color: #64748b; }
+.attribution-flip-back { transform: rotateY(180deg); }
+.attribution-flip-card.correct .attribution-flip-back { border-color: #16a34a; background: #f0fdf4; }
+.attribution-flip-card.incorrect .attribution-flip-back { border-color: #be123c; background: #fef2f2; }
+.attribution-flip-card.correct .attribution-flip-back span { color: #166534; font-weight: 700; }
+.attribution-flip-card.incorrect .attribution-flip-back span { color: #9f1239; font-weight: 700; }
+
+html[data-theme="dark"] .attribution-countdown { color: #86efac; }
+html[data-theme="dark"] .attribution-instructions, html[data-theme="dark"] .attribution-tray-empty, html[data-theme="dark"] .attribution-actions span, html[data-theme="dark"] .attribution-own-tracks-label { color: #a7bbae; }
+html[data-theme="dark"] .attribution-tray { border-color: #3b6148; background: #16251c; }
+html[data-theme="dark"] .attribution-own-tray { border-color: #2f6b45; background: #14251a; }
+html[data-theme="dark"] .attribution-track-chip { border-color: #31483a; background: #17231c; color: #dce8e0; }
+html[data-theme="dark"] .attribution-track-chip small { color: #a7bbae; }
+html[data-theme="dark"] .attribution-track-chip-placeholder { background: #213329; color: #a7bbae; }
+html[data-theme="dark"] .attribution-roster-bin { border-color: #31483a; background: #17231c; }
+html[data-theme="dark"] .attribution-roster-bin.full { border-color: #b45309; background: #241c11; }
+html[data-theme="dark"] .attribution-roster-header small { color: #a7bbae; }
+html[data-theme="dark"] .attribution-score strong { color: #86efac; }
+html[data-theme="dark"] .attribution-flip-face { border-color: #31483a; background: #17231c; color: #dce8e0; }
+html[data-theme="dark"] .attribution-flip-face span { color: #a7bbae; }
+html[data-theme="dark"] .attribution-flip-card.correct .attribution-flip-back { border-color: #16a34a; background: #16251c; }
+html[data-theme="dark"] .attribution-flip-card.incorrect .attribution-flip-back { border-color: #be123c; background: #241417; }
+
+.attribution-leaderboard ol { display: grid; gap: .5rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
+.attribution-leaderboard li { display: grid; grid-template-columns: 1.4rem 1fr auto auto; align-items: center; gap: .6rem; padding: .5rem .65rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
+.attribution-leaderboard-rank { color: #64748b; font-size: .78rem; font-weight: 800; text-align: center; }
+.attribution-leaderboard-contributor { display: flex; align-items: center; gap: .55rem; min-width: 0; overflow: hidden; color: #334155; font-size: .85rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.attribution-leaderboard-contributor:hover span { text-decoration: underline; }
+.attribution-leaderboard li > strong { color: #166534; font-size: .85rem; }
+.attribution-leaderboard li > small { color: #64748b; font-size: .72rem; }
+
+html[data-theme="dark"] .attribution-leaderboard li { border-color: #31483a; background: #172a20; }
+html[data-theme="dark"] .attribution-leaderboard-contributor { color: #dce8e0; }
+html[data-theme="dark"] .attribution-leaderboard-rank, html[data-theme="dark"] .attribution-leaderboard li > small { color: #a7bbae; }
+html[data-theme="dark"] .attribution-leaderboard li > strong { color: #86efac; }

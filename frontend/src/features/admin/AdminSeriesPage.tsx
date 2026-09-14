@@ -97,6 +97,7 @@ export function AdminSeriesPage() {
       description: string | null;
       cover_image_url: string | null;
       accent_color: string | null;
+      default_attribution_reveal_delay_seconds?: number | null;
     }) => patch(`/admin/series/${seriesId}`, payload),
     onSuccess: () => {
       invalidate();
@@ -187,10 +188,15 @@ export function AdminSeriesPage() {
           onSubmit={(event) => {
             event.preventDefault();
             const fields = new FormData(event.currentTarget);
+            const guessWhoEnabled = fields.get("guessWhoEnabled") === "on";
+            const guessWhoDelayMinutes = Number(fields.get("guessWhoDelayMinutes") || 0);
             saveIdentity.mutate({
               description: String(fields.get("description") || "").trim() || null,
               cover_image_url: String(fields.get("cover") || "").trim() || null,
               accent_color: String(fields.get("accent") || "").trim() || null,
+              default_attribution_reveal_delay_seconds: guessWhoEnabled
+                ? guessWhoDelayMinutes * 60
+                : null,
             });
           }}
         >
@@ -220,6 +226,10 @@ export function AdminSeriesPage() {
               pattern="#[0-9a-fA-F]{6}"
             />
           </label>
+          <GuessWhoDefaultFields
+            key={series.id}
+            defaultDelaySeconds={series.defaultAttributionRevealDelaySeconds}
+          />
           <Button disabled={saveIdentity.isPending} type="submit" variant="secondary">
             {saveIdentity.isPending ? "Saving…" : "Save series details"}
           </Button>
@@ -337,5 +347,35 @@ export function AdminSeriesPage() {
         }}
       />
     </main>
+  );
+}
+
+/** Plain uncontrolled fields read by name from the parent form's FormData -
+ * the local state here only decides whether to show the minutes input. */
+function GuessWhoDefaultFields({ defaultDelaySeconds }: { defaultDelaySeconds: number | null }) {
+  const [enabled, setEnabled] = useState(defaultDelaySeconds !== null);
+  return (
+    <>
+      <label className="check-label">
+        <input
+          type="checkbox"
+          name="guessWhoEnabled"
+          defaultChecked={defaultDelaySeconds !== null}
+          onChange={(event) => setEnabled(event.currentTarget.checked)}
+        />
+        New rounds in this series enable the "Guess Who?" game by default
+      </label>
+      {enabled && (
+        <label>
+          Minutes to keep names hidden after publishing
+          <input
+            type="number"
+            name="guessWhoDelayMinutes"
+            min="0"
+            defaultValue={defaultDelaySeconds !== null ? Math.round(defaultDelaySeconds / 60) : 60}
+          />
+        </label>
+      )}
+    </>
   );
 }

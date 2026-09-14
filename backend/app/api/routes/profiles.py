@@ -21,6 +21,7 @@ from app.api.payloads import contributor_display_name, spotify_profile_image_sub
 from app.api.routes.rounds._common import _track_payload
 from app.api.schemas import NotificationSettingsResponse, ProfileResponse
 from app.db.models import (
+    AttributionGame,
     PlatformRole,
     Round,
     RoundMember,
@@ -176,6 +177,7 @@ def _profile_payload(
         )
     ]
     affinity = _taste_affinity(db, profile_user, viewer)
+    attribution_stats = _attribution_accuracy(db, profile_user, viewer)
 
     history_statement = (
         select(Submission, Track, Round, Series)
@@ -227,6 +229,7 @@ def _profile_payload(
             "topArtists": top_artists,
             "genreSpread": genre_spread,
             "affinity": affinity,
+            "attribution": attribution_stats,
         },
         "historyCount": submission_count,
         "nextCursor": next_cursor,
@@ -316,6 +319,39 @@ def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid cursor"
         ) from None
+
+
+def _attribution_accuracy(db: DbSession, profile_user: User, viewer: User) -> dict[str, object]:
+    """How well this listener has guessed who submitted what, across every round they've played.
+
+    Scoped by the same round visibility as the rest of the profile: a viewer
+    who couldn't see a round's submissions doesn't get to see how well its
+    owner guessed at them either.
+    """
+    correct_total, guess_total, rounds_played = db.execute(
+        select(
+            func.coalesce(func.sum(AttributionGame.correct_count), 0),
+            func.coalesce(func.sum(AttributionGame.total_count), 0),
+            func.count(AttributionGame.id),
+        )
+        .join(Round, Round.id == AttributionGame.round_id)
+        .where(
+            AttributionGame.user_id == profile_user.id,
+            AttributionGame.submitted_at.is_not(None),
+            _visible_round_predicate(profile_user, viewer),
+        )
+    ).one()
+    correct_total, guess_total, rounds_played = (
+        int(correct_total),
+        int(guess_total),
+        int(rounds_played),
+    )
+    return {
+        "roundsPlayed": rounds_played,
+        "correctCount": correct_total,
+        "totalCount": guess_total,
+        "accuracyPercent": round((correct_total / guess_total) * 100) if guess_total else None,
+    }
 
 
 def _taste_affinity(db: DbSession, profile_user: User, viewer: User) -> list[dict[str, object]]:

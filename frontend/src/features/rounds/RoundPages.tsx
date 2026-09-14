@@ -12,6 +12,9 @@ import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { Switch } from "../../components/ui/switch";
+import { AttributionGame } from "../attribution/AttributionGame";
+import { AttributionLeaderboard } from "../attribution/AttributionLeaderboard";
+import type { AttributionStatus } from "../attribution/types";
 import { avatarStyle } from "../../lib/avatar";
 import { formatDate, formatDateOnly, formatDeadline } from "../../lib/format";
 import { markPerformance } from "../../lib/performance";
@@ -50,6 +53,19 @@ export function RoundPage() {
     queryKey: queryKeys.roundSubmissionCounts(roundId),
     queryFn: () => api<ContributorCount[]>(`/rounds/${roundId}/submission-counts`),
     enabled: Boolean(roundId) && roundIsOpen,
+    retry: false,
+  });
+  // A round that hasn't opened or is still open can't have published, so
+  // there is nothing yet for the attribution game to gate.
+  const mayHavePublished =
+    round.isSuccess &&
+    round.data.status !== "open" &&
+    round.data.status !== "draft" &&
+    round.data.status !== "scheduled";
+  const attribution = useQuery({
+    queryKey: queryKeys.attribution(roundId),
+    queryFn: () => api<AttributionStatus>(`/rounds/${roundId}/attribution`),
+    enabled: Boolean(roundId) && mayHavePublished,
     retry: false,
   });
   const session = useQuery({
@@ -138,15 +154,29 @@ export function RoundPage() {
       {item.status === "published" && submissions.data && (
         <ReleaseRecap round={item} submissions={submissions.data} />
       )}
-      <RoundSubmissions
-        roundId={item.id}
-        submissions={submissions}
-        submissionCounts={submissionCounts}
-        roundIsOpen={item.status === "open"}
-        viewerId={session.data?.user?.id}
-        onWithdraw={setSubmissionToWithdraw}
-        onSaveNote={(id, note) => updateNote.mutate({ submissionId: id, note })}
-      />
+      {attribution.data?.enabled && attribution.data.published && !attribution.data.revealed ? (
+        <AttributionGame
+          roundId={item.id}
+          status={attribution.data}
+          tracks={submissions.data ?? []}
+          onRevealed={() => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.attribution(roundId) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissions(roundId) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissionCounts(roundId) });
+          }}
+        />
+      ) : (
+        <RoundSubmissions
+          roundId={item.id}
+          submissions={submissions}
+          submissionCounts={submissionCounts}
+          roundIsOpen={item.status === "open"}
+          viewerId={session.data?.user?.id}
+          onWithdraw={setSubmissionToWithdraw}
+          onSaveNote={(id, note) => updateNote.mutate({ submissionId: id, note })}
+        />
+      )}
+      {attribution.data && <AttributionLeaderboard entries={attribution.data.leaderboard} />}
       <ConfirmDialog
         open={Boolean(submissionToWithdraw)}
         title="Withdraw this submission?"
@@ -439,61 +469,68 @@ function RoundSubmissions({
         </StatePanel>
       ) : (
         <ul>
-          {entries.map((entry) => (
-            <li key={entry.id} className={entry.status === "withdrawn" ? "withdrawn" : ""}>
-              {entry.track.artworkUrl ? (
-                <img className="submission-artwork" src={entry.track.artworkUrl} alt="" />
-              ) : (
-                <span
-                  className="submission-artwork submission-artwork-placeholder"
-                  aria-label="Album art unavailable"
-                >
-                  <Disc3 aria-hidden="true" size={22} />
-                </span>
-              )}
-              <div>
-                <strong>{entry.track.name}</strong>
-                <span>
-                  {entry.track.artist}
-                  {entry.track.album ? ` · ${entry.track.album}` : ""}
-                </span>
-              </div>
-              <Link
-                className="submission-contributor"
-                to={`/people/${entry.contributor.id}`}
-                aria-label={`Open ${entry.contributor.displayName ?? "this listener"}'s profile`}
-              >
-                <small>
-                  Submitted by {entry.contributor.displayName ?? "Unknown listener"}
-                  {entry.isMine ? " (you)" : ""}
-                </small>
-                {entry.contributor.spotifyProfileImageUrl ? (
-                  <img
-                    className="contributor-avatar"
-                    src={entry.contributor.spotifyProfileImageUrl}
-                    alt={`${entry.contributor.displayName ?? "Contributor"}'s Spotify profile`}
-                  />
+          {entries.map((entry) => {
+            // Only reached once identities are revealed (or before publish,
+            // where every visible entry is the viewer's own) - the game
+            // component handles the hidden-contributor state instead.
+            if (!entry.contributor) return null;
+            const contributor = entry.contributor;
+            return (
+              <li key={entry.id} className={entry.status === "withdrawn" ? "withdrawn" : ""}>
+                {entry.track.artworkUrl ? (
+                  <img className="submission-artwork" src={entry.track.artworkUrl} alt="" />
                 ) : (
                   <span
-                    className="contributor-avatar contributor-avatar-fallback"
-                    style={avatarStyle(entry.contributor.displayName)}
-                    aria-label={`${entry.contributor.displayName ?? "Unknown listener"}'s profile`}
+                    className="submission-artwork submission-artwork-placeholder"
+                    aria-label="Album art unavailable"
                   >
-                    {(entry.contributor.displayName ?? "?").slice(0, 1).toUpperCase()}
+                    <Disc3 aria-hidden="true" size={22} />
                   </span>
                 )}
-              </Link>
-              {entry.note && <p>{entry.note}</p>}
-              {entry.isMine && entry.status === "accepted" && roundIsOpen && (
-                <SubmissionActions
-                  roundId={roundId}
-                  submission={entry}
-                  onSaveNote={onSaveNote}
-                  onWithdraw={onWithdraw}
-                />
-              )}
-            </li>
-          ))}
+                <div>
+                  <strong>{entry.track.name}</strong>
+                  <span>
+                    {entry.track.artist}
+                    {entry.track.album ? ` · ${entry.track.album}` : ""}
+                  </span>
+                </div>
+                <Link
+                  className="submission-contributor"
+                  to={`/people/${contributor.id}`}
+                  aria-label={`Open ${contributor.displayName ?? "this listener"}'s profile`}
+                >
+                  <small>
+                    Submitted by {contributor.displayName ?? "Unknown listener"}
+                    {entry.isMine ? " (you)" : ""}
+                  </small>
+                  {contributor.spotifyProfileImageUrl ? (
+                    <img
+                      className="contributor-avatar"
+                      src={contributor.spotifyProfileImageUrl}
+                      alt={`${contributor.displayName ?? "Contributor"}'s Spotify profile`}
+                    />
+                  ) : (
+                    <span
+                      className="contributor-avatar contributor-avatar-fallback"
+                      style={avatarStyle(contributor.displayName)}
+                      aria-label={`${contributor.displayName ?? "Unknown listener"}'s profile`}
+                    >
+                      {(contributor.displayName ?? "?").slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+                {entry.note && <p>{entry.note}</p>}
+                {entry.isMine && entry.status === "accepted" && roundIsOpen && (
+                  <SubmissionActions
+                    roundId={roundId}
+                    submission={entry}
+                    onSaveNote={onSaveNote}
+                    onWithdraw={onWithdraw}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
@@ -562,25 +599,31 @@ function RoundParticipantCounts({
     <ul className="round-participant-counts" aria-label="Who has shared so far">
       {entries.map((entry) => (
         <li key={entry.contributor.id}>
-          {entry.contributor.spotifyProfileImageUrl ? (
-            <img
-              className="contributor-avatar"
-              src={entry.contributor.spotifyProfileImageUrl}
-              alt=""
-            />
-          ) : (
-            <span
-              className="contributor-avatar contributor-avatar-fallback"
-              style={avatarStyle(entry.contributor.displayName)}
-              aria-hidden="true"
-            >
-              {entry.contributor.displayName.slice(0, 1).toUpperCase()}
+          <Link
+            className="round-participant-link"
+            to={`/people/${entry.contributor.id}`}
+            aria-label={`Open ${entry.contributor.displayName}'s profile`}
+          >
+            {entry.contributor.spotifyProfileImageUrl ? (
+              <img
+                className="contributor-avatar"
+                src={entry.contributor.spotifyProfileImageUrl}
+                alt=""
+              />
+            ) : (
+              <span
+                className="contributor-avatar contributor-avatar-fallback"
+                style={avatarStyle(entry.contributor.displayName)}
+                aria-hidden="true"
+              >
+                {entry.contributor.displayName.slice(0, 1).toUpperCase()}
+              </span>
+            )}
+            <span>
+              {entry.contributor.displayName}
+              {entry.contributor.id === viewerId ? " (you)" : ""}
             </span>
-          )}
-          <span>
-            {entry.contributor.displayName}
-            {entry.contributor.id === viewerId ? " (you)" : ""}
-          </span>
+          </Link>
           <strong>
             {entry.count} track{entry.count === 1 ? "" : "s"}
           </strong>

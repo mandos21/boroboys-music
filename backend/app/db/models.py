@@ -190,7 +190,13 @@ class ExternalLinkAttempt(UUIDTimestampMixin, Base):
 
 class Series(UUIDTimestampMixin, Base):
     __tablename__ = "series"
-    __table_args__ = (UniqueConstraint("slug", name="uq_series_slug"),)
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_series_slug"),
+        CheckConstraint(
+            "default_attribution_reveal_delay_seconds >= 0",
+            name="ck_series_attribution_reveal_delay_nonnegative",
+        ),
+    )
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -204,6 +210,10 @@ class Series(UUIDTimestampMixin, Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     cover_image_url: Mapped[str | None] = mapped_column(String(1000))
     accent_color: Mapped[str | None] = mapped_column(String(32))
+    # Default for new rounds' `attribution_reveal_delay_seconds`. Null means
+    # submitters reveal immediately on publication, matching behavior before
+    # the guessing game existed.
+    default_attribution_reveal_delay_seconds: Mapped[int | None] = mapped_column(Integer)
 
 
 class SeriesAdmin(UUIDTimestampMixin, Base):
@@ -251,6 +261,10 @@ class Round(UUIDTimestampMixin, Base):
         CheckConstraint("opens_at < closes_at", name="ck_rounds_open_before_close"),
         CheckConstraint("closes_at <= publish_at", name="ck_rounds_close_before_publish"),
         CheckConstraint("submission_limit >= 0", name="ck_rounds_submission_limit_nonnegative"),
+        CheckConstraint(
+            "attribution_reveal_delay_seconds >= 0",
+            name="ck_rounds_attribution_reveal_delay_nonnegative",
+        ),
         UniqueConstraint("successor_of_round_id", name="uq_rounds_successor_of"),
         UniqueConstraint(
             "series_id", "published_sequence", name="uq_rounds_series_published_sequence"
@@ -289,6 +303,11 @@ class Round(UUIDTimestampMixin, Base):
     # its timeline, or a successor created already open - so the announcement
     # keys off the state rather than off whichever code path changed it.
     opened_announced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # How long after actual publication the guessing game keeps submitter
+    # identity hidden from a viewer who hasn't finished guessing. Null means
+    # instant reveal on publish, matching behavior before the guessing game
+    # existed. Snapshotted from the series default when the round is created.
+    attribution_reveal_delay_seconds: Mapped[int | None] = mapped_column(Integer)
 
 
 class RoundMember(UUIDTimestampMixin, Base):
@@ -517,6 +536,48 @@ class PublicationItem(UUIDTimestampMixin, Base):
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     note_snapshot: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AttributionGame(UUIDTimestampMixin, Base):
+    """One viewer's attempt at guessing who submitted what in a published round.
+
+    A row exists as soon as a viewer starts guessing; `submitted_at` stays
+    null until they lock in final answers, at which point it and the score
+    columns become immutable - there is no re-guessing after seeing results.
+    """
+
+    __tablename__ = "attribution_games"
+    __table_args__ = (
+        UniqueConstraint("round_id", "user_id", name="uq_attribution_games_round_user"),
+    )
+
+    round_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    correct_count: Mapped[int | None] = mapped_column(Integer)
+    total_count: Mapped[int | None] = mapped_column(Integer)
+
+
+class AttributionGuess(UUIDTimestampMixin, Base):
+    __tablename__ = "attribution_guesses"
+    __table_args__ = (
+        UniqueConstraint("game_id", "submission_id", name="uq_attribution_guesses_game_submission"),
+    )
+
+    game_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("attribution_games.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    submission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("submissions.id", ondelete="CASCADE"), nullable=False
+    )
+    guessed_contributor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
 
 class AuditEvent(UUIDTimestampMixin, Base):

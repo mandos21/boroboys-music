@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -178,6 +179,13 @@ def start_publication(
                 .order_by(Submission.submitted_at, Submission.id)
             )
         )
+        # Shuffled once, here, and never again: adjacent tracks in submission
+        # order tend to share a submitter, which would let the attribution
+        # guessing game be won by proximity instead of by listening. The seed
+        # is this publication's own id, so a crashed-and-retried attempt
+        # (which reuses this same snapshot rather than re-running this block)
+        # can't reshuffle out from under item positions already sent to Spotify.
+        random.Random(publication.id.bytes).shuffle(submissions)
         db.add_all(
             PublicationItem(
                 publication_id=publication.id,

@@ -170,6 +170,8 @@ function ProfileContent({
           <section className="profile-insights-grid" aria-label="Listening profile insights">
             <TasteAffinity affinity={item.stats.affinity} isMe={item.isMe} />
             <TopArtists artists={item.stats.topArtists} />
+            <AttributionAccuracy attribution={item.stats.attribution} isMe={item.isMe} />
+            <ProfilePoints isMe={item.isMe} />
             <GenreSpread
               genres={item.stats.genreSpread}
               taggedTrackCount={item.stats.genreTaggedTrackCount}
@@ -324,19 +326,26 @@ function TasteAffinity({
         <ol className="affinity-list">
           {affinity.map((listener) => (
             <li key={listener.id}>
-              {listener.spotifyProfileImageUrl ? (
-                <img src={listener.spotifyProfileImageUrl} alt="" />
-              ) : (
-                <span
-                  className="affinity-avatar"
-                  style={avatarStyle(listener.displayName)}
-                  aria-hidden="true"
-                >
-                  {listener.displayName.slice(0, 1).toUpperCase()}
-                </span>
-              )}
+              <Link
+                className="affinity-avatar-link"
+                to={`/people/${listener.id}`}
+                aria-label={`Open ${listener.displayName}'s profile`}
+                tabIndex={-1}
+              >
+                {listener.spotifyProfileImageUrl ? (
+                  <img src={listener.spotifyProfileImageUrl} alt="" />
+                ) : (
+                  <span
+                    className="affinity-avatar"
+                    style={avatarStyle(listener.displayName)}
+                    aria-hidden="true"
+                  >
+                    {listener.displayName.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </Link>
               <div className="affinity-detail">
-                <Link to={`/profiles/${listener.id}`}>{listener.displayName}</Link>
+                <Link to={`/people/${listener.id}`}>{listener.displayName}</Link>
                 <small>
                   {listener.sharedGenres.length
                     ? listener.sharedGenres.join(" · ")
@@ -354,6 +363,69 @@ function TasteAffinity({
           ))}
         </ol>
       )}
+    </section>
+  );
+}
+
+function AttributionAccuracy({
+  attribution,
+  isMe,
+}: {
+  attribution: Profile["stats"]["attribution"];
+  isMe: boolean;
+}) {
+  return (
+    <section className="panel profile-chart profile-attribution-accuracy">
+      <div className="profile-chart-heading">
+        <div>
+          <p className="eyebrow">Guess Who?</p>
+          <h2>{isMe ? "How well do you know your friends" : "How well they know their friends"}</h2>
+        </div>
+        <span className="profile-heading-detail">
+          Guess accuracy
+          <InfoHint label="How this is calculated">
+            Each published round can hide who submitted what behind a short guessing game. This
+            combines every guess {isMe ? "you've" : "they've"} locked in across every round played.
+          </InfoHint>
+        </span>
+      </div>
+      {attribution.roundsPlayed === 0 ? (
+        <p className="profile-chart-empty">
+          {isMe
+            ? "Play a round's “Guess Who?” game once it publishes to see your score here."
+            : "This listener hasn't played a round's “Guess Who?” game yet."}
+        </p>
+      ) : (
+        <div className="attribution-accuracy-summary">
+          <strong>{attribution.accuracyPercent}%</strong>
+          <div>
+            <span>
+              {attribution.correctCount} of {attribution.totalCount} guesses correct
+            </span>
+            <small>
+              Across {attribution.roundsPlayed} round{attribution.roundsPlayed === 1 ? "" : "s"}{" "}
+              played
+            </small>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ProfilePoints({ isMe }: { isMe: boolean }) {
+  return (
+    <section className="panel profile-chart profile-points">
+      <div className="profile-chart-heading">
+        <div>
+          <p className="eyebrow">Series ratings</p>
+          <h2>Points</h2>
+        </div>
+      </div>
+      <p className="profile-chart-empty">
+        Not tracked yet - once a series turns on upvotes and downvotes, {isMe ? "your" : "their"}{" "}
+        total will show up here.
+      </p>
     </section>
   );
 }

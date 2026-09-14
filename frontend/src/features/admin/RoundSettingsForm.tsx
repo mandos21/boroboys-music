@@ -18,6 +18,8 @@ type SettingsValues = {
   submissionLimit: string;
   prompt: string;
   publisherAccountId: string;
+  guessWhoEnabled: boolean;
+  guessWhoDelayMinutes: string;
 };
 
 function settingsSchema(timezone: string) {
@@ -39,6 +41,10 @@ function settingsSchema(timezone: string) {
         .refine((value) => /^\d+$/.test(value.trim()), "Use a whole number of submissions."),
       prompt: z.string().max(2000),
       publisherAccountId: z.string(),
+      guessWhoEnabled: z.boolean(),
+      guessWhoDelayMinutes: z
+        .string()
+        .refine((value) => /^\d+$/.test(value.trim()), "Use a whole number of minutes."),
     })
     .refine(
       (value) =>
@@ -64,6 +70,12 @@ function valuesFor(round: AdminRound): SettingsValues {
     submissionLimit: String(round.submissionLimit),
     prompt: round.prompt ?? "",
     publisherAccountId: round.publisherAccountId ?? "",
+    guessWhoEnabled: round.attributionRevealDelaySeconds !== null,
+    guessWhoDelayMinutes: String(
+      round.attributionRevealDelaySeconds !== null
+        ? Math.round(round.attributionRevealDelaySeconds / 60)
+        : 60,
+    ),
   };
 }
 
@@ -86,6 +98,7 @@ export function RoundSettingsForm({
   const opensAt = useWatch({ control: form.control, name: "opensAt" });
   const closesAt = useWatch({ control: form.control, name: "closesAt" });
   const publisherAccountId = useWatch({ control: form.control, name: "publisherAccountId" });
+  const guessWhoEnabled = useWatch({ control: form.control, name: "guessWhoEnabled" });
   const saveRound = useMutation({
     mutationFn: (values: SettingsValues) =>
       patch(`/admin/rounds/${round.id}`, {
@@ -96,6 +109,9 @@ export function RoundSettingsForm({
         submission_limit: Number(values.submissionLimit),
         prompt: values.prompt.trim() || null,
         publisher_account_id: values.publisherAccountId || null,
+        attribution_reveal_delay_seconds: values.guessWhoEnabled
+          ? Number(values.guessWhoDelayMinutes) * 60
+          : null,
       }),
     onSuccess: () => {
       onSaved();
@@ -159,6 +175,23 @@ export function RoundSettingsForm({
         />
         {error("prompt") && <span className="error-message">{error("prompt")}</span>}
       </label>
+      <label className="check-label">
+        <input type="checkbox" {...register("guessWhoEnabled")} />
+        Enable the "Guess Who?" game once this round publishes
+      </label>
+      {guessWhoEnabled && (
+        <label>
+          Minutes to keep names hidden after publishing
+          <input type="number" min="0" {...register("guessWhoDelayMinutes")} />
+          <span className="field-hint">
+            Tracks are visible right away; who submitted them stays hidden for this long, or until
+            someone finishes guessing (which reveals it early for them only).
+          </span>
+          {error("guessWhoDelayMinutes") && (
+            <span className="error-message">{error("guessWhoDelayMinutes")}</span>
+          )}
+        </label>
+      )}
       <label>
         Publishing account <span className="field-hint">Optional</span>
         <select {...register("publisherAccountId")}>

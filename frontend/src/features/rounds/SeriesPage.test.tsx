@@ -237,4 +237,46 @@ describe("SeriesPage", () => {
       "is-muted",
     );
   });
+
+  it("keeps every contributor's bar colors intact when selecting a person", async () => {
+    renderSeries([publishedRound], {
+      genreSpread: [
+        { name: "jazz", count: 3, group: "jazz" },
+        { name: "midwest emo", count: 2, group: "punk" },
+      ],
+      contributors: [
+        {
+          id: "user-low-variety",
+          displayName: "Low variety",
+          spotifyProfileImageUrl: null,
+          trackCount: 3,
+          genres: [{ name: "jazz", count: 3, group: "jazz" }],
+        },
+        {
+          id: "user-high-variety",
+          displayName: "High variety",
+          spotifyProfileImageUrl: null,
+          trackCount: 2,
+          genres: [{ name: "midwest emo", count: 2, group: "punk" }],
+        },
+      ],
+    });
+
+    await screen.findByText("Who brings what");
+    fireEvent.click(screen.getByRole("button", { name: "High variety" }));
+
+    // The other contributor's whole row dims, the selected one stays focused.
+    expect(screen.getByRole("button", { name: "Low variety" }).closest("li")?.className).toContain(
+      "is-muted",
+    );
+    expect(
+      screen.getByRole("button", { name: "High variety" }).closest("li")?.className,
+    ).not.toContain("is-muted");
+
+    // Colors inside every bar stay intact - selecting a person never grays
+    // out individual genre segments, only whole rows.
+    const segments = document.querySelectorAll<HTMLElement>(".genre-mix-bar i");
+    expect(segments.length).toBeGreaterThan(0);
+    segments.forEach((segment) => expect(segment.className).not.toContain("is-muted"));
+  });
 });

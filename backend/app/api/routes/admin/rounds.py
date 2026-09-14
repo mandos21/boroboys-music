@@ -51,6 +51,7 @@ class RoundCreate(BaseModel):
     policy_snapshot: list[dict[str, Any]] | None = None
     prompt: str | None = Field(default=None, max_length=2000)
     publisher_account_id: uuid.UUID | None = None
+    attribution_reveal_delay_seconds: int | None = Field(default=None, ge=0)
 
     @field_validator("timezone")
     @classmethod
@@ -86,6 +87,7 @@ class RoundUpdate(BaseModel):
     submission_limit: int | None = Field(default=None, ge=0)
     prompt: str | None = Field(default=None, max_length=2000)
     publisher_account_id: uuid.UUID | None = None
+    attribution_reveal_delay_seconds: int | None = Field(default=None, ge=0)
 
 
 @router.post("/rounds", status_code=status.HTTP_201_CREATED, response_model=AdminIdResponse)
@@ -123,6 +125,11 @@ def create_round(
         else series.default_policies,
         prompt=payload.prompt,
         publisher_account_id=payload.publisher_account_id,
+        attribution_reveal_delay_seconds=(
+            payload.attribution_reveal_delay_seconds
+            if "attribution_reveal_delay_seconds" in payload.model_fields_set
+            else series.default_attribution_reveal_delay_seconds
+        ),
     )
     db.add(round_)
     db.flush()
@@ -191,6 +198,8 @@ def update_round(
         if payload.publisher_account_id is not None:
             _require_publishable_account(db, round_.series_id, payload.publisher_account_id)
         round_.publisher_account_id = payload.publisher_account_id
+    if "attribution_reveal_delay_seconds" in payload.model_fields_set:
+        round_.attribution_reveal_delay_seconds = payload.attribution_reveal_delay_seconds
     round_.opens_at, round_.closes_at, round_.publish_at = opens_at, closes_at, publish_at
     round_.status = status_for_timeline(opens_at, closes_at)
     db.commit()

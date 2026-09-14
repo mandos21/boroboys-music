@@ -33,7 +33,6 @@ from app.db.models import (
     Publication,
     Round,
     RoundMember,
-    RoundStatus,
     Submission,
     SubmissionDraft,
     SubmissionStatus,
@@ -101,10 +100,19 @@ def get_round(
             Publication.spotify_playlist_id.is_not(None),
         )
     )
-    # While a round is open, its submissions are a secret from everyone but
-    # their own submitter - so no album art from them leaks into the round's
-    # backdrop or mosaic either. Both reveal once the round closes.
-    reveal_artwork = round_.status is not RoundStatus.OPEN
+    # Submissions are a secret from everyone but their own submitter until the
+    # round actually publishes - not merely once it closes - so no album art
+    # leaks into the round's backdrop or mosaic before there is a playlist to
+    # look at. (Who submitted which track stays hidden longer still; see
+    # `app.services.attribution`.)
+    reveal_artwork = (
+        db.scalar(
+            select(Publication.id).where(
+                Publication.round_id == round_.id, Publication.published_at.is_not(None)
+            )
+        )
+        is not None
+    )
     # A stable choice per round. Re-rolling this on every request made the round
     # header change its backdrop each time the page refetched.
     artwork_urls: list[str] = (

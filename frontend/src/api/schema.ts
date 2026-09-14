@@ -654,6 +654,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rounds/{round_id}/attribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Attribution Status */
+        get: operations["get_attribution_status_api_v1_rounds__round_id__attribution_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rounds/{round_id}/attribution/guesses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Attribution Guesses */
+        post: operations["submit_attribution_guesses_api_v1_rounds__round_id__attribution_guesses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rounds/{round_id}/draft": {
         parameters: {
             query?: never;
@@ -744,7 +778,10 @@ export interface paths {
          * @description How many tracks each active round member has shared, never which ones.
          *
          *     Lets the group see who's still quiet while a round is open without
-         *     spoiling anyone's picks before `/submissions` reveals them at close.
+         *     spoiling anyone's picks before `/submissions` reveals them at publication.
+         *     Once published, exact per-person counts would let a guesser in the
+         *     attribution game deduce assignments by elimination, so this stays empty
+         *     for a viewer until their own reveal condition is met too.
          */
         get: operations["list_round_submission_counts_api_v1_rounds__round_id__submission_counts_get"];
         put?: never;
@@ -770,10 +807,16 @@ export interface paths {
          *     round must not retain a general read capability merely because their old
          *     submission remains attributable in publication history.
          *
-         *     While a round is still open, nobody else's picks are revealed here at
-         *     all - only the viewer's own entries - so the reveal stays a surprise
-         *     until the round closes. Use `/submission-counts` for a spoiler-free view
-         *     of how much the group has shared so far.
+         *     Nobody else's picks are revealed here until the round actually publishes -
+         *     before that, only the viewer's own entries come back, whether the round is
+         *     still open or sitting closed and waiting on Spotify. Use
+         *     `/submission-counts` for a spoiler-free view of how much the group has
+         *     shared so far.
+         *
+         *     Once published, tracks appear for everyone so the attribution guessing
+         *     game has something to play with, but *who* submitted each one stays
+         *     hidden - contributor and note come back null - until this viewer's
+         *     personal reveal condition is met (see `app.services.attribution`).
          */
         get: operations["list_round_submissions_api_v1_rounds__round_id__submissions_get"];
         put?: never;
@@ -987,6 +1030,8 @@ export interface components {
         };
         /** AdminRoundDetailResponse */
         AdminRoundDetailResponse: {
+            /** Attributionrevealdelayseconds */
+            attributionRevealDelaySeconds: number | null;
             /**
              * Closesat
              * Format: date-time
@@ -1040,6 +1085,8 @@ export interface components {
         };
         /** AdminRoundResponse */
         AdminRoundResponse: {
+            /** Attributionrevealdelayseconds */
+            attributionRevealDelaySeconds: number | null;
             /**
              * Closesat
              * Format: date-time
@@ -1083,6 +1130,8 @@ export interface components {
             autoStartNextRound: boolean;
             /** Coverimageurl */
             coverImageUrl: string | null;
+            /** Defaultattributionrevealdelayseconds */
+            defaultAttributionRevealDelaySeconds: number | null;
             /** Defaultpolicies */
             defaultPolicies: {
                 [key: string]: unknown;
@@ -1116,6 +1165,8 @@ export interface components {
             autoStartNextRound: boolean;
             /** Coverimageurl */
             coverImageUrl: string | null;
+            /** Defaultattributionrevealdelayseconds */
+            defaultAttributionRevealDelaySeconds: number | null;
             /** Defaultpolicies */
             defaultPolicies: {
                 [key: string]: unknown;
@@ -1145,6 +1196,86 @@ export interface components {
             email: string | null;
             /** Id */
             id: string;
+        };
+        /** AttributionGameResponse */
+        AttributionGameResponse: {
+            /** Correctcount */
+            correctCount: number;
+            /**
+             * Submittedat
+             * Format: date-time
+             */
+            submittedAt: string;
+            /** Totalcount */
+            totalCount: number;
+        };
+        /** AttributionGuessInput */
+        AttributionGuessInput: {
+            /**
+             * Contributor Id
+             * Format: uuid
+             */
+            contributor_id: string;
+            /**
+             * Submission Id
+             * Format: uuid
+             */
+            submission_id: string;
+        };
+        /** AttributionGuessResultResponse */
+        AttributionGuessResultResponse: {
+            /** Actualcontributorid */
+            actualContributorId: string;
+            /** Guessedcontributorid */
+            guessedContributorId: string;
+            /** Iscorrect */
+            isCorrect: boolean;
+            /** Submissionid */
+            submissionId: string;
+        };
+        /** AttributionGuessesSubmit */
+        AttributionGuessesSubmit: {
+            /** Guesses */
+            guesses: components["schemas"]["AttributionGuessInput"][];
+        };
+        /** AttributionLeaderboardEntryResponse */
+        AttributionLeaderboardEntryResponse: {
+            contributor: components["schemas"]["ContributorResponse"];
+            /** Correctcount */
+            correctCount: number;
+            /** Totalcount */
+            totalCount: number;
+        };
+        /** AttributionRosterMemberResponse */
+        AttributionRosterMemberResponse: {
+            contributor: components["schemas"]["ContributorResponse"];
+            /** Maxguesses */
+            maxGuesses: number;
+        };
+        /** AttributionStatusResponse */
+        AttributionStatusResponse: {
+            /** Enabled */
+            enabled: boolean;
+            game: components["schemas"]["AttributionGameResponse"] | null;
+            /** Leaderboard */
+            leaderboard: components["schemas"]["AttributionLeaderboardEntryResponse"][];
+            /** Published */
+            published: boolean;
+            /** Revealat */
+            revealAt: string | null;
+            /** Revealed */
+            revealed: boolean;
+            /** Roster */
+            roster: components["schemas"]["AttributionRosterMemberResponse"][];
+        };
+        /** AttributionSubmitResponse */
+        AttributionSubmitResponse: {
+            /** Correctcount */
+            correctCount: number;
+            /** Results */
+            results: components["schemas"]["AttributionGuessResultResponse"][];
+            /** Totalcount */
+            totalCount: number;
         };
         /**
          * CalendarRoundPlan
@@ -1356,6 +1487,20 @@ export interface components {
             spotifyProfileImageUrl: string | null;
         };
         /**
+         * ProfileAttributionResponse
+         * @description How well this listener guesses who submitted what, across every played round.
+         */
+        ProfileAttributionResponse: {
+            /** Accuracypercent */
+            accuracyPercent: number | null;
+            /** Correctcount */
+            correctCount: number;
+            /** Roundsplayed */
+            roundsPlayed: number;
+            /** Totalcount */
+            totalCount: number;
+        };
+        /**
          * ProfileGenreItemResponse
          * @description A genre plus the family group it belongs to, so the client can colour
          *     related genres alike instead of by their rank in the list.
@@ -1397,6 +1542,7 @@ export interface components {
         ProfileStatsResponse: {
             /** Affinity */
             affinity: components["schemas"]["ProfileAffinityResponse"][];
+            attribution: components["schemas"]["ProfileAttributionResponse"];
             /** Diversityscore */
             diversityScore: number;
             /** Genrespread */
@@ -1471,6 +1617,8 @@ export interface components {
         };
         /** RoundCreate */
         RoundCreate: {
+            /** Attribution Reveal Delay Seconds */
+            attribution_reveal_delay_seconds?: number | null;
             /**
              * Closes At
              * Format: date-time
@@ -1631,6 +1779,8 @@ export interface components {
         };
         /** RoundUpdate */
         RoundUpdate: {
+            /** Attribution Reveal Delay Seconds */
+            attribution_reveal_delay_seconds?: number | null;
             /** Closes At */
             closes_at?: string | null;
             /** Opens At */
@@ -1673,6 +1823,8 @@ export interface components {
             auto_start_next_round: boolean;
             /** Cover Image Url */
             cover_image_url?: string | null;
+            /** Default Attribution Reveal Delay Seconds */
+            default_attribution_reveal_delay_seconds?: number | null;
             /** Default Policies */
             default_policies?: {
                 [key: string]: unknown;
@@ -1800,6 +1952,8 @@ export interface components {
             auto_start_next_round?: boolean | null;
             /** Cover Image Url */
             cover_image_url?: string | null;
+            /** Default Attribution Reveal Delay Seconds */
+            default_attribution_reveal_delay_seconds?: number | null;
             /** Default Policies */
             default_policies?: {
                 [key: string]: unknown;
@@ -1865,7 +2019,7 @@ export interface components {
         };
         /** SubmissionResponse */
         SubmissionResponse: {
-            contributor: components["schemas"]["ContributorResponse"];
+            contributor: components["schemas"]["ContributorResponse"] | null;
             /**
              * Createdat
              * Format: date-time
@@ -3266,6 +3420,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoundDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_attribution_status_api_v1_rounds__round_id__attribution_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributionStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_attribution_guesses_api_v1_rounds__round_id__attribution_guesses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttributionGuessesSubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributionSubmitResponse"];
                 };
             };
             /** @description Validation Error */

@@ -86,6 +86,7 @@ def _series_summary(series: Series) -> dict[str, object]:
         "isArchived": series.is_archived,
         "coverImageUrl": series.cover_image_url,
         "accentColor": series.accent_color,
+        "defaultAttributionRevealDelaySeconds": series.default_attribution_reveal_delay_seconds,
     }
 
 
@@ -96,6 +97,7 @@ def _round_summary(round_: Round) -> dict[str, object]:
         "publisherAccountId": (
             str(round_.publisher_account_id) if round_.publisher_account_id else None
         ),
+        "attributionRevealDelaySeconds": round_.attribution_reveal_delay_seconds,
     }
 
 

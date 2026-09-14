@@ -30,6 +30,7 @@ export const queryKeys = {
     ["track-search", roundId, query] as const,
   evidence: (roundId: string | undefined, trackId: string | undefined) =>
     ["evidence", roundId, trackId] as const,
+  attribution: (roundId: string | undefined) => ["attribution", roundId] as const,
 
   adminSeries: () => ["admin-series"] as const,
   adminSeriesDetail: (seriesId: string | undefined) => ["admin-series", seriesId] as const,

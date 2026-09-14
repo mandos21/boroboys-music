@@ -109,18 +109,64 @@ class ContributorResponse(ApiResponse):
 class SubmissionResponse(ApiResponse):
     id: str
     status: str
+    # Both null while the round has published but this viewer's copy of the
+    # attribution guessing game hasn't revealed who submitted what yet.
     note: str | None
     created_at: datetime
     updated_at: datetime
     withdrawn_at: datetime | None
     is_mine: bool
-    contributor: ContributorResponse
+    contributor: ContributorResponse | None
     track: TrackResponse
 
 
 class ContributorSubmissionCountResponse(ApiResponse):
     contributor: ContributorResponse
     count: int
+
+
+class AttributionRosterMemberResponse(ApiResponse):
+    contributor: ContributorResponse
+    max_guesses: int
+
+
+class AttributionGameResponse(ApiResponse):
+    submitted_at: datetime
+    correct_count: int
+    total_count: int
+
+
+class AttributionLeaderboardEntryResponse(ApiResponse):
+    contributor: ContributorResponse
+    correct_count: int
+    total_count: int
+
+
+class AttributionStatusResponse(ApiResponse):
+    # Whether this round has the guessing game turned on at all - a
+    # series/round-configurable option, independent of publish state.
+    enabled: bool
+    published: bool
+    revealed: bool
+    reveal_at: datetime | None
+    roster: list[AttributionRosterMemberResponse]
+    game: AttributionGameResponse | None
+    # Empty until the viewer has either finished their own guesses or the
+    # round's identities have fully revealed - see `is_revealed_for`.
+    leaderboard: list[AttributionLeaderboardEntryResponse]
+
+
+class AttributionGuessResultResponse(ApiResponse):
+    submission_id: str
+    guessed_contributor_id: str
+    actual_contributor_id: str
+    is_correct: bool
+
+
+class AttributionSubmitResponse(ApiResponse):
+    correct_count: int
+    total_count: int
+    results: list[AttributionGuessResultResponse]
 
 
 class ProfileStatItemResponse(ApiResponse):
@@ -157,6 +203,15 @@ class ProfileSubmissionResponse(ApiResponse):
     round_title: str
 
 
+class ProfileAttributionResponse(ApiResponse):
+    """How well this listener guesses who submitted what, across every played round."""
+
+    rounds_played: int
+    correct_count: int
+    total_count: int
+    accuracy_percent: int | None
+
+
 class ProfileStatsResponse(ApiResponse):
     submission_count: int
     unique_track_count: int
@@ -168,6 +223,7 @@ class ProfileStatsResponse(ApiResponse):
     top_artists: list[ProfileStatItemResponse]
     genre_spread: list[ProfileGenreItemResponse]
     affinity: list[ProfileAffinityResponse]
+    attribution: ProfileAttributionResponse
 
 
 class ProfileResponse(ApiResponse):
@@ -309,6 +365,7 @@ class AdminSeriesResponse(ApiResponse):
     is_archived: bool
     cover_image_url: str | None
     accent_color: str | None
+    default_attribution_reveal_delay_seconds: int | None
 
 
 class AdminGroupResponse(ApiResponse):
@@ -329,6 +386,7 @@ class AdminRoundResponse(ApiResponse):
     submission_limit: int
     prompt: str | None
     publisher_account_id: str | None
+    attribution_reveal_delay_seconds: int | None
 
 
 class AdminSeriesDetailResponse(AdminSeriesResponse):

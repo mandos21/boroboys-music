@@ -97,6 +97,7 @@ class SeriesCreate(BaseModel):
     auto_start_next_round: bool = True
     cover_image_url: str | None = Field(default=None, max_length=1000)
     accent_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    default_attribution_reveal_delay_seconds: int | None = Field(default=None, ge=0)
 
     @field_validator("timezone")
     @classmethod
@@ -120,6 +121,7 @@ class SeriesUpdate(BaseModel):
     is_archived: bool | None = None
     cover_image_url: str | None = Field(default=None, max_length=1000)
     accent_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    default_attribution_reveal_delay_seconds: int | None = Field(default=None, ge=0)
 
     @field_validator("timezone")
     @classmethod
@@ -243,6 +245,7 @@ def update_series(
         "is_archived",
         "cover_image_url",
         "accent_color",
+        "default_attribution_reveal_delay_seconds",
     ):
         if field not in payload.model_fields_set:
             continue

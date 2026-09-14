@@ -21,7 +21,12 @@ from app.core.security import hash_secret
 from app.db.models import (
     ContributorGroup,
     ContributorGroupMember,
+    ExternalAccount,
+    ExternalProvider,
     PlatformRole,
+    Publication,
+    PublicationItem,
+    PublicationState,
     Round,
     RoundMember,
     RoundStatus,
@@ -400,7 +405,9 @@ def test_round_submissions_fall_back_to_the_address_local_part_for_unnamed_contr
     assert entries[0]["contributor"]["displayName"] == f"listener-{suffix}"
 
 
-def test_open_round_hides_other_contributors_submissions_until_it_closes(db: Session) -> None:
+def test_open_round_hides_other_contributors_submissions_until_it_publishes(
+    db: Session,
+) -> None:
     suffix = uuid.uuid4().hex[:12]
     now = datetime.now(UTC)
     contributor_one = User(
@@ -448,22 +455,24 @@ def test_open_round_hides_other_contributors_submissions_until_it_closes(db: Ses
     )
     db.add_all((round_, track_one, track_two))
     db.flush()
+    submission_one = Submission(
+        round_id=round_.id,
+        contributor_id=contributor_one.id,
+        track_id=track_one.id,
+        status=SubmissionStatus.ACCEPTED,
+    )
+    submission_two = Submission(
+        round_id=round_.id,
+        contributor_id=contributor_two.id,
+        track_id=track_two.id,
+        status=SubmissionStatus.ACCEPTED,
+    )
     db.add_all(
         (
             RoundMember(round_id=round_.id, user_id=contributor_one.id),
             RoundMember(round_id=round_.id, user_id=contributor_two.id),
-            Submission(
-                round_id=round_.id,
-                contributor_id=contributor_one.id,
-                track_id=track_one.id,
-                status=SubmissionStatus.ACCEPTED,
-            ),
-            Submission(
-                round_id=round_.id,
-                contributor_id=contributor_two.id,
-                track_id=track_two.id,
-                status=SubmissionStatus.ACCEPTED,
-            ),
+            submission_one,
+            submission_two,
         )
     )
     db.commit()
@@ -483,20 +492,64 @@ def test_open_round_hides_other_contributors_submissions_until_it_closes(db: Ses
     assert detail["backgroundArtworkUrl"] is None
     assert detail["artworkUrls"] == []
 
-    # Once the round closes, everyone's picks (and art) are revealed.
+    # Closing alone reveals nothing - not until the round actually publishes.
     round_.status = RoundStatus.CLOSED
     db.commit()
     closed_view = list_round_submissions(round_.id, db, contributor_one)
-    assert {entry["contributor"]["id"] for entry in closed_view} == {
+    assert [entry["contributor"]["id"] for entry in closed_view] == [str(contributor_one.id)]
+    closed_detail = get_round(round_.id, db, contributor_one)
+    assert closed_detail["backgroundArtworkUrl"] is None
+    assert closed_detail["artworkUrls"] == []
+
+    # Once published (with no attribution delay configured), tracks and their
+    # submitters both reveal for everyone, and cover art comes back too.
+    account = ExternalAccount(
+        user_id=contributor_one.id,
+        provider=ExternalProvider.SPOTIFY,
+        provider_subject=f"secret-round-publisher-{suffix}",
+    )
+    db.add(account)
+    db.flush()
+    publication = Publication(
+        round_id=round_.id,
+        publisher_account_id=account.id,
+        state=PublicationState.PUBLISHED,
+        idempotency_key=f"pub-{suffix}",
+        published_at=datetime.now(UTC),
+    )
+    db.add(publication)
+    db.flush()
+    db.add_all(
+        (
+            PublicationItem(
+                publication_id=publication.id,
+                submission_id=submission_one.id,
+                track_id=track_one.id,
+                contributor_id=contributor_one.id,
+                position=1,
+            ),
+            PublicationItem(
+                publication_id=publication.id,
+                submission_id=submission_two.id,
+                track_id=track_two.id,
+                contributor_id=contributor_two.id,
+                position=2,
+            ),
+        )
+    )
+    round_.status = RoundStatus.PUBLISHED
+    db.commit()
+    published_view = list_round_submissions(round_.id, db, contributor_one)
+    assert {entry["contributor"]["id"] for entry in published_view} == {
         str(contributor_one.id),
         str(contributor_two.id),
     }
-    closed_detail = get_round(round_.id, db, contributor_one)
-    assert closed_detail["backgroundArtworkUrl"] in {
+    published_detail = get_round(round_.id, db, contributor_one)
+    assert published_detail["backgroundArtworkUrl"] in {
         "https://example.test/one.jpg",
         "https://example.test/two.jpg",
     }
-    assert set(closed_detail["artworkUrls"]) == {
+    assert set(published_detail["artworkUrls"]) == {
         "https://example.test/one.jpg",
         "https://example.test/two.jpg",
     }
