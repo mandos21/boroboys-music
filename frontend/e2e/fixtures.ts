@@ -187,6 +187,12 @@ const profile = {
       sharedRoundCount: 12 - index * 2,
       sharedGenres: contributor.genres.slice(0, 3).map((genre) => genre.name),
     })),
+    attribution: {
+      roundsPlayed: 3,
+      correctCount: 7,
+      totalCount: 9,
+      accuracyPercent: 78,
+    },
   },
   // A profile's history only ever shows submissions from published rounds -
   // the currently open round's picks stay off it the same way they stay off
