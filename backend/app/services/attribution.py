@@ -148,6 +148,29 @@ def _member_limits(db: Session, round_: Round) -> dict[uuid.UUID, int]:
     }
 
 
+def game_detail_rows(
+    db: Session, round_id: uuid.UUID, user_id: uuid.UUID
+) -> tuple[AttributionGame, list[tuple[AttributionGuess, Submission]]] | None:
+    """A completed game's stored per-submission guesses, for review after the fact.
+
+    `None` if that player never played this round, or started but hasn't
+    locked in a final answer yet.
+    """
+    game = get_game(db, round_id, user_id)
+    if game is None or game.submitted_at is None:
+        return None
+    rows = [
+        (guess, submission)
+        for guess, submission in db.execute(
+            select(AttributionGuess, Submission)
+            .join(Submission, Submission.id == AttributionGuess.submission_id)
+            .where(AttributionGuess.game_id == game.id)
+            .order_by(Submission.created_at)
+        )
+    ]
+    return game, rows
+
+
 def submit_guesses(
     db: Session,
     round_: Round,

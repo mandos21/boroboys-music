@@ -8,10 +8,12 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.routes.rounds import (
+    get_attribution_game_detail,
     get_attribution_status,
     list_round_submission_counts,
     list_round_submissions,
@@ -631,3 +633,126 @@ def test_a_round_with_no_delay_configured_has_the_game_disabled_entirely(
 
     with pytest.raises(attribution.AttributionError, match="not enabled"):
         attribution.submit_guesses(db, round_, viewer, {alice_submission.id: alice.id})
+
+
+def test_attribution_game_detail_lets_a_revealed_viewer_review_any_players_guesses(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+    make_track: Callable[..., Track],
+    make_submission: Callable[..., Submission],
+) -> None:
+    viewer = make_user(name="Viewer", admin=True)
+    alice = make_user(name="Alice")
+    bob = make_user(name="Bob")
+    series = make_series()
+    round_ = make_round(
+        series,
+        attribution_reveal_delay_seconds=3600,
+        submission_limit=5,
+        members=[viewer, alice, bob],
+    )
+    alice_track = make_track(name="Alice's pick")
+    bob_track = make_track(name="Bob's pick")
+    alice_submission = make_submission(round_, alice, alice_track)
+    bob_submission = make_submission(round_, bob, bob_track)
+    db.commit()
+    _publish(db, round_, viewer)
+
+    # Viewer plays, getting one right and one wrong - this is also what
+    # unlocks their own reveal, letting them look anyone's answers up.
+    submit_attribution_guesses(
+        round_.id,
+        AttributionGuessesSubmit(
+            guesses=[
+                AttributionGuessInput(submission_id=alice_submission.id, contributor_id=bob.id),
+                AttributionGuessInput(submission_id=bob_submission.id, contributor_id=bob.id),
+            ]
+        ),
+        db,
+        viewer,
+    )
+    db.commit()
+
+    detail = get_attribution_game_detail(round_.id, viewer.id, db, viewer)
+    assert detail["contributor"]["id"] == str(viewer.id)
+    assert detail["correctCount"] == 1
+    assert detail["totalCount"] == 2
+    by_submission = {item["submissionId"]: item for item in detail["items"]}
+    wrong = by_submission[str(alice_submission.id)]
+    assert wrong["isCorrect"] is False
+    assert wrong["guessedContributor"]["id"] == str(bob.id)
+    assert wrong["actualContributor"]["id"] == str(alice.id)
+    assert wrong["track"]["name"] == "Alice's pick"
+    right = by_submission[str(bob_submission.id)]
+    assert right["isCorrect"] is True
+    assert right["guessedContributor"]["id"] == str(bob.id)
+    assert right["actualContributor"]["id"] == str(bob.id)
+
+
+def test_attribution_game_detail_requires_the_requester_to_be_revealed(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+    make_track: Callable[..., Track],
+    make_submission: Callable[..., Submission],
+) -> None:
+    viewer = make_user(name="Viewer", admin=True)
+    alice = make_user(name="Alice")
+    bystander = make_user(name="Bystander")
+    series = make_series()
+    round_ = make_round(
+        series,
+        attribution_reveal_delay_seconds=3600,
+        submission_limit=5,
+        members=[viewer, alice, bystander],
+    )
+    alice_submission = make_submission(round_, alice, make_track())
+    db.commit()
+    _publish(db, round_, viewer)
+    submit_attribution_guesses(
+        round_.id,
+        AttributionGuessesSubmit(
+            guesses=[
+                AttributionGuessInput(submission_id=alice_submission.id, contributor_id=alice.id)
+            ]
+        ),
+        db,
+        viewer,
+    )
+    db.commit()
+
+    # Bystander hasn't played and the delay hasn't elapsed - they haven't
+    # earned the reveal yet, so they can't look anyone's answers up either.
+    with pytest.raises(HTTPException) as excinfo:
+        get_attribution_game_detail(round_.id, viewer.id, db, bystander)
+    assert excinfo.value.status_code == 403
+
+
+def test_attribution_game_detail_404s_for_a_player_who_never_finished(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+    make_track: Callable[..., Track],
+    make_submission: Callable[..., Submission],
+) -> None:
+    viewer = make_user(name="Viewer", admin=True)
+    alice = make_user(name="Alice")
+    series = make_series()
+    round_ = make_round(
+        series, attribution_reveal_delay_seconds=3600, submission_limit=5, members=[viewer, alice]
+    )
+    make_submission(round_, alice, make_track())
+    db.commit()
+    publication = _publish(db, round_, viewer)
+    # Nobody has played yet, but the delay already elapsed, so the viewer is
+    # revealed and allowed to ask - there's just nothing to find for Alice.
+    publication.published_at = datetime.now(UTC) - timedelta(hours=2)
+    db.commit()
+
+    with pytest.raises(HTTPException) as excinfo:
+        get_attribution_game_detail(round_.id, alice.id, db, viewer)
+    assert excinfo.value.status_code == 404

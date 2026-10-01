@@ -16,6 +16,7 @@ type AttributionGameProps = {
   roundId: string;
   status: AttributionStatus;
   tracks: Submission[];
+  viewerId: string | undefined;
   onRevealed: () => void;
 };
 
@@ -269,10 +270,22 @@ function AttributionReveal({
   );
 }
 
-export function AttributionGame({ roundId, status, tracks, onRevealed }: AttributionGameProps) {
+export function AttributionGame({
+  roundId,
+  status,
+  tracks,
+  viewerId,
+  onRevealed,
+}: AttributionGameProps) {
   const { showToast } = useToast();
   const guessable = useMemo(() => tracks.filter((entry) => !entry.isMine), [tracks]);
   const ownTracks = useMemo(() => tracks.filter((entry) => entry.isMine), [tracks]);
+  // Your own submissions are already shown above as auto-filled, so your own
+  // name is never a meaningful place to drag someone else's track.
+  const guessableRoster = useMemo(
+    () => status.roster.filter((member) => member.contributor.id !== viewerId),
+    [status.roster, viewerId],
+  );
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -403,7 +416,7 @@ export function AttributionGame({ roundId, status, tracks, onRevealed }: Attribu
         )}
       </div>
       <div className="attribution-roster">
-        {status.roster.map((member) => (
+        {guessableRoster.map((member) => (
           <RosterBin
             key={member.contributor.id}
             member={member}

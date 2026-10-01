@@ -68,14 +68,45 @@ html[data-theme="dark"] .attribution-flip-card.correct .attribution-flip-back { 
 html[data-theme="dark"] .attribution-flip-card.incorrect .attribution-flip-back { border-color: #be123c; background: #241417; }
 
 .attribution-leaderboard ol { display: grid; gap: .5rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
-.attribution-leaderboard li { display: grid; grid-template-columns: 1.4rem 1fr auto auto; align-items: center; gap: .6rem; padding: .5rem .65rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
+.attribution-leaderboard li { display: grid; grid-template-columns: 1.4rem 1fr auto auto auto; align-items: center; gap: .6rem; padding: .5rem .65rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
 .attribution-leaderboard-rank { color: #64748b; font-size: .78rem; font-weight: 800; text-align: center; }
 .attribution-leaderboard-contributor { display: flex; align-items: center; gap: .55rem; min-width: 0; overflow: hidden; color: #334155; font-size: .85rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .attribution-leaderboard-contributor:hover span { text-decoration: underline; }
 .attribution-leaderboard li > strong { color: #166534; font-size: .85rem; }
 .attribution-leaderboard li > small { color: #64748b; font-size: .72rem; }
+.attribution-leaderboard-answers { border: 1px solid #cbd5e1; border-radius: .55rem; background: #fff; color: #334155; font: inherit; font-size: .72rem; font-weight: 700; padding: .3rem .55rem; cursor: pointer; white-space: nowrap; }
+.attribution-leaderboard-answers:hover { border-color: #16a34a; color: #166534; }
 
 html[data-theme="dark"] .attribution-leaderboard li { border-color: #31483a; background: #172a20; }
 html[data-theme="dark"] .attribution-leaderboard-contributor { color: #dce8e0; }
 html[data-theme="dark"] .attribution-leaderboard-rank, html[data-theme="dark"] .attribution-leaderboard li > small { color: #a7bbae; }
 html[data-theme="dark"] .attribution-leaderboard li > strong { color: #86efac; }
+html[data-theme="dark"] .attribution-leaderboard-answers { border-color: #31483a; background: #17231c; color: #dce8e0; }
+html[data-theme="dark"] .attribution-leaderboard-answers:hover { border-color: #4ade80; color: #86efac; }
+
+.attribution-detail-sheet { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; overflow-y: auto; width: min(28rem, 100vw); }
+.attribution-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.attribution-detail-summary { margin: 0; color: #64748b; font-size: .85rem; }
+.attribution-detail-summary strong { color: #166534; font-size: 1.1rem; margin-right: .3rem; }
+.attribution-detail-list { display: flex; flex-direction: column; gap: .5rem; padding: 0; margin: 0; list-style: none; }
+.attribution-detail-list li { display: grid; grid-template-columns: 2.1rem 1fr auto auto 1.1rem; align-items: center; gap: .6rem; padding: .5rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #fff; }
+.attribution-detail-list li.correct { border-color: #bbf7d0; background: #f0fdf4; }
+.attribution-detail-list li.incorrect { border-color: #fecaca; background: #fef2f2; }
+.attribution-detail-list img { width: 2.1rem; height: 2.1rem; border-radius: .5rem; object-fit: cover; }
+.attribution-detail-track { min-width: 0; overflow: hidden; }
+.attribution-detail-track strong { display: block; font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attribution-detail-track small { display: block; color: #64748b; font-size: .7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attribution-detail-guess, .attribution-detail-actual { display: flex; align-items: center; gap: .35rem; max-width: 6rem; }
+.attribution-detail-guess span, .attribution-detail-actual span { overflow: hidden; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.attribution-detail-guess .contributor-avatar, .attribution-detail-actual .contributor-avatar { width: 1.5rem; height: 1.5rem; }
+.attribution-detail-mark { display: grid; place-items: center; color: #166534; }
+.attribution-detail-list li.incorrect .attribution-detail-mark { color: #be123c; }
+
+html[data-theme="dark"] .attribution-detail-summary { color: #a7bbae; }
+html[data-theme="dark"] .attribution-detail-summary strong { color: #86efac; }
+html[data-theme="dark"] .attribution-detail-list li { border-color: #31483a; background: #17231c; }
+html[data-theme="dark"] .attribution-detail-list li.correct { border-color: #2f6b45; background: #14251a; }
+html[data-theme="dark"] .attribution-detail-list li.incorrect { border-color: #7f1d2e; background: #241417; }
+html[data-theme="dark"] .attribution-detail-track small, html[data-theme="dark"] .attribution-detail-guess span, html[data-theme="dark"] .attribution-detail-actual span { color: #a7bbae; }
+html[data-theme="dark"] .attribution-detail-mark { color: #86efac; }
+html[data-theme="dark"] .attribution-detail-list li.incorrect .attribution-detail-mark { color: #f87171; }

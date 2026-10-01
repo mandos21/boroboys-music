@@ -784,6 +784,73 @@
         "title": "AdminUserResponse",
         "type": "object"
       },
+      "AttributionGameDetailItemResponse": {
+        "properties": {
+          "actualContributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "guessedContributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "isCorrect": {
+            "title": "Iscorrect",
+            "type": "boolean"
+          },
+          "submissionId": {
+            "title": "Submissionid",
+            "type": "string"
+          },
+          "track": {
+            "$ref": "#/components/schemas/TrackResponse"
+          }
+        },
+        "required": [
+          "submissionId",
+          "track",
+          "guessedContributor",
+          "actualContributor",
+          "isCorrect"
+        ],
+        "title": "AttributionGameDetailItemResponse",
+        "type": "object"
+      },
+      "AttributionGameDetailResponse": {
+        "description": "One completed game, reviewable after the fact - not the submit-time reveal.",
+        "properties": {
+          "contributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "correctCount": {
+            "title": "Correctcount",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AttributionGameDetailItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "submittedAt": {
+            "format": "date-time",
+            "title": "Submittedat",
+            "type": "string"
+          },
+          "totalCount": {
+            "title": "Totalcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contributor",
+          "submittedAt",
+          "correctCount",
+          "totalCount",
+          "items"
+        ],
+        "title": "AttributionGameDetailResponse",
+        "type": "object"
+      },
       "AttributionGameResponse": {
         "properties": {
           "correctCount": {
@@ -5521,6 +5588,60 @@
           }
         },
         "summary": "Get Attribution Status",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
+    "/api/v1/rounds/{round_id}/attribution/games/{user_id}": {
+      "get": {
+        "description": "Review any completed player's stored guesses - not the one-time submit reveal.\n\nGated on the requesting viewer's own reveal state, same as the\nleaderboard it's linked from: seeing how someone else did is part of\nwhat unlocks once names are revealed for you, not a separate privilege.",
+        "operationId": "get_attribution_game_detail_api_v1_rounds__round_id__attribution_games__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttributionGameDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Attribution Game Detail",
         "tags": [
           "rounds"
         ]

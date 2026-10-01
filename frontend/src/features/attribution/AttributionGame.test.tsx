@@ -101,6 +101,7 @@ function renderGame(onRevealed: () => void = vi.fn()) {
           roundId="round-1"
           status={status}
           tracks={tracks}
+          viewerId="me"
           onRevealed={onRevealed}
         />
       </QueryClientProvider>
@@ -120,6 +121,13 @@ describe("AttributionGame", () => {
     expect(
       (screen.getByRole("button", { name: /lock in my guesses/i }) as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+
+  it("never offers the viewer's own name as a roster bin to drag tracks onto", async () => {
+    renderGame();
+    expect(screen.queryByRole("button", { name: /^Me\b/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Alice/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Bob/ })).toBeTruthy();
   });
 
   it("assigns tracks by tapping a track then a name, and enforces each member's submission limit", async () => {

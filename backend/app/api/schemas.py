@@ -169,6 +169,24 @@ class AttributionSubmitResponse(ApiResponse):
     results: list[AttributionGuessResultResponse]
 
 
+class AttributionGameDetailItemResponse(ApiResponse):
+    submission_id: str
+    track: TrackResponse
+    guessed_contributor: ContributorResponse
+    actual_contributor: ContributorResponse
+    is_correct: bool
+
+
+class AttributionGameDetailResponse(ApiResponse):
+    """One completed game, reviewable after the fact - not the submit-time reveal."""
+
+    contributor: ContributorResponse
+    submitted_at: datetime
+    correct_count: int
+    total_count: int
+    items: list[AttributionGameDetailItemResponse]
+
+
 class ProfileStatItemResponse(ApiResponse):
     name: str
     count: int

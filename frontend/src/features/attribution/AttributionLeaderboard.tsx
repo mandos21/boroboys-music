@@ -1,14 +1,19 @@
+import { useState } from "react";
 import { Link } from "react-router";
 
 import "./attribution.css";
+import { AttributionGameDetailSheet } from "./AttributionGameDetail";
 import { ContributorAvatar } from "./ContributorAvatar";
 import type { AttributionLeaderboardEntry } from "./types";
 
 export function AttributionLeaderboard({
+  roundId,
   entries = [],
 }: {
+  roundId: string;
   entries: AttributionLeaderboardEntry[] | undefined;
 }) {
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   if (entries.length === 0) return null;
   return (
     <section
@@ -43,10 +48,24 @@ export function AttributionLeaderboard({
               <small>
                 {entry.correctCount}/{entry.totalCount}
               </small>
+              <button
+                type="button"
+                className="attribution-leaderboard-answers"
+                onClick={() => setSelectedUserId(entry.contributor.id)}
+              >
+                See answers
+              </button>
             </li>
           );
         })}
       </ol>
+      <AttributionGameDetailSheet
+        roundId={roundId}
+        userId={selectedUserId}
+        onOpenChange={(open) => {
+          if (!open) setSelectedUserId(null);
+        }}
+      />
     </section>
   );
 }

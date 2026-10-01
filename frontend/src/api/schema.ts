@@ -671,6 +671,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rounds/{round_id}/attribution/games/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attribution Game Detail
+         * @description Review any completed player's stored guesses - not the one-time submit reveal.
+         *
+         *     Gated on the requesting viewer's own reveal state, same as the
+         *     leaderboard it's linked from: seeing how someone else did is part of
+         *     what unlocks once names are revealed for you, not a separate privilege.
+         */
+        get: operations["get_attribution_game_detail_api_v1_rounds__round_id__attribution_games__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rounds/{round_id}/attribution/guesses": {
         parameters: {
             query?: never;
@@ -1196,6 +1220,34 @@ export interface components {
             email: string | null;
             /** Id */
             id: string;
+        };
+        /** AttributionGameDetailItemResponse */
+        AttributionGameDetailItemResponse: {
+            actualContributor: components["schemas"]["ContributorResponse"];
+            guessedContributor: components["schemas"]["ContributorResponse"];
+            /** Iscorrect */
+            isCorrect: boolean;
+            /** Submissionid */
+            submissionId: string;
+            track: components["schemas"]["TrackResponse"];
+        };
+        /**
+         * AttributionGameDetailResponse
+         * @description One completed game, reviewable after the fact - not the submit-time reveal.
+         */
+        AttributionGameDetailResponse: {
+            contributor: components["schemas"]["ContributorResponse"];
+            /** Correctcount */
+            correctCount: number;
+            /** Items */
+            items: components["schemas"]["AttributionGameDetailItemResponse"][];
+            /**
+             * Submittedat
+             * Format: date-time
+             */
+            submittedAt: string;
+            /** Totalcount */
+            totalCount: number;
         };
         /** AttributionGameResponse */
         AttributionGameResponse: {
@@ -3451,6 +3503,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AttributionStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_attribution_game_detail_api_v1_rounds__round_id__attribution_games__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributionGameDetailResponse"];
                 };
             };
             /** @description Validation Error */

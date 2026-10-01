@@ -159,6 +159,7 @@ export function RoundPage() {
           roundId={item.id}
           status={attribution.data}
           tracks={submissions.data ?? []}
+          viewerId={session.data?.user?.id}
           onRevealed={() => {
             queryClient.invalidateQueries({ queryKey: queryKeys.attribution(roundId) });
             queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissions(roundId) });
@@ -176,7 +177,9 @@ export function RoundPage() {
           onSaveNote={(id, note) => updateNote.mutate({ submissionId: id, note })}
         />
       )}
-      {attribution.data && <AttributionLeaderboard entries={attribution.data.leaderboard} />}
+      {attribution.data && (
+        <AttributionLeaderboard roundId={item.id} entries={attribution.data.leaderboard} />
+      )}
       <ConfirmDialog
         open={Boolean(submissionToWithdraw)}
         title="Withdraw this submission?"

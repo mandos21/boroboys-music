@@ -6,3 +6,5 @@ export type AttributionSubmitResult = components["schemas"]["AttributionSubmitRe
 export type AttributionGuessOutcome = components["schemas"]["AttributionGuessResultResponse"];
 export type AttributionLeaderboardEntry =
   components["schemas"]["AttributionLeaderboardEntryResponse"];
+export type AttributionGameDetail = components["schemas"]["AttributionGameDetailResponse"];
+export type AttributionGameDetailItem = components["schemas"]["AttributionGameDetailItemResponse"];

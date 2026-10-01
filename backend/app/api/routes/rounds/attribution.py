@@ -11,9 +11,13 @@ from sqlalchemy import select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.api.payloads import contributor_display_name, spotify_profile_image_subquery
-from app.api.routes.rounds._common import _viewer_round, router
-from app.api.schemas import AttributionStatusResponse, AttributionSubmitResponse
-from app.db.models import RoundMember, User
+from app.api.routes.rounds._common import _track_payload, _viewer_round, router
+from app.api.schemas import (
+    AttributionGameDetailResponse,
+    AttributionStatusResponse,
+    AttributionSubmitResponse,
+)
+from app.db.models import RoundMember, Track, User
 from app.services import attribution
 
 
@@ -139,5 +143,76 @@ def submit_attribution_guesses(
                 "isCorrect": outcome.is_correct,
             }
             for outcome in result.outcomes
+        ],
+    }
+
+
+@router.get(
+    "/{round_id}/attribution/games/{user_id}",
+    response_model=AttributionGameDetailResponse,
+)
+def get_attribution_game_detail(
+    round_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    """Review any completed player's stored guesses - not the one-time submit reveal.
+
+    Gated on the requesting viewer's own reveal state, same as the
+    leaderboard it's linked from: seeing how someone else did is part of
+    what unlocks once names are revealed for you, not a separate privilege.
+    """
+    round_, _membership = _viewer_round(db, round_id, user)
+    publication = attribution.get_publication(db, round_id)
+    if not attribution.is_revealed_for(db, round_, publication, user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="names for this round are not revealed for you yet",
+        )
+    detail = attribution.game_detail_rows(db, round_id, user_id)
+    if detail is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="that player has not completed this round's guessing game",
+        )
+    game, rows = detail
+
+    track_ids = {submission.track_id for _guess, submission in rows}
+    tracks_by_id = {
+        track.id: track for track in db.scalars(select(Track).where(Track.id.in_(track_ids)))
+    }
+
+    contributor_ids = (
+        {user_id}
+        | {guess.guessed_contributor_id for guess, _s in rows}
+        | {submission.contributor_id for _guess, submission in rows}
+    )
+    spotify_profile_image = spotify_profile_image_subquery(User.id)
+    contributors_by_id = {
+        contributor.id: {
+            "id": str(contributor.id),
+            "displayName": contributor_display_name(contributor.display_name, contributor.email),
+            "spotifyProfileImageUrl": profile_image_url,
+        }
+        for contributor, profile_image_url in db.execute(
+            select(User, spotify_profile_image).where(User.id.in_(contributor_ids))
+        )
+    }
+
+    return {
+        "contributor": contributors_by_id[user_id],
+        "submittedAt": game.submitted_at.isoformat() if game.submitted_at else None,
+        "correctCount": game.correct_count,
+        "totalCount": game.total_count,
+        "items": [
+            {
+                "submissionId": str(submission.id),
+                "track": _track_payload(tracks_by_id[submission.track_id]),
+                "guessedContributor": contributors_by_id[guess.guessed_contributor_id],
+                "actualContributor": contributors_by_id[submission.contributor_id],
+                "isCorrect": guess.is_correct,
+            }
+            for guess, submission in rows
         ],
     }
