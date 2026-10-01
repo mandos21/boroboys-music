@@ -298,8 +298,65 @@ def test_submit_guesses_rejects_a_guess_for_a_non_member(
     db.commit()
     _publish(db, round_, viewer)
 
-    with pytest.raises(attribution.AttributionError, match="member of this round"):
+    with pytest.raises(attribution.AttributionError, match="submitted to this round"):
         attribution.submit_guesses(db, round_, viewer, {alice_submission.id: outsider.id})
+
+
+def test_submit_guesses_rejects_a_guess_for_a_member_who_submitted_nothing(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+    make_track: Callable[..., Track],
+    make_submission: Callable[..., Submission],
+) -> None:
+    """A round member who never submitted anything can't be a guess target.
+
+    They can never be the right answer, so letting a guess name them would
+    only ever be a free wrong guess rather than a meaningful one.
+    """
+    viewer = make_user(name="Viewer", admin=True)
+    alice = make_user(name="Alice")
+    quiet_member = make_user(name="QuietMember")
+    series = make_series()
+    round_ = make_round(
+        series,
+        attribution_reveal_delay_seconds=3600,
+        submission_limit=5,
+        members=[viewer, alice, quiet_member],
+    )
+    alice_submission = make_submission(round_, alice, make_track())
+    db.commit()
+    _publish(db, round_, viewer)
+
+    with pytest.raises(attribution.AttributionError, match="submitted to this round"):
+        attribution.submit_guesses(db, round_, viewer, {alice_submission.id: quiet_member.id})
+
+
+def test_attribution_status_roster_excludes_members_who_submitted_nothing(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+    make_track: Callable[..., Track],
+    make_submission: Callable[..., Submission],
+) -> None:
+    viewer = make_user(name="Viewer", admin=True)
+    alice = make_user(name="Alice")
+    quiet_member = make_user(name="QuietMember")
+    series = make_series()
+    round_ = make_round(series, submission_limit=5, members=[viewer, alice, quiet_member])
+    make_submission(round_, viewer, make_track())
+    make_submission(round_, alice, make_track())
+    round_.attribution_reveal_delay_seconds = 3600
+    db.commit()
+    _publish(db, round_, viewer)
+
+    status = get_attribution_status(round_.id, db, viewer)
+    assert {entry["contributor"]["id"] for entry in status["roster"]} == {
+        str(viewer.id),
+        str(alice.id),
+    }
 
 
 def test_submit_guesses_enforces_each_members_submission_limit(
@@ -501,6 +558,7 @@ def test_attribution_status_reports_roster_and_locked_in_game(
     alice = make_user(name="Alice")
     series = make_series()
     round_ = make_round(series, submission_limit=5, members=[viewer, alice])
+    make_submission(round_, viewer, make_track())
     alice_submission = make_submission(round_, alice, make_track())
     round_.attribution_reveal_delay_seconds = 3600
     db.commit()

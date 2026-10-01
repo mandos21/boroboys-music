@@ -136,8 +136,30 @@ def _guessable_submissions(
     )
 
 
+def guessable_contributor_ids(db: Session, round_id: uuid.UUID) -> set[uuid.UUID]:
+    """Round members who actually submitted something - the only valid guess targets.
+
+    A member who submitted nothing can never be the right answer, so letting
+    someone spend a guess on them would only ever be a free wrong guess.
+    """
+    return set(
+        db.scalars(
+            select(Submission.contributor_id)
+            .where(Submission.round_id == round_id, Submission.status == SubmissionStatus.ACCEPTED)
+            .distinct()
+        )
+    )
+
+
 def _member_limits(db: Session, round_: Round) -> dict[uuid.UUID, int]:
-    members = list(db.scalars(select(RoundMember).where(RoundMember.round_id == round_.id)))
+    submitter_ids = guessable_contributor_ids(db, round_.id)
+    members = list(
+        db.scalars(
+            select(RoundMember).where(
+                RoundMember.round_id == round_.id, RoundMember.user_id.in_(submitter_ids)
+            )
+        )
+    )
     return {
         member.user_id: (
             member.submission_limit_override
@@ -195,7 +217,7 @@ def submit_guesses(
     guessed_counts: dict[uuid.UUID, int] = {}
     for guessed_contributor_id in guesses.values():
         if guessed_contributor_id not in limits:
-            raise AttributionError("a guess must name a member of this round")
+            raise AttributionError("a guess must name someone who submitted to this round")
         guessed_counts[guessed_contributor_id] = guessed_counts.get(guessed_contributor_id, 0) + 1
     for contributor_id, count in guessed_counts.items():
         if count > limits[contributor_id]:

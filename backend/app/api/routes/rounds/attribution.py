@@ -55,6 +55,9 @@ def get_attribution_status(
     image_by_user_id = {
         member_user.id: profile_image_url for _member, member_user, profile_image_url in roster_rows
     }
+    # A member who submitted nothing can never be the right answer to a
+    # guess, so they're excluded here rather than offered as a free wrong one.
+    submitter_ids = attribution.guessable_contributor_ids(db, round_id)
     roster = [
         {
             "contributor": {
@@ -71,6 +74,7 @@ def get_attribution_status(
             ),
         }
         for member, member_user, profile_image_url in roster_rows
+        if member_user.id in submitter_ids
     ]
     # Only shown once this viewer has earned it - either by finishing their
     # own guesses or by waiting out the reveal delay - so it can never become
