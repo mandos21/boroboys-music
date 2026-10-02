@@ -48,8 +48,9 @@ worker's first heartbeat.
 1. Open the deployed site in a private browser window and sign in through OIDC.
    Confirm the first account can open **Manage series**.
 2. Sign out, confirm the configured signed-out page returns, and sign in again.
-3. Link a Spotify account and a Last.fm account from **Connections**. Confirm that
-   neither provider token appears in browser storage, API responses, or logs.
+3. Link the publisher's Spotify account from an admin publication screen and
+   a Last.fm account from **Settings**. Confirm that neither provider token
+   appears in browser storage, API responses, or logs.
 4. Sign in as at least one further test contributor and link Last.fm for that
    account as well. Choose the desired evidence visibility on each linked account.
 

@@ -12,6 +12,7 @@ import { PageSkeleton } from "../components/ui/PageSkeleton";
 import { StatePanel } from "../components/ui/StatePanel";
 import { ToastProvider } from "../components/ui/ToastProvider";
 import { formatDate, formatDeadline } from "../lib/format";
+import { GuessWhoPhase } from "../features/rounds/GuessWhoPhase";
 
 type Session = components["schemas"]["SessionResponse"];
 type SeriesPreview = components["schemas"]["SeriesListResponse"];
@@ -37,9 +38,9 @@ const ContributorProfilePage = lazy(() =>
     default: module.ContributorProfilePage,
   })),
 );
-const ConnectionsPage = lazy(() =>
-  import("../features/connections/ConnectionsPage").then((module) => ({
-    default: module.ConnectionsPage,
+const SettingsPage = lazy(() =>
+  import("../features/profiles/SettingsPage").then((module) => ({
+    default: module.SettingsPage,
   })),
 );
 const AdminSeriesPage = lazy(() =>
@@ -86,6 +87,7 @@ function HomePage() {
   const items = series.data ?? [];
   const openSeries = items.find((item) => item.featuredRound?.status === "open");
   const otherSeries = openSeries ? items.filter((item) => item.id !== openSeries.id) : items;
+  const latestPlaylists = items.filter((item) => item.latestPublishedRound);
   return (
     <main className="shell page-shell dashboard-shell">
       <header className="page-heading dashboard-heading">
@@ -106,46 +108,74 @@ function HomePage() {
         </div>
       </header>
       {openSeries && <FeaturedOpenSeries series={openSeries} />}
-      <section aria-labelledby="series-heading" className="content-section">
-        <div className="section-heading">
-          <div>
-            <h2 id="series-heading">{openSeries ? "Other series" : "Series"}</h2>
+      {latestPlaylists.length > 0 && (
+        <section
+          className="content-section dashboard-playlists"
+          aria-labelledby="latest-playlists-heading"
+        >
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Ready to listen</p>
+              <h2 id="latest-playlists-heading">Latest playlists</h2>
+            </div>
           </div>
-        </div>
-        {series.isLoading && (
-          <section
-            className="dashboard-loading-grid"
-            aria-label="Finding your series"
-            aria-busy="true"
-          >
-            {Array.from({ length: 3 }, (_, index) => (
-              <div className="dashboard-loading-card" key={index} />
+          <div className="dashboard-playlist-grid">
+            {latestPlaylists.map((item) => {
+              const round = item.latestPublishedRound!;
+              return (
+                <Link className="dashboard-playlist" key={round.id} to={`/rounds/${round.id}`}>
+                  <span className="eyebrow">{item.name}</span>
+                  <strong>{round.title}</strong>
+                  <small>Released {formatDate(round.publishAt)}</small>
+                  <GuessWhoPhase roundId={round.id} />
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+      {(!series.isSuccess || otherSeries.length > 0 || items.length === 0) && (
+        <section aria-labelledby="series-heading" className="content-section">
+          <div className="section-heading">
+            <div>
+              <h2 id="series-heading">{openSeries ? "Other series" : "Series"}</h2>
+            </div>
+          </div>
+          {series.isLoading && (
+            <section
+              className="dashboard-loading-grid"
+              aria-label="Finding your series"
+              aria-busy="true"
+            >
+              {Array.from({ length: 3 }, (_, index) => (
+                <div className="dashboard-loading-card" key={index} />
+              ))}
+            </section>
+          )}
+          {series.isError && (
+            <StatePanel kind="error" title="We couldn’t load your series">
+              Refresh the page to try again.
+            </StatePanel>
+          )}
+          {series.data?.length === 0 && (
+            <StatePanel title="No series yet">
+              {currentUser.platformRole === "admin" ? (
+                <>
+                  Start a space for a monthly check-in or a themed challenge below, then invite the
+                  people you want to hear from. <a href="#create-series-heading">Create a series</a>
+                </>
+              ) : (
+                "Once you are added to a series, its active round and listening history will appear here."
+              )}
+            </StatePanel>
+          )}
+          <div className="series-card-grid">
+            {otherSeries.map((item) => (
+              <SeriesCard key={item.id} series={item} />
             ))}
-          </section>
-        )}
-        {series.isError && (
-          <StatePanel kind="error" title="We couldn’t load your series">
-            Refresh the page to try again.
-          </StatePanel>
-        )}
-        {series.data?.length === 0 && (
-          <StatePanel title="No series yet">
-            {currentUser.platformRole === "admin" ? (
-              <>
-                Start a space for a monthly check-in or a themed challenge below, then invite the
-                people you want to hear from. <a href="#create-series-heading">Create a series</a>
-              </>
-            ) : (
-              "Once you are added to a series, its active round and listening history will appear here."
-            )}
-          </StatePanel>
-        )}
-        <div className="series-card-grid">
-          {otherSeries.map((item) => (
-            <SeriesCard key={item.id} series={item} />
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
       {currentUser.platformRole === "admin" && (
         <Suspense fallback={<SeriesCreatePanelFallback />}>
           <SeriesCreatePanel />
@@ -524,15 +554,16 @@ export function App() {
             }
           />
           <Route
-            path="/settings/connections"
+            path="/settings"
             element={
               <ShellRoute>
                 <LazyRoute>
-                  <ConnectionsPage />
+                  <SettingsPage />
                 </LazyRoute>
               </ShellRoute>
             }
           />
+          <Route path="/settings/connections" element={<Navigate to="/settings" replace />} />
           <Route path="/admin" element={<Navigate to="/" replace />} />
           <Route
             path="/admin/series/:seriesId"

@@ -1246,7 +1246,7 @@
             "title": "Id",
             "type": "string"
           },
-          "spotifyProfileImageUrl": {
+          "profileImageUrl": {
             "anyOf": [
               {
                 "type": "string"
@@ -1255,13 +1255,13 @@
                 "type": "null"
               }
             ],
-            "title": "Spotifyprofileimageurl"
+            "title": "Profileimageurl"
           }
         },
         "required": [
           "id",
           "displayName",
-          "spotifyProfileImageUrl"
+          "profileImageUrl"
         ],
         "title": "ContributorResponse",
         "type": "object"
@@ -1628,6 +1628,17 @@
             "title": "Id",
             "type": "string"
           },
+          "profileImageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileimageurl"
+          },
           "sharedGenres": {
             "items": {
               "type": "string"
@@ -1638,23 +1649,12 @@
           "sharedRoundCount": {
             "title": "Sharedroundcount",
             "type": "integer"
-          },
-          "spotifyProfileImageUrl": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spotifyprofileimageurl"
           }
         },
         "required": [
           "id",
           "displayName",
-          "spotifyProfileImageUrl",
+          "profileImageUrl",
           "affinity",
           "sharedGenres",
           "sharedRoundCount"
@@ -1751,7 +1751,7 @@
             ],
             "title": "Nextcursor"
           },
-          "spotifyProfileImageUrl": {
+          "profileImageUrl": {
             "anyOf": [
               {
                 "type": "string"
@@ -1760,7 +1760,7 @@
                 "type": "null"
               }
             ],
-            "title": "Spotifyprofileimageurl"
+            "title": "Profileimageurl"
           },
           "stats": {
             "$ref": "#/components/schemas/ProfileStatsResponse"
@@ -1776,7 +1776,7 @@
         "required": [
           "id",
           "displayName",
-          "spotifyProfileImageUrl",
+          "profileImageUrl",
           "isMe",
           "stats",
           "submissions",
@@ -2526,7 +2526,7 @@
             "title": "Id",
             "type": "string"
           },
-          "spotifyProfileImageUrl": {
+          "profileImageUrl": {
             "anyOf": [
               {
                 "type": "string"
@@ -2535,7 +2535,7 @@
                 "type": "null"
               }
             ],
-            "title": "Spotifyprofileimageurl"
+            "title": "Profileimageurl"
           },
           "trackCount": {
             "title": "Trackcount",
@@ -2545,7 +2545,7 @@
         "required": [
           "id",
           "displayName",
-          "spotifyProfileImageUrl",
+          "profileImageUrl",
           "trackCount",
           "genres"
         ],
@@ -2912,6 +2912,16 @@
             "title": "Isadmin",
             "type": "boolean"
           },
+          "latestPublishedRound": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoundPreviewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -2930,7 +2940,8 @@
           "accentColor",
           "fallbackArtworkUrl",
           "isAdmin",
-          "featuredRound"
+          "featuredRound",
+          "latestPublishedRound"
         ],
         "title": "SeriesListResponse",
         "type": "object"

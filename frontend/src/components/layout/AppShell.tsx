@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Menu, Music2, UserRound, X } from "lucide-react";
+import { LogOut, Menu, Music2, Settings, UserRound, X } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 import { api, logout } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import { avatarStyle } from "../../lib/avatar";
 import { markPerformance } from "../../lib/performance";
+import { LastfmReminderDialog } from "./LastfmReminderDialog";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { TooltipProvider } from "../ui/tooltip";
@@ -49,6 +50,16 @@ export function AppShell({ children }: AppShellProps) {
     if (session.isSuccess) markPerformance("shell-ready", "app-start");
   }, [session.isSuccess]);
 
+  useEffect(() => {
+    document.documentElement.dataset.palette =
+      window.localStorage.getItem("music-rounds-palette") === "colorblind"
+        ? "colorblind"
+        : "default";
+  }, []);
+
+  // Not shown on the settings page itself - that page already is the ask.
+  const lastfmReminderEnabled = Boolean(user) && location.pathname !== "/settings";
+
   async function signOut() {
     try {
       window.location.assign(await logout());
@@ -81,6 +92,9 @@ export function AppShell({ children }: AppShellProps) {
                     aria-label="Open your profile"
                   >
                     <AccountIdentity user={user} />
+                  </Link>
+                  <Link className="icon-button" to="/settings" aria-label="Settings">
+                    <Settings aria-hidden="true" size={18} />
                   </Link>
                   <Button
                     className="icon-button"
@@ -117,6 +131,14 @@ export function AppShell({ children }: AppShellProps) {
                       <UserRound aria-hidden="true" size={18} />
                       <AccountIdentity user={user} />
                     </Link>
+                    <Link
+                      className="mobile-profile-link"
+                      to="/settings"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Settings aria-hidden="true" size={18} />
+                      Settings
+                    </Link>
                     <Button
                       className="mobile-sign-out"
                       variant="secondary"
@@ -144,6 +166,7 @@ export function AppShell({ children }: AppShellProps) {
         </header>
         <div className="app-content">{children}</div>
       </div>
+      <LastfmReminderDialog enabled={lastfmReminderEnabled} />
     </TooltipProvider>
   );
 }

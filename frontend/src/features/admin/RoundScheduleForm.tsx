@@ -234,9 +234,13 @@ export function RoundScheduleForm({
             {publisherAccountId
               ? "This round releases itself at its publish time."
               : "Without an account, somebody has to publish the round once it closes."}
-            {spotifyAccounts.length === 0
-              ? " Link a Spotify account on your profile to enable this."
-              : ""}
+            {spotifyAccounts.length === 0 && (
+              <>
+                {" "}
+                <a href="/api/v1/connections/spotify/login">Link a Spotify account</a> to enable
+                this.
+              </>
+            )}
           </span>
         </label>
         <p className="field-hint">

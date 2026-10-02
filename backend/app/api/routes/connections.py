@@ -199,7 +199,7 @@ def _claim_link_attempt(
 def _link_result_redirect(
     settings: Settings, provider: str | None = None, reason: str | None = None
 ) -> RedirectResponse:
-    """Return a browser to the profile page instead of a raw API error body.
+    """Return a browser to Settings instead of a raw API error body.
 
     These endpoints are provider redirects, so the person following them is
     looking at a browser tab, not reading a JSON response.
@@ -208,7 +208,7 @@ def _link_result_redirect(
         f"?{urlencode({'linkError': reason, 'provider': provider})}" if provider and reason else ""
     )
     return RedirectResponse(
-        f"{str(settings.app_base_url).rstrip('/')}/profile{query}", status_code=303
+        f"{str(settings.app_base_url).rstrip('/')}/settings{query}", status_code=303
     )
 
 
@@ -266,6 +266,11 @@ def complete_lastfm_link(
         session = lastfm.exchange_session(settings, token)
     except (httpx.HTTPError, lastfm.LastfmError):
         return _link_result_redirect(settings, "lastfm", "failed")
+    try:
+        profile_image_url = lastfm.user_profile_image(settings, session["username"])
+    except (httpx.HTTPError, lastfm.LastfmError):
+        # The avatar is a nice-to-have, not essential to the link itself.
+        profile_image_url = None
     account = db.scalar(
         select(ExternalAccount).where(
             ExternalAccount.provider == ExternalProvider.LASTFM,
@@ -280,6 +285,7 @@ def complete_lastfm_link(
             provider=ExternalProvider.LASTFM,
             provider_subject=session["username"],
             display_name=session["username"],
+            profile_image_url=profile_image_url,
         )
         db.add(account)
         db.flush()
@@ -287,6 +293,7 @@ def complete_lastfm_link(
         account.is_active = True
         account.disconnected_at = None
         account.display_name = session["username"]
+        account.profile_image_url = profile_image_url
     credential = db.scalar(
         select(ExternalCredential).where(ExternalCredential.external_account_id == account.id)
     )

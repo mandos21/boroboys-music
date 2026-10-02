@@ -24,18 +24,19 @@ from app.db.models import (
 UNKNOWN_CONTRIBUTOR = "Unknown listener"
 
 
-def spotify_profile_image_subquery(user_column: Mapped[uuid.UUID]) -> ScalarSelect[str | None]:
-    """The oldest active Spotify avatar for whichever user the outer query names.
+def contributor_profile_image_subquery(user_column: Mapped[uuid.UUID]) -> ScalarSelect[str | None]:
+    """The active Last.fm avatar for whichever user the outer query names.
 
-    Correlated rather than joined so a contributor with no Spotify link still
-    appears in the outer result.
+    Spotify is linked for publishing, not for contributor identity. Correlated
+    rather than joined so a contributor with no Last.fm photo still appears.
     """
     return (
         select(ExternalAccount.profile_image_url)
         .where(
             ExternalAccount.user_id == user_column,
-            ExternalAccount.provider == ExternalProvider.SPOTIFY,
+            ExternalAccount.provider == ExternalProvider.LASTFM,
             ExternalAccount.is_active.is_(True),
+            ExternalAccount.profile_image_url.is_not(None),
         )
         .order_by(ExternalAccount.created_at)
         .limit(1)

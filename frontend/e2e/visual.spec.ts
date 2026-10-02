@@ -7,8 +7,10 @@ const visualRoutes = [
   { path: "/", name: "dashboard", ready: "Good to have you here" },
   { path: "/series/series-1", name: "series", ready: "BoroCrew After Hours" },
   { path: "/rounds/round-open", name: "round", ready: "September after dark" },
+  { path: "/rounds/round-published-demo", name: "published-round", ready: "August favorites" },
   { path: "/rounds/round-open/submit", name: "submission", ready: "Choose a track" },
   { path: "/profile", name: "profile", ready: "Your record, so far" },
+  { path: "/settings", name: "settings", ready: "Connected services" },
   { path: "/admin/series/series-1", name: "series-administration", ready: "Automation" },
 ];
 
@@ -30,6 +32,63 @@ for (const route of visualRoutes) {
     });
   });
 }
+
+test("distinguishable result colors apply to the dark matrix", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "accessibility", "One browser covers the palette behavior.");
+  await page.goto("/settings");
+  await page.getByRole("switch", { name: "Distinguishable result colors" }).click();
+  await page.goto("/rounds/round-open");
+  await expect(page.getByRole("heading", { name: "September after dark" })).toBeVisible();
+  const colors = await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+    const cells = ["correct", "incorrect"].map((result) => {
+      const cell = document.createElement("button");
+      cell.className = `attribution-matrix-cell ${result}`;
+      cell.style.setProperty("--heat", "1");
+      document.body.append(cell);
+      return cell;
+    });
+    const backgrounds = cells.map((cell) => getComputedStyle(cell).backgroundColor);
+    cells.forEach((cell) => cell.remove());
+    return backgrounds;
+  });
+  expect(colors[0]).toContain("96, 165, 250");
+  expect(colors[1]).toContain("251, 146, 60");
+});
+
+test("the Settings connection action keeps its button contrast", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "accessibility", "One browser covers button styling.");
+  await page.goto("/settings");
+  const action = page.getByRole("link", { name: "Connect another Last.fm account" });
+  await expect(action).toBeVisible();
+  expect(await action.evaluate((element) => getComputedStyle(element).color)).toBe(
+    "rgb(255, 255, 255)",
+  );
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
+  expect(await action.evaluate((element) => getComputedStyle(element).color)).toBe(
+    "rgb(255, 255, 255)",
+  );
+});
+
+test("published rounds keep the playlist prominent and fold away history and extra tracks", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "accessibility", "One browser covers this interaction.");
+  await page.goto("/rounds/round-published-demo");
+  await expect(page.getByRole("heading", { name: "August favorites", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Spotify playlist" })).toBeVisible();
+  await expect(page.getByText("Submissions are currently closed.")).toBeHidden();
+  await page.getByRole("button", { name: "Round details" }).click();
+  await expect(page.getByText("Submissions are currently closed.")).toBeVisible();
+  await expect(page.getByText("Night Drive", { exact: true }).first()).toBeVisible();
+  await expect(page.locator("#round-submission-list > li")).toHaveCount(5);
+  await page.getByRole("button", { name: "Show all 7 tracks" }).click();
+  await expect(page.locator("#round-submission-list > li")).toHaveCount(7);
+  const results = await new AxeBuilder({ page }).include("main").analyze();
+  expect(results.violations).toEqual([]);
+});
 
 test("representative screens have no automatically detectable accessibility violations", async ({
   page,

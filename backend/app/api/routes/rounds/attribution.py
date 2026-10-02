@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DbSession, get_current_user, require_csrf
-from app.api.payloads import contributor_display_name, spotify_profile_image_subquery
+from app.api.payloads import contributor_display_name, contributor_profile_image_subquery
 from app.api.routes.rounds._common import _track_payload, _viewer_round, router
 from app.api.schemas import (
     AttributionStatusResponse,
@@ -43,10 +43,10 @@ def get_attribution_status(
     revealed = published and attribution.is_revealed_for(db, round_, publication, user.id)
     reveal_time = attribution.reveal_at(round_, publication)
     game = attribution.get_game(db, round_id, user.id)
-    spotify_profile_image = spotify_profile_image_subquery(RoundMember.user_id)
+    profile_image = contributor_profile_image_subquery(RoundMember.user_id)
     roster_rows = list(
         db.execute(
-            select(RoundMember, User, spotify_profile_image)
+            select(RoundMember, User, profile_image)
             .join(User, User.id == RoundMember.user_id)
             .where(RoundMember.round_id == round_id)
             .order_by(User.display_name, User.email, User.id)
@@ -65,7 +65,7 @@ def get_attribution_status(
                 "displayName": contributor_display_name(
                     member_user.display_name, member_user.email
                 ),
-                "spotifyProfileImageUrl": profile_image_url,
+                "profileImageUrl": profile_image_url,
             },
             "maxGuesses": (
                 member.submission_limit_override
@@ -102,7 +102,7 @@ def get_attribution_status(
                     "displayName": contributor_display_name(
                         entry_user.display_name, entry_user.email
                     ),
-                    "spotifyProfileImageUrl": image_by_user_id.get(entry_user.id),
+                    "profileImageUrl": image_by_user_id.get(entry_user.id),
                 },
                 "correctCount": correct,
                 "totalCount": total,
@@ -188,15 +188,15 @@ def get_attribution_breakdown(
             for guess in song.guesses:
                 contributor_ids.add(guess.guesser_id)
                 contributor_ids.add(guess.guessed_contributor_id)
-    spotify_profile_image = spotify_profile_image_subquery(User.id)
+    profile_image = contributor_profile_image_subquery(User.id)
     contributors_by_id = {
         contributor.id: {
             "id": str(contributor.id),
             "displayName": contributor_display_name(contributor.display_name, contributor.email),
-            "spotifyProfileImageUrl": profile_image_url,
+            "profileImageUrl": profile_image_url,
         }
         for contributor, profile_image_url in db.execute(
-            select(User, spotify_profile_image).where(User.id.in_(contributor_ids))
+            select(User, profile_image).where(User.id.in_(contributor_ids))
         )
     }
 

@@ -14,7 +14,7 @@ afterEach(() => {
 const profile = {
   id: "listener-1",
   displayName: "Mara Listener",
-  spotifyProfileImageUrl: null,
+  profileImageUrl: null,
   isMe: true,
   stats: {
     submissionCount: 3,
@@ -33,7 +33,7 @@ const profile = {
       {
         id: "user-2",
         displayName: "A Close Listener",
-        spotifyProfileImageUrl: null,
+        profileImageUrl: null,
         affinity: 72,
         sharedGenres: ["shoegaze", "midwest emo"],
         sharedRoundCount: 4,
@@ -70,22 +70,12 @@ const profile = {
   ],
 };
 
-const notificationSettings = { notifyReminderEmails: true, notifyRoundPublishedEmails: false };
-
 function renderProfile(profileStatus = 200, profileData = profile) {
   vi.stubGlobal(
     "fetch",
-    vi.fn((input: string | URL | Request) => {
-      // Match exact paths: "/profiles/me" is a prefix of the notification
-      // settings endpoint, and each has its own payload and failure mode.
-      const path = new URL(String(input), "http://localhost").pathname;
-      const responses: Record<string, [unknown, number]> = {
-        "/api/v1/profiles/me": [profileData, profileStatus],
-        "/api/v1/profiles/me/notification-settings": [notificationSettings, 200],
-      };
-      const [body, status] = responses[path] ?? [[], 200];
-      return Promise.resolve(new Response(JSON.stringify(body), { status }));
-    }),
+    vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify(profileData), { status: profileStatus })),
+    ),
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -134,23 +124,23 @@ describe("ProfilePage", () => {
     expect(screen.getByRole("heading", { name: "How well do you know your friends" })).toBeTruthy();
     expect(screen.getByText("78%")).toBeTruthy();
     expect(screen.getByText("7 of 9 guesses correct")).toBeTruthy();
-    expect(await screen.findByRole("heading", { name: "Email notifications" })).toBeTruthy();
-    const switches = await screen.findAllByRole("switch");
-    expect(switches.map((toggle) => toggle.getAttribute("aria-checked"))).toEqual([
-      "true",
-      "false",
-    ]);
+    // Connected services and email notifications live on their own settings
+    // page now - this is reached from a link, not rendered inline.
+    expect(screen.queryByRole("heading", { name: "Connected services" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveProperty(
+      "href",
+      expect.stringContaining("/settings"),
+    );
   });
 
-  it("keeps connected services available if profile analytics fail", async () => {
+  it("reports an error without claiming any connection settings are still visible below", async () => {
     renderProfile(500);
 
     expect(
       await screen.findByRole("heading", { name: "Listening profile unavailable" }),
     ).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Connected services" })).toBeTruthy();
-    expect(await screen.findByRole("heading", { name: "Email notifications" })).toBeTruthy();
-    expect(await screen.findAllByRole("switch")).toHaveLength(2);
+    expect(screen.getByText("Please refresh the page and try again.")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Connected services" })).toBeNull();
   });
 
   it("invites the listener to play before they've guessed in any round", async () => {

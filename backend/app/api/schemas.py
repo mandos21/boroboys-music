@@ -103,7 +103,7 @@ class TrackResponse(ApiResponse):
 class ContributorResponse(ApiResponse):
     id: str
     display_name: str
-    spotify_profile_image_url: str | None
+    profile_image_url: str | None
 
 
 class SubmissionResponse(ApiResponse):
@@ -217,7 +217,7 @@ class ProfileAffinityResponse(ApiResponse):
 
     id: str
     display_name: str
-    spotify_profile_image_url: str | None
+    profile_image_url: str | None
     affinity: int
     shared_genres: list[str]
     shared_round_count: int
@@ -260,7 +260,7 @@ class ProfileStatsResponse(ApiResponse):
 class ProfileResponse(ApiResponse):
     id: str
     display_name: str
-    spotify_profile_image_url: str | None
+    profile_image_url: str | None
     is_me: bool
     stats: ProfileStatsResponse
     submissions: list[ProfileSubmissionResponse]
@@ -376,6 +376,7 @@ class SeriesListResponse(ApiResponse):
     fallback_artwork_url: str | None
     is_admin: bool
     featured_round: RoundPreviewResponse | None
+    latest_published_round: RoundPreviewResponse | None
 
 
 class AdminUserResponse(ApiResponse):

@@ -59,10 +59,10 @@ const genres = genreNames.map((name, index) => ({
 }));
 
 const contributors = [
-  { id: "me", displayName: "Mara Green", spotifyProfileImageUrl: null, trackCount: 18 },
-  { id: "riley", displayName: "Riley Ortega", spotifyProfileImageUrl: null, trackCount: 15 },
-  { id: "shan", displayName: "Shan Patel", spotifyProfileImageUrl: null, trackCount: 12 },
-  { id: "alex", displayName: "Alex Morgan", spotifyProfileImageUrl: null, trackCount: 10 },
+  { id: "me", displayName: "Mara Green", profileImageUrl: null, trackCount: 18 },
+  { id: "riley", displayName: "Riley Ortega", profileImageUrl: null, trackCount: 15 },
+  { id: "shan", displayName: "Shan Patel", profileImageUrl: null, trackCount: 12 },
+  { id: "alex", displayName: "Alex Morgan", profileImageUrl: null, trackCount: 10 },
 ].map((contributor, index) => ({
   ...contributor,
   genres: genres.filter((_, genreIndex) => genreIndex % 4 === index).slice(0, 10),
@@ -102,7 +102,7 @@ const openRoundSubmissionCounts = contributors.map((contributor) => ({
   contributor: {
     id: contributor.id,
     displayName: contributor.displayName,
-    spotifyProfileImageUrl: contributor.spotifyProfileImageUrl,
+    profileImageUrl: contributor.profileImageUrl,
   },
   count: 1,
 }));
@@ -140,6 +140,15 @@ const publishedRound = {
   artworkUrls: art.slice(1, 6),
 };
 
+const publishedRoundSubmissions = Array.from({ length: 7 }, (_, index) => ({
+  ...submissions[index % submissions.length],
+  id: `published-submission-${index}`,
+  track: {
+    ...tracks[index % tracks.length],
+    spotifyTrackId: `published-track-${index}`,
+  },
+}));
+
 const series = {
   id: "series-1",
   name: "BoroCrew After Hours",
@@ -154,7 +163,7 @@ const series = {
 const profile = {
   id: "me",
   displayName: "Mara Green",
-  spotifyProfileImageUrl: null,
+  profileImageUrl: null,
   isMe: true,
   historyCount: 18,
   nextCursor: null,
@@ -182,7 +191,7 @@ const profile = {
     affinity: contributors.slice(1).map((contributor, index) => ({
       id: contributor.id,
       displayName: contributor.displayName,
-      spotifyProfileImageUrl: contributor.spotifyProfileImageUrl,
+      profileImageUrl: contributor.profileImageUrl,
       affinity: 78 - index * 13,
       sharedRoundCount: 12 - index * 2,
       sharedGenres: contributor.genres.slice(0, 3).map((genre) => genre.name),
@@ -265,7 +274,31 @@ function responseFor(path: string) {
       },
     };
   }
-  if (path === "/api/v1/series") return [{ ...series, featuredRound: openRound }];
+  if (path === "/api/v1/series") {
+    return [{ ...series, featuredRound: openRound, latestPublishedRound: publishedRound }];
+  }
+  if (path === "/api/v1/rounds/round-published-demo/attribution") {
+    return {
+      enabled: false,
+      published: true,
+      revealed: true,
+      revealAt: null,
+      roster: [],
+      game: null,
+      leaderboard: [],
+    };
+  }
+  if (path === "/api/v1/rounds/round-august/attribution") {
+    return {
+      enabled: true,
+      published: true,
+      revealed: false,
+      revealAt: "2026-09-20T09:00:00-04:00",
+      roster: [],
+      game: null,
+      leaderboard: [],
+    };
+  }
   if (path === "/api/v1/series/series-1") {
     return {
       ...series,
@@ -290,6 +323,17 @@ function responseFor(path: string) {
     };
   }
   if (path === "/api/v1/rounds/round-open") return openRound;
+  if (path === "/api/v1/rounds/round-published-demo") {
+    return {
+      ...openRound,
+      ...publishedRound,
+      id: "round-published-demo",
+      submittedCount: 4,
+      backgroundArtworkUrl: art[1],
+      spotifyPlaylistUrl: "https://open.spotify.com/playlist/example",
+    };
+  }
+  if (path === "/api/v1/rounds/round-published-demo/submissions") return publishedRoundSubmissions;
   if (path === "/api/v1/rounds/round-open/submissions") return openRoundSubmissions;
   if (path === "/api/v1/rounds/round-open/submission-counts") return openRoundSubmissionCounts;
   if (path === "/api/v1/rounds/round-open/draft") return { track: null, note: null };

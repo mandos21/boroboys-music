@@ -12,6 +12,7 @@ export function AttributionLeaderboard({
   if (entries.length === 0) return null;
   return (
     <section
+      id="round-leaderboard"
       className="panel attribution-leaderboard"
       aria-labelledby="attribution-leaderboard-heading"
     >

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
 
 import { api, post } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
@@ -134,7 +133,8 @@ export function PublicationPanel({
           </p>
           {spotifyAccounts.length === 0 ? (
             <p>
-              <Link to="/settings/connections">Link a Spotify account</Link> before publishing.
+              <a href="/api/v1/connections/spotify/login">Link a Spotify account</a> before
+              publishing.
             </p>
           ) : (
             <>

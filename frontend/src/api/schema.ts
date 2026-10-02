@@ -1402,8 +1402,8 @@ export interface components {
             displayName: string;
             /** Id */
             id: string;
-            /** Spotifyprofileimageurl */
-            spotifyProfileImageUrl: string | null;
+            /** Profileimageurl */
+            profileImageUrl: string | null;
         };
         /** ContributorSubmissionCountResponse */
         ContributorSubmissionCountResponse: {
@@ -1544,12 +1544,12 @@ export interface components {
             displayName: string;
             /** Id */
             id: string;
+            /** Profileimageurl */
+            profileImageUrl: string | null;
             /** Sharedgenres */
             sharedGenres: string[];
             /** Sharedroundcount */
             sharedRoundCount: number;
-            /** Spotifyprofileimageurl */
-            spotifyProfileImageUrl: string | null;
         };
         /**
          * ProfileAttributionResponse
@@ -1590,8 +1590,8 @@ export interface components {
             isMe: boolean;
             /** Nextcursor */
             nextCursor: string | null;
-            /** Spotifyprofileimageurl */
-            spotifyProfileImageUrl: string | null;
+            /** Profileimageurl */
+            profileImageUrl: string | null;
             stats: components["schemas"]["ProfileStatsResponse"];
             /** Submissions */
             submissions: components["schemas"]["ProfileSubmissionResponse"][];
@@ -1872,8 +1872,8 @@ export interface components {
             genres: components["schemas"]["ProfileGenreItemResponse"][];
             /** Id */
             id: string;
-            /** Spotifyprofileimageurl */
-            spotifyProfileImageUrl: string | null;
+            /** Profileimageurl */
+            profileImageUrl: string | null;
             /** Trackcount */
             trackCount: number;
         };
@@ -1987,6 +1987,7 @@ export interface components {
             id: string;
             /** Isadmin */
             isAdmin: boolean;
+            latestPublishedRound: components["schemas"]["RoundPreviewResponse"] | null;
             /** Name */
             name: string;
             /** Timezone */

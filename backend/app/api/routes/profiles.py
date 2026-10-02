@@ -17,7 +17,7 @@ from sqlalchemy.engine import Row
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.deps import DbSession, get_current_user, require_csrf
-from app.api.payloads import contributor_display_name, spotify_profile_image_subquery
+from app.api.payloads import contributor_display_name, contributor_profile_image_subquery
 from app.api.routes.rounds._common import _track_payload
 from app.api.schemas import NotificationSettingsResponse, ProfileResponse
 from app.db.models import (
@@ -208,13 +208,13 @@ def _profile_payload(
     page = rows[:limit]
     next_cursor = _encode_cursor(page[-1][0]) if len(rows) > limit and page else None
     profile_image_url = db.scalar(
-        select(spotify_profile_image_subquery(User.id)).where(User.id == profile_user.id)
+        select(contributor_profile_image_subquery(User.id)).where(User.id == profile_user.id)
     )
 
     return {
         "id": str(profile_user.id),
         "displayName": contributor_display_name(profile_user.display_name, profile_user.email),
-        "spotifyProfileImageUrl": profile_image_url,
+        "profileImageUrl": profile_image_url,
         "isMe": profile_user.id == viewer.id,
         "stats": {
             "submissionCount": submission_count,
@@ -452,11 +452,11 @@ def _with_identities(db: DbSession, items: list[dict[str, object]]) -> list[dict
     if not items:
         return []
     ids = [uuid.UUID(str(item["id"])) for item in items]
-    spotify_image = spotify_profile_image_subquery(User.id)
+    profile_image = contributor_profile_image_subquery(User.id)
     identities = {
         str(user_id): (display_name, email, image)
         for user_id, display_name, email, image in db.execute(
-            select(User.id, User.display_name, User.email, spotify_image).where(User.id.in_(ids))
+            select(User.id, User.display_name, User.email, profile_image).where(User.id.in_(ids))
         )
     }
     resolved = []
@@ -466,7 +466,7 @@ def _with_identities(db: DbSession, items: list[dict[str, object]]) -> list[dict
             {
                 **item,
                 "displayName": contributor_display_name(display_name, email),
-                "spotifyProfileImageUrl": image,
+                "profileImageUrl": image,
             }
         )
     return resolved

@@ -206,9 +206,12 @@ export function RoundSettingsForm({
           {publisherAccountId
             ? "This round releases itself at its publish time, through this Spotify account."
             : "Without an account, the round stays closed until somebody publishes it."}
-          {spotifyAccounts.length === 0
-            ? " Link a Spotify account on your profile to enable this."
-            : ""}
+          {spotifyAccounts.length === 0 && (
+            <>
+              {" "}
+              <a href="/api/v1/connections/spotify/login">Link a Spotify account</a> to enable this.
+            </>
+          )}
         </span>
       </label>
       <Button disabled={saveRound.isPending} type="submit">

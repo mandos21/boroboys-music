@@ -98,3 +98,57 @@ def test_genre_tags_falls_back_to_artist_tags_when_the_track_has_none(
 def test_genre_tags_requires_an_api_key() -> None:
     with pytest.raises(lastfm.LastfmError):
         lastfm.genre_tags(Settings(lastfm_api_key=None), "An Artist", "A Track")
+
+
+class FakeUserInfoResponse:
+    def __init__(self, images: list[dict[str, str]] | None) -> None:
+        self._images = images
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> object:
+        user: dict[str, object] = {"name": "listener"}
+        if self._images is not None:
+            user["image"] = self._images
+        return {"user": user}
+
+
+def test_user_profile_image_picks_the_largest_available_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_get(*_: object, **kwargs: object) -> FakeUserInfoResponse:
+        observed.update(kwargs)
+        return FakeUserInfoResponse(
+            [
+                {"size": "small", "#text": "https://lastfm.test/small.jpg"},
+                {"size": "extralarge", "#text": "https://lastfm.test/large.jpg"},
+            ]
+        )
+
+    monkeypatch.setattr(lastfm.httpx, "get", fake_get)
+
+    image = lastfm.user_profile_image(Settings(lastfm_api_key="api-key"), "listener")
+
+    assert image == "https://lastfm.test/large.jpg"
+    assert observed["params"] == {
+        "method": "user.getInfo",
+        "api_key": "api-key",
+        "user": "listener",
+        "format": "json",
+    }
+
+
+def test_user_profile_image_returns_none_without_an_image(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(lastfm.httpx, "get", lambda *_, **__: FakeUserInfoResponse(None))
+
+    assert lastfm.user_profile_image(Settings(lastfm_api_key="api-key"), "listener") is None
+
+
+def test_user_profile_image_requires_an_api_key() -> None:
+    with pytest.raises(lastfm.LastfmError):
+        lastfm.user_profile_image(Settings(lastfm_api_key=None), "listener")

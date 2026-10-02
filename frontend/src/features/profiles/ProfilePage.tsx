@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Album, ChevronDown, Disc3, Music2, UsersRound } from "lucide-react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { Album, ChevronDown, Disc3, Music2, Settings, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { api } from "../../api/client";
@@ -12,18 +12,16 @@ import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { Button } from "../../components/ui/button";
 import { avatarStyle } from "../../lib/avatar";
 import { formatDate } from "../../lib/format";
-import { ConnectionsPanel } from "../connections/ConnectionsPanel";
 import { GenreGroupBar } from "../genres/GenreGroupBar";
 import { GenrePill } from "../genres/GenrePill";
 import { genreGroupTotals } from "../genres/genre";
 import "../genres/genres.css";
-import { NotificationSettingsPanel } from "./NotificationSettingsPanel";
 import "./profiles.css";
 
 type Profile = components["schemas"]["ProfileResponse"];
 
 export function ProfilePage() {
-  return <ProfileView endpoint="/profiles/me" queryKey={queryKeys.profile()} includeConnections />;
+  return <ProfileView endpoint="/profiles/me" queryKey={queryKeys.profile()} isOwnProfile />;
 }
 
 export function ContributorProfilePage() {
@@ -34,11 +32,11 @@ export function ContributorProfilePage() {
 function ProfileView({
   endpoint,
   queryKey,
-  includeConnections = false,
+  isOwnProfile = false,
 }: {
   endpoint: string;
   queryKey: readonly unknown[];
-  includeConnections?: boolean;
+  isOwnProfile?: boolean;
 }) {
   const profile = useInfiniteQuery({
     queryKey,
@@ -62,21 +60,19 @@ function ProfileView({
   return (
     <main className="shell profile-shell">
       {profile.isError || !item ? (
-        <>
-          <StatePanel
-            kind="error"
-            title={includeConnections ? "Listening profile unavailable" : "Profile unavailable"}
-          >
-            {includeConnections ? (
-              "Your connection settings are still available below."
-            ) : (
-              <>
-                This listener may not have shared history with you yet.{" "}
-                <Link to="/">Return to your series</Link>
-              </>
-            )}
-          </StatePanel>
-        </>
+        <StatePanel
+          kind="error"
+          title={isOwnProfile ? "Listening profile unavailable" : "Profile unavailable"}
+        >
+          {isOwnProfile ? (
+            "Please refresh the page and try again."
+          ) : (
+            <>
+              This listener may not have shared history with you yet.{" "}
+              <Link to="/">Return to your series</Link>
+            </>
+          )}
+        </StatePanel>
       ) : (
         <ProfileContent
           item={item}
@@ -86,7 +82,6 @@ function ProfileView({
           isLoadingMore={profile.isFetchingNextPage}
         />
       )}
-      {includeConnections && <ProfileConnections />}
     </main>
   );
 }
@@ -113,9 +108,14 @@ function ProfileContent({
         </Link>
       )}
       <section className="panel profile-overview">
+        {item.isMe && (
+          <Link className="icon-button profile-settings-link" to="/settings" aria-label="Settings">
+            <Settings aria-hidden="true" size={18} />
+          </Link>
+        )}
         <div className="profile-identity">
-          {item.spotifyProfileImageUrl ? (
-            <img className="profile-avatar" src={item.spotifyProfileImageUrl} alt="" />
+          {item.profileImageUrl ? (
+            <img className="profile-avatar" src={item.profileImageUrl} alt="" />
           ) : (
             <span
               className="profile-avatar profile-avatar-fallback"
@@ -239,44 +239,6 @@ function ProfileContent({
   );
 }
 
-function ProfileConnections() {
-  return (
-    <>
-      <SetupSection id="connections-title" title="Connected services" eyebrow="Your setup">
-        <ConnectionsPanel />
-      </SetupSection>
-      <SetupSection id="notifications-title" title="Email notifications">
-        <NotificationSettingsPanel />
-      </SetupSection>
-    </>
-  );
-}
-
-function SetupSection({
-  id,
-  title,
-  eyebrow,
-  children,
-}: {
-  id: string;
-  title: string;
-  /** Only the first section of the group carries the group's eyebrow. */
-  eyebrow?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="profile-setup-section" aria-labelledby={id}>
-      <div className="section-heading">
-        <div>
-          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h2 id={id}>{title}</h2>
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
 function ProfileStat({
   icon: Icon,
   label,
@@ -332,8 +294,8 @@ function TasteAffinity({
                 aria-label={`Open ${listener.displayName}'s profile`}
                 tabIndex={-1}
               >
-                {listener.spotifyProfileImageUrl ? (
-                  <img src={listener.spotifyProfileImageUrl} alt="" />
+                {listener.profileImageUrl ? (
+                  <img src={listener.profileImageUrl} alt="" />
                 ) : (
                   <span
                     className="affinity-avatar"

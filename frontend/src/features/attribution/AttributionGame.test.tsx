@@ -22,12 +22,12 @@ const status: AttributionStatus = {
   revealAt: new Date(Date.now() + 3_600_000).toISOString(),
   game: null,
   roster: [
-    { contributor: { id: "me", displayName: "Me", spotifyProfileImageUrl: null }, maxGuesses: 1 },
+    { contributor: { id: "me", displayName: "Me", profileImageUrl: null }, maxGuesses: 1 },
     {
-      contributor: { id: "alice", displayName: "Alice", spotifyProfileImageUrl: null },
+      contributor: { id: "alice", displayName: "Alice", profileImageUrl: null },
       maxGuesses: 1,
     },
-    { contributor: { id: "bob", displayName: "Bob", spotifyProfileImageUrl: null }, maxGuesses: 1 },
+    { contributor: { id: "bob", displayName: "Bob", profileImageUrl: null }, maxGuesses: 1 },
   ],
   leaderboard: [],
 };
@@ -41,7 +41,7 @@ const tracks: Submission[] = [
     updatedAt: "2026-09-01T00:00:00Z",
     withdrawnAt: null,
     isMine: true,
-    contributor: { id: "me", displayName: "Me", spotifyProfileImageUrl: null },
+    contributor: { id: "me", displayName: "Me", profileImageUrl: null },
     track: {
       spotifyTrackId: "t-mine",
       name: "My Song",

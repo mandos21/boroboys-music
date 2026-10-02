@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from app.api.deps import DbSession, get_current_user
 from app.api.payloads import (
     contributor_display_name,
-    spotify_profile_image_subquery,
+    contributor_profile_image_subquery,
 )
 from app.api.routes.rounds._common import (
     _may_see_evidence,
@@ -102,9 +102,9 @@ def list_round_submissions(
         if membership is not None:
             visible_statuses = visible_statuses | (Submission.contributor_id == user.id)
     revealed = has_published and attribution.is_revealed_for(db, round_, publication, user.id)
-    spotify_profile_image = spotify_profile_image_subquery(Submission.contributor_id)
+    profile_image = contributor_profile_image_subquery(Submission.contributor_id)
     query = (
-        select(Submission, Track, User, spotify_profile_image)
+        select(Submission, Track, User, profile_image)
         .join(Track, Track.id == Submission.track_id)
         .join(User, User.id == Submission.contributor_id)
         .where(
@@ -136,7 +136,7 @@ def list_round_submissions(
                     "displayName": contributor_display_name(
                         contributor.display_name, contributor.email
                     ),
-                    "spotifyProfileImageUrl": profile_image_url,
+                    "profileImageUrl": profile_image_url,
                 }
                 if revealed or submission.contributor_id == user.id
                 else None
@@ -168,7 +168,7 @@ def list_round_submission_counts(
     has_published = publication is not None and publication.published_at is not None
     if has_published and not attribution.is_revealed_for(db, round_, publication, user.id):
         return []
-    spotify_profile_image = spotify_profile_image_subquery(RoundMember.user_id)
+    profile_image = contributor_profile_image_subquery(RoundMember.user_id)
     counts = (
         select(Submission.contributor_id, func.count().label("count"))
         .where(Submission.round_id == round_id, Submission.status == SubmissionStatus.ACCEPTED)
@@ -176,7 +176,7 @@ def list_round_submission_counts(
         .subquery()
     )
     rows = db.execute(
-        select(User, spotify_profile_image, func.coalesce(counts.c.count, 0))
+        select(User, profile_image, func.coalesce(counts.c.count, 0))
         .select_from(RoundMember)
         .join(User, User.id == RoundMember.user_id)
         .outerjoin(counts, counts.c.contributor_id == RoundMember.user_id)
@@ -188,7 +188,7 @@ def list_round_submission_counts(
             "contributor": {
                 "id": str(member.id),
                 "displayName": contributor_display_name(member.display_name, member.email),
-                "spotifyProfileImageUrl": profile_image_url,
+                "profileImageUrl": profile_image_url,
             },
             "count": int(count),
         }

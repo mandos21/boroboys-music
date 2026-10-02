@@ -1,12 +1,25 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, CircleHelp, Clock3, Disc3, ListMusic, UsersRound } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronDown,
+  CircleHelp,
+  Clock3,
+  Disc3,
+  ListMusic,
+  UsersRound,
+} from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { api, patch, post } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../../components/ui/collapsible";
 import { Button } from "../../components/ui/button";
 import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { StatePanel } from "../../components/ui/StatePanel";
@@ -21,6 +34,7 @@ import { avatarStyle } from "../../lib/avatar";
 import { formatDate, formatDateOnly, formatDeadline } from "../../lib/format";
 import { markPerformance } from "../../lib/performance";
 import { DeferredSeriesInsights } from "./DeferredSeriesInsights";
+import { GuessWhoPhase } from "./GuessWhoPhase";
 
 type Round = components["schemas"]["RoundDetailResponse"];
 type Submission = components["schemas"]["SubmissionResponse"];
@@ -139,6 +153,10 @@ export function RoundPage() {
   if (round.isError || !round.data) return <UnavailableRound />;
 
   const item = round.data;
+  const showAttributionResults = Boolean(attribution.data?.enabled && attribution.data.revealed);
+  const guessingOpen = Boolean(
+    attribution.data?.enabled && attribution.data.published && !attribution.data.revealed,
+  );
   const mySubmissionCount = submissions.data?.filter(
     (entry) => entry.isMine && entry.status === "accepted",
   ).length;
@@ -147,20 +165,52 @@ export function RoundPage() {
       <Link className="back" to={item.seriesId ? `/series/${item.seriesId}` : "/"}>
         ← Back to series
       </Link>
-      <RoundOverview
-        round={item}
-        mySubmissionCount={mySubmissionCount}
-        onDeclineChange={(declined) => updateParticipation.mutate(declined)}
-        isSavingParticipation={updateParticipation.isPending}
-      />
-      {item.status === "published" && submissions.data && (
-        <ReleaseRecap round={item} submissions={submissions.data} />
+      <nav className="round-section-nav" aria-label="Round sections">
+        {item.status === "published" ? (
+          <a href="#round-playlist">Release recap</a>
+        ) : (
+          <a href="#round-overview">Overview</a>
+        )}
+        <a href="#round-submissions">{guessingOpen ? "Guess Who?" : "Submissions"}</a>
+        {showAttributionResults && Boolean(attribution.data?.leaderboard.length) && (
+          <a href="#round-leaderboard">Leaderboard</a>
+        )}
+        {showAttributionResults && <a href="#round-answers">Answers</a>}
+        {showAttributionResults && <a href="#round-matrix">Matrix</a>}
+      </nav>
+      {item.status === "published" ? (
+        <ReleaseRecap
+          round={item}
+          submissions={submissions.data}
+          mySubmissionCount={mySubmissionCount}
+          onDeclineChange={(declined) => updateParticipation.mutate(declined)}
+          isSavingParticipation={updateParticipation.isPending}
+        />
+      ) : (
+        <RoundOverview
+          round={item}
+          mySubmissionCount={mySubmissionCount}
+          onDeclineChange={(declined) => updateParticipation.mutate(declined)}
+          isSavingParticipation={updateParticipation.isPending}
+        />
       )}
-      {attribution.data?.enabled && attribution.data.published && !attribution.data.revealed ? (
+      {guessingOpen && submissions.isLoading ? (
+        <div id="round-submissions">
+          <StatePanel kind="loading" title="Loading tracks for Guess Who?">
+            Getting the published playlist ready.
+          </StatePanel>
+        </div>
+      ) : guessingOpen && submissions.isError ? (
+        <div id="round-submissions">
+          <StatePanel kind="error" title="We couldn’t load the tracks">
+            Refresh the page to try again.
+          </StatePanel>
+        </div>
+      ) : guessingOpen && attribution.data && submissions.data ? (
         <AttributionGame
           roundId={item.id}
           status={attribution.data}
-          tracks={submissions.data ?? []}
+          tracks={submissions.data}
           viewerId={session.data?.user?.id}
           onRevealed={() => {
             queryClient.invalidateQueries({ queryKey: queryKeys.attribution(roundId) });
@@ -179,16 +229,16 @@ export function RoundPage() {
           onSaveNote={(id, note) => updateNote.mutate({ submissionId: id, note })}
         />
       )}
-      {attribution.data && <AttributionLeaderboard entries={attribution.data.leaderboard} />}
-      {attribution.data && (
+      {showAttributionResults && <AttributionLeaderboard entries={attribution.data?.leaderboard} />}
+      {showAttributionResults && (
         <AttributionBreakdown
           roundId={item.id}
           viewerId={session.data?.user?.id}
-          enabled={attribution.data.revealed}
+          enabled={showAttributionResults}
         />
       )}
-      {attribution.data && (
-        <AttributionMatrix roundId={item.id} enabled={attribution.data.revealed} />
+      {showAttributionResults && (
+        <AttributionMatrix roundId={item.id} enabled={showAttributionResults} />
       )}
       <ConfirmDialog
         open={Boolean(submissionToWithdraw)}
@@ -227,11 +277,13 @@ function RoundOverview({
   mySubmissionCount,
   onDeclineChange,
   isSavingParticipation,
+  compact = false,
 }: {
   round: Round;
   mySubmissionCount: number | undefined;
   onDeclineChange: (declined: boolean) => void;
   isSavingParticipation: boolean;
+  compact?: boolean;
 }) {
   // Until the submissions have loaded, nobody knows whether this person has
   // room left. Rendering the controls optimistically made them flash for
@@ -241,13 +293,16 @@ function RoundOverview({
   const hasCapacity = capacityKnown && mySubmissionCount < round.submissionLimit;
   return (
     <section
-      className="panel detail round-overview"
+      id={compact ? undefined : "round-overview"}
+      className={compact ? "round-details" : "panel detail round-overview"}
       style={
-        {
-          "--round-cover": round.backgroundArtworkUrl
-            ? `url(${round.backgroundArtworkUrl})`
-            : "none",
-        } as CSSProperties
+        !compact
+          ? ({
+              "--round-cover": round.backgroundArtworkUrl
+                ? `url(${round.backgroundArtworkUrl})`
+                : "none",
+            } as CSSProperties)
+          : undefined
       }
     >
       {round.status === "open" && (
@@ -257,10 +312,10 @@ function RoundOverview({
       )}
       <div className="round-overview-content">
         <span className={`status ${round.status}`}>{round.status}</span>
-        <h1>{round.title}</h1>
+        {compact ? <h2>{round.title} details</h2> : <h1>{round.title}</h1>}
         <p>
-          Share up to {round.submissionLimit} track{round.submissionLimit === 1 ? "" : "s"} with
-          this group before the release date.
+          {compact ? "Contributors could share" : "Share"} up to {round.submissionLimit} track
+          {round.submissionLimit === 1 ? "" : "s"} with this group before the release date.
         </p>
         {round.prompt && <p className="round-prompt">Prompt: {round.prompt}</p>}
         {round.status === "open" && (
@@ -346,7 +401,7 @@ function RoundOverview({
             </p>
           )}
           <div className="round-secondary-actions">
-            {round.spotifyPlaylistUrl && (
+            {!compact && round.spotifyPlaylistUrl && (
               <a
                 className="history-link"
                 href={round.spotifyPlaylistUrl}
@@ -373,33 +428,75 @@ function RoundOverview({
   );
 }
 
-function ReleaseRecap({ round, submissions }: { round: Round; submissions: Submission[] }) {
+function ReleaseRecap({
+  round,
+  submissions,
+  mySubmissionCount,
+  onDeclineChange,
+  isSavingParticipation,
+}: {
+  round: Round;
+  submissions: Submission[] | undefined;
+  mySubmissionCount: number | undefined;
+  onDeclineChange: (declined: boolean) => void;
+  isSavingParticipation: boolean;
+}) {
   const artwork = round.artworkUrls;
   return (
-    <section className="panel release-recap">
+    <section id="round-playlist" className="panel release-recap">
       <div>
         <p className="eyebrow">Release recap</p>
-        <h2>{round.title}</h2>
+        <h1>{round.title}</h1>
         <p>
           {round.submittedCount} contributor{round.submittedCount === 1 ? "" : "s"} shared{" "}
-          {submissions.length} track{submissions.length === 1 ? "" : "s"}.
+          {submissions === undefined
+            ? "tracks in this release."
+            : `${submissions.length} track${submissions.length === 1 ? "" : "s"}.`}
         </p>
       </div>
       {artwork.length > 0 && (
         <ArtworkMosaic artworkUrls={artwork} label="Album art from this release" />
       )}
-      <NowSpinning
-        tracks={submissions
-          .slice(0, 4)
-          .map((submission) => `${submission.track.name} — ${submission.track.artist}`)}
-      />
+      {submissions && submissions.length > 0 && (
+        <NowSpinning
+          tracks={submissions
+            .slice(0, 4)
+            .map((submission) => `${submission.track.name} — ${submission.track.artist}`)}
+        />
+      )}
+      <Collapsible className="release-details">
+        <div className="release-recap-actions">
+          {round.spotifyPlaylistUrl && (
+            <a
+              className="history-link"
+              href={round.spotifyPlaylistUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open Spotify playlist
+            </a>
+          )}
+          <CollapsibleTrigger className="release-details-trigger">
+            Round details <ChevronDown aria-hidden="true" size={16} />
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>
+          <RoundOverview
+            round={round}
+            mySubmissionCount={mySubmissionCount}
+            onDeclineChange={onDeclineChange}
+            isSavingParticipation={isSavingParticipation}
+            compact
+          />
+        </CollapsibleContent>
+      </Collapsible>
     </section>
   );
 }
 
 function ArtworkMosaic({ artworkUrls, label }: { artworkUrls: string[]; label: string }) {
   return (
-    <div className="artwork-mosaic" aria-label={label}>
+    <div className="artwork-mosaic" role="img" aria-label={label}>
       {artworkUrls.map((url, index) => (
         <img key={`${url}-${index}`} src={url} alt="" />
       ))}
@@ -435,17 +532,22 @@ function RoundSubmissions({
   onWithdraw: (submission: Submission) => void;
   onSaveNote: (id: string, note: string | null) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (submissions.isLoading)
     return (
-      <StatePanel kind="loading" title="Loading submissions">
-        Checking what the group has shared so far.
-      </StatePanel>
+      <div id="round-submissions">
+        <StatePanel kind="loading" title="Loading submissions">
+          Checking what the group has shared so far.
+        </StatePanel>
+      </div>
     );
   if (submissions.isError)
     return (
-      <StatePanel kind="error" title="We couldn’t load submissions">
-        Refresh the page to try again.
-      </StatePanel>
+      <div id="round-submissions">
+        <StatePanel kind="error" title="We couldn’t load submissions">
+          Refresh the page to try again.
+        </StatePanel>
+      </div>
     );
   // While a round is open, the API already limits `submissions` to the
   // viewer's own entries - everyone else's picks stay a secret until the
@@ -456,7 +558,11 @@ function RoundSubmissions({
     ? (submissionCounts.data ?? []).reduce((sum, entry) => sum + entry.count, 0)
     : entries.filter((entry) => entry.status === "accepted").length;
   return (
-    <section className="panel submission-history" aria-labelledby="submissions-heading">
+    <section
+      id="round-submissions"
+      className="panel submission-history"
+      aria-labelledby="submissions-heading"
+    >
       <div className="section-heading">
         <div>
           <p className="eyebrow">Shared so far</p>
@@ -481,8 +587,8 @@ function RoundSubmissions({
             : "Be the one to set the tone for this round."}
         </StatePanel>
       ) : (
-        <ul>
-          {entries.map((entry) => {
+        <ul id="round-submission-list">
+          {(expanded ? entries : entries.slice(0, 5)).map((entry) => {
             // Only reached once identities are revealed (or before publish,
             // where every visible entry is the viewer's own) - the game
             // component handles the hidden-contributor state instead.
@@ -516,10 +622,10 @@ function RoundSubmissions({
                     Submitted by {contributor.displayName ?? "Unknown listener"}
                     {entry.isMine ? " (you)" : ""}
                   </small>
-                  {contributor.spotifyProfileImageUrl ? (
+                  {contributor.profileImageUrl ? (
                     <img
                       className="contributor-avatar"
-                      src={contributor.spotifyProfileImageUrl}
+                      src={contributor.profileImageUrl}
                       alt={`${contributor.displayName ?? "Contributor"}'s Spotify profile`}
                     />
                   ) : (
@@ -545,6 +651,18 @@ function RoundSubmissions({
             );
           })}
         </ul>
+      )}
+      {entries.length > 5 && (
+        <button
+          className="submission-list-toggle"
+          type="button"
+          aria-controls="round-submission-list"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          {expanded ? "Show fewer tracks" : `Show all ${entries.length} tracks`}
+          <ChevronDown aria-hidden="true" size={14} />
+        </button>
       )}
     </section>
   );
@@ -617,12 +735,8 @@ function RoundParticipantCounts({
             to={`/people/${entry.contributor.id}`}
             aria-label={`Open ${entry.contributor.displayName}'s profile`}
           >
-            {entry.contributor.spotifyProfileImageUrl ? (
-              <img
-                className="contributor-avatar"
-                src={entry.contributor.spotifyProfileImageUrl}
-                alt=""
-              />
+            {entry.contributor.profileImageUrl ? (
+              <img className="contributor-avatar" src={entry.contributor.profileImageUrl} alt="" />
             ) : (
               <span
                 className="contributor-avatar contributor-avatar-fallback"
@@ -670,16 +784,15 @@ export function SeriesPage() {
       </main>
     );
   const item = series.data;
-  // The API already sorts an open round ahead of the archive, so the first
-  // round is the one worth leading with. The archive below is releases only,
-  // which keeps an unfinished round from being listed with a release date it
-  // has not reached yet.
-  const featuredRound = item.rounds[0];
+  const currentRound =
+    item.rounds.find((round) => round.status === "open") ??
+    item.rounds.find((round) => round.status !== "published");
+  const latestRelease = item.rounds.find((round) => round.status === "published");
   const publishedRounds = item.rounds.filter(
-    (round) => round.status === "published" && round.id !== featuredRound?.id,
+    (round) => round.status === "published" && round.id !== latestRelease?.id,
   );
   const upcomingRounds = item.rounds.filter(
-    (round) => round.status !== "published" && round.id !== featuredRound?.id,
+    (round) => round.status !== "published" && round.id !== currentRound?.id,
   );
   return (
     <main className="shell">
@@ -738,8 +851,13 @@ export function SeriesPage() {
           )}
         </StatePanel>
       )}
+      {(latestRelease || currentRound) && (
+        <section className="series-spotlight" aria-label="Latest playlist and current round">
+          {latestRelease && <FeaturedRound round={latestRelease} />}
+          {currentRound && <FeaturedRound round={currentRound} />}
+        </section>
+      )}
       {item.stats.songCount > 0 && <DeferredSeriesInsights seriesId={item.id} />}
-      {featuredRound && <FeaturedRound round={featuredRound} />}
       {(publishedRounds.length > 0 || upcomingRounds.length > 0) && (
         <section className="panel series-release-list">
           <div className="section-heading">
@@ -799,7 +917,7 @@ function SeriesContributors({
       <div className="contributor-stack">
         {contributors.length ? (
           contributors.map((contributor) =>
-            contributor.spotifyProfileImageUrl ? (
+            contributor.profileImageUrl ? (
               <Link
                 key={contributor.id}
                 className="contributor-profile-link"
@@ -807,7 +925,7 @@ function SeriesContributors({
                 title={contributor.displayName}
                 aria-label={`Open ${contributor.displayName}'s profile`}
               >
-                <img src={contributor.spotifyProfileImageUrl} alt="" />
+                <img src={contributor.profileImageUrl} alt="" />
               </Link>
             ) : (
               <Link
@@ -845,8 +963,9 @@ function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
       }
     >
       <div className="featured-round-copy">
-        <p className="eyebrow">{active ? "Current round" : "Latest release"}</p>
+        <p className="eyebrow">{active ? "Current round" : "Latest playlist"}</p>
         <h2>{round.title}</h2>
+        {!active && <GuessWhoPhase roundId={round.id} />}
         <p>
           {active
             ? `${formatDeadline(round.closesAt)} · ${formatDate(round.closesAt)}`

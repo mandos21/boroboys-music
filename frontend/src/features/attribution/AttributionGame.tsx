@@ -220,7 +220,7 @@ function AttributionReveal({
   const tracksById = new Map(tracks.map((track) => [track.id, track]));
 
   return (
-    <section className="panel attribution-reveal" aria-live="polite">
+    <section id="round-submissions" className="panel attribution-reveal" aria-live="polite">
       <div className="attribution-score">
         <strong>
           {result.correctCount} / {result.totalCount}
@@ -329,7 +329,7 @@ export function AttributionGame({
 
   if (guessable.length === 0) {
     return (
-      <section className="panel attribution-game">
+      <section id="round-submissions" className="panel attribution-game">
         <p className="eyebrow">Guess Who?</p>
         <h2>Nobody else to guess yet</h2>
         {status.revealAt && (
@@ -376,7 +376,11 @@ export function AttributionGame({
   const allPlaced = unassignedTracks.length === 0;
 
   return (
-    <section className="panel attribution-game" aria-labelledby="attribution-heading">
+    <section
+      id="round-submissions"
+      className="panel attribution-game"
+      aria-labelledby="attribution-heading"
+    >
       <div className="section-heading">
         <div>
           <p className="eyebrow">Guess Who?</p>

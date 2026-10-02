@@ -19,6 +19,8 @@ from app.api.routes.profiles import (
 )
 from app.db.models import (
     AttributionGame,
+    ExternalAccount,
+    ExternalProvider,
     PlatformRole,
     Round,
     RoundMember,
@@ -444,3 +446,75 @@ def test_profile_attribution_accuracy_is_scoped_by_the_same_round_visibility(
         "totalCount": 14,
         "accuracyPercent": 93,
     }
+
+
+def test_profile_image_prefers_lastfm_over_spotify(
+    db: Session,
+    make_user: Callable[..., User],
+) -> None:
+    """Spotify is only linked by publisher accounts now, so Last.fm wins."""
+    listener = make_user(name="Listener")
+    db.add_all(
+        (
+            ExternalAccount(
+                user_id=listener.id,
+                provider=ExternalProvider.SPOTIFY,
+                provider_subject="spotify-sub",
+                profile_image_url="https://spotify.test/avatar.jpg",
+            ),
+            ExternalAccount(
+                user_id=listener.id,
+                provider=ExternalProvider.LASTFM,
+                provider_subject="lastfm-sub",
+                profile_image_url="https://lastfm.test/avatar.jpg",
+            ),
+        )
+    )
+    db.commit()
+
+    assert get_my_profile(db, listener)["profileImageUrl"] == "https://lastfm.test/avatar.jpg"
+
+
+def test_profile_image_does_not_use_spotify_without_a_lastfm_link(
+    db: Session,
+    make_user: Callable[..., User],
+) -> None:
+    listener = make_user(name="Listener")
+    db.add(
+        ExternalAccount(
+            user_id=listener.id,
+            provider=ExternalProvider.SPOTIFY,
+            provider_subject="spotify-sub",
+            profile_image_url="https://spotify.test/avatar.jpg",
+        )
+    )
+    db.commit()
+
+    assert get_my_profile(db, listener)["profileImageUrl"] is None
+
+
+def test_profile_image_ignores_a_disconnected_lastfm_account(
+    db: Session,
+    make_user: Callable[..., User],
+) -> None:
+    listener = make_user(name="Listener")
+    db.add_all(
+        (
+            ExternalAccount(
+                user_id=listener.id,
+                provider=ExternalProvider.SPOTIFY,
+                provider_subject="spotify-sub",
+                profile_image_url="https://spotify.test/avatar.jpg",
+            ),
+            ExternalAccount(
+                user_id=listener.id,
+                provider=ExternalProvider.LASTFM,
+                provider_subject="lastfm-sub",
+                profile_image_url="https://lastfm.test/avatar.jpg",
+                is_active=False,
+            ),
+        )
+    )
+    db.commit()
+
+    assert get_my_profile(db, listener)["profileImageUrl"] is None

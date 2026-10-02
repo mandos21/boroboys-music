@@ -101,18 +101,20 @@ describe("SeriesPage", () => {
     renderSeries([openRound, publishedRound]);
 
     await screen.findByRole("link", { name: /Current round/ });
-    // "Published <date>" belongs only to rounds that actually have one.
-    expect(screen.queryByText(/September picks/)).toBeTruthy();
-    const archive = screen.getAllByText(/Published/);
-    for (const entry of archive) {
-      expect(entry.textContent).not.toContain("September picks");
-    }
+    const spotlight = screen.getByRole("region", { name: "Latest playlist and current round" });
+    expect(
+      within(spotlight).getByRole("link", { name: /Latest playlist.*August picks/ }),
+    ).toBeTruthy();
+    expect(
+      within(spotlight).getByRole("link", { name: /Current round.*September picks/ }),
+    ).toBeTruthy();
+    expect(within(spotlight).queryByText(/Published.*September picks/)).toBeNull();
   });
 
   it("features the latest release when nothing is open", async () => {
     renderSeries([publishedRound]);
 
-    const featured = await screen.findByRole("link", { name: /Latest release/ });
+    const featured = await screen.findByRole("link", { name: /Latest playlist/ });
     expect(within(featured).getByRole("heading", { name: "August picks" })).toBeTruthy();
   });
   it("shows the series fingerprint and each contributor's mix", async () => {
@@ -127,7 +129,7 @@ describe("SeriesPage", () => {
         {
           id: "user-1",
           displayName: "A Listener",
-          spotifyProfileImageUrl: null,
+          profileImageUrl: null,
           trackCount: 7,
           genres: [
             { name: "midwest emo", count: 5, group: "punk" },
@@ -196,14 +198,14 @@ describe("SeriesPage", () => {
         {
           id: "user-low-variety",
           displayName: "Low variety",
-          spotifyProfileImageUrl: null,
+          profileImageUrl: null,
           trackCount: 3,
           genres: [{ name: "jazz", count: 3, group: "jazz" }],
         },
         {
           id: "user-high-variety",
           displayName: "High variety",
-          spotifyProfileImageUrl: null,
+          profileImageUrl: null,
           trackCount: 4,
           genres: [
             { name: "midwest emo", count: 2, group: "punk" },
@@ -248,14 +250,14 @@ describe("SeriesPage", () => {
         {
           id: "user-low-variety",
           displayName: "Low variety",
-          spotifyProfileImageUrl: null,
+          profileImageUrl: null,
           trackCount: 3,
           genres: [{ name: "jazz", count: 3, group: "jazz" }],
         },
         {
           id: "user-high-variety",
           displayName: "High variety",
-          spotifyProfileImageUrl: null,
+          profileImageUrl: null,
           trackCount: 2,
           genres: [{ name: "midwest emo", count: 2, group: "punk" }],
         },

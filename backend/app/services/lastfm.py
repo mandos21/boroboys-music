@@ -92,6 +92,34 @@ def _top_tags(api_key: str, params: dict[str, str]) -> list[str]:
     return [name.strip() for name in names if isinstance(name, str) and name.strip()]
 
 
+def user_profile_image(settings: Settings, username: str) -> str | None:
+    """The listener's Last.fm avatar, fetched right after a successful link.
+
+    A public, unsigned lookup - same as the track-artwork calls above - so a
+    failure here should never block the link itself from completing.
+    """
+    if not settings.lastfm_api_key:
+        raise LastfmError("Last.fm is not configured")
+    response = httpx.get(
+        API_URL,
+        params={
+            "method": "user.getInfo",
+            "api_key": settings.lastfm_api_key.get_secret_value(),
+            "user": username,
+            "format": "json",
+        },
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    user = payload.get("user") if isinstance(payload, dict) else None
+    images = user.get("image") if isinstance(user, dict) else None
+    if not isinstance(images, list):
+        return None
+    image_urls = [image.get("#text") for image in images if isinstance(image, dict)]
+    return next((url for url in reversed(image_urls) if isinstance(url, str) and url), None)
+
+
 def authorization_url(settings: Settings, state: str) -> str:
     callback = f"{settings.lastfm_callback_url}?{urlencode({'state': state})}"
     api_key = settings.lastfm_api_key.get_secret_value() if settings.lastfm_api_key else ""

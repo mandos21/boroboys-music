@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router";
 
 import { AttributionBreakdown } from "./AttributionBreakdown";
 import type { AttributionSubmitterBreakdown } from "./types";
@@ -13,7 +14,7 @@ afterEach(() => {
 
 const breakdown: AttributionSubmitterBreakdown[] = [
   {
-    contributor: { id: "me", displayName: "Me", spotifyProfileImageUrl: null },
+    contributor: { id: "me", displayName: "Me", profileImageUrl: null },
     yourCorrectCount: null,
     yourTotalCount: null,
     groupCorrectCount: 1,
@@ -34,8 +35,8 @@ const breakdown: AttributionSubmitterBreakdown[] = [
         groupTotalCount: 1,
         guesses: [
           {
-            guesser: { id: "alice", displayName: "Alice", spotifyProfileImageUrl: null },
-            guessedContributor: { id: "me", displayName: "Me", spotifyProfileImageUrl: null },
+            guesser: { id: "alice", displayName: "Alice", profileImageUrl: null },
+            guessedContributor: { id: "me", displayName: "Me", profileImageUrl: null },
             isCorrect: true,
           },
         ],
@@ -43,7 +44,7 @@ const breakdown: AttributionSubmitterBreakdown[] = [
     ],
   },
   {
-    contributor: { id: "alice", displayName: "Alice", spotifyProfileImageUrl: null },
+    contributor: { id: "alice", displayName: "Alice", profileImageUrl: null },
     yourCorrectCount: 0,
     yourTotalCount: 1,
     groupCorrectCount: 0,
@@ -64,13 +65,13 @@ const breakdown: AttributionSubmitterBreakdown[] = [
         groupTotalCount: 2,
         guesses: [
           {
-            guesser: { id: "me", displayName: "Me", spotifyProfileImageUrl: null },
-            guessedContributor: { id: "bob", displayName: "Bob", spotifyProfileImageUrl: null },
+            guesser: { id: "me", displayName: "Me", profileImageUrl: null },
+            guessedContributor: { id: "bob", displayName: "Bob", profileImageUrl: null },
             isCorrect: false,
           },
           {
-            guesser: { id: "carol", displayName: "Carol", spotifyProfileImageUrl: null },
-            guessedContributor: { id: "bob", displayName: "Bob", spotifyProfileImageUrl: null },
+            guesser: { id: "carol", displayName: "Carol", profileImageUrl: null },
+            guessedContributor: { id: "bob", displayName: "Bob", profileImageUrl: null },
             isCorrect: false,
           },
         ],
@@ -79,21 +80,23 @@ const breakdown: AttributionSubmitterBreakdown[] = [
   },
 ];
 
-function renderBreakdown(enabled = true) {
+function renderBreakdown(enabled = true, entries = breakdown) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.stubGlobal(
     "fetch",
     vi.fn((input: string | URL | Request) => {
       const url = String(input);
       if (url.endsWith("/rounds/round-1/attribution/breakdown")) {
-        return Promise.resolve(new Response(JSON.stringify(breakdown), { status: 200 }));
+        return Promise.resolve(new Response(JSON.stringify(entries), { status: 200 }));
       }
       return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
     }),
   );
   return render(
     <QueryClientProvider client={client}>
-      <AttributionBreakdown roundId="round-1" viewerId="me" enabled={enabled} />
+      <MemoryRouter>
+        <AttributionBreakdown roundId="round-1" viewerId="me" enabled={enabled} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -108,11 +111,12 @@ describe("AttributionBreakdown", () => {
   it("groups songs by submitter with group and personal accuracy", async () => {
     renderBreakdown();
 
-    expect(await screen.findByText("Me")).toBeTruthy();
-    expect(screen.getByText("Alice")).toBeTruthy();
-    expect(screen.getByText("Alice").closest("li")?.textContent).toContain("You: 0/1");
+    const people = within(await screen.findByRole("list", { name: "People and songs" }));
+    expect(people.getByText("Me")).toBeTruthy();
+    expect(people.getByText("Alice")).toBeTruthy();
+    expect(people.getByText("Alice").closest("li")?.textContent).toContain("You: 0/1");
     // The viewer's own section never shows a personal "You:" stat.
-    expect(screen.getByText("Me").closest("li")?.textContent).not.toContain("You:");
+    expect(people.getByText("Me").closest("li")?.textContent).not.toContain("You:");
 
     await screen.findByText("My Song");
   });
@@ -120,7 +124,7 @@ describe("AttributionBreakdown", () => {
   it("expands the viewer's own submitter section by default, others collapsed", async () => {
     renderBreakdown();
 
-    await screen.findByText("Me");
+    await screen.findByRole("list", { name: "People and songs" });
     expect(screen.getByText("My Song")).toBeTruthy();
     expect(screen.queryByText("Alice's Song")).toBeNull();
   });
@@ -136,7 +140,8 @@ describe("AttributionBreakdown", () => {
     const user = userEvent.setup();
     renderBreakdown();
 
-    await user.click(await screen.findByText("Alice"));
+    const people = within(await screen.findByRole("list", { name: "People and songs" }));
+    await user.click(people.getByText("Alice"));
     const triggers = await screen.findAllByRole("button", {
       name: "Me and Carol guessed Bob",
     });
@@ -145,5 +150,21 @@ describe("AttributionBreakdown", () => {
     // Not rendered as two separate wrong avatars for the same target.
     expect(screen.queryByLabelText("Me guessed Bob")).toBeNull();
     expect(screen.queryByLabelText("Carol guessed Bob")).toBeNull();
+  });
+
+  it("shows tied confusion awards from incorrect guesses", async () => {
+    renderBreakdown();
+    const awards = within(await screen.findByLabelText("Guess Who awards"));
+    expect(awards.getByText("Most confusing")).toBeTruthy();
+    expect(awards.getByText("Most confused")).toBeTruthy();
+    expect(awards.getByRole("link", { name: "Alice" })).toBeTruthy();
+    expect(awards.getByRole("link", { name: "Me" })).toBeTruthy();
+    expect(awards.getByRole("link", { name: "Carol" })).toBeTruthy();
+  });
+
+  it("omits confusion awards when every guess was correct", async () => {
+    renderBreakdown(true, [breakdown[0]]);
+    await screen.findByRole("list", { name: "People and songs" });
+    expect(screen.queryByLabelText("Guess Who awards")).toBeNull();
   });
 });

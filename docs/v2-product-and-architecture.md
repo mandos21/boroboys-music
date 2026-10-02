@@ -555,10 +555,14 @@ src/
 Required routes:
 
 - `/`: current open rounds the signed-in user can access;
-- `/rounds/:roundId`: overview, schedule, member-visible submissions, and history;
+- `/rounds/:roundId`: overview and schedule before publication; afterward, a release
+  recap with a prominent playlist link and collapsible round details. The submissions
+  list shows five tracks until expanded. Revealed Guess Who rounds also show who
+  received and made the most incorrect guesses, including ties;
 - `/rounds/:roundId/submit`: search, policy result, evidence matrix, and submit;
 - `/series/:seriesId`: series history and round list;
-- `/settings/connections`: Spotify/Last.fm links and privacy status;
+- `/profile`: a listener's submission and listening record;
+- `/settings`: Last.fm connections, notification preferences, and appearance;
 - `/admin/series/:seriesId` and `/admin/rounds/:roundId`: management workflows;
 - `/signed-out`: fixed post-logout page.
 

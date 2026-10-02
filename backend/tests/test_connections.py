@@ -39,6 +39,11 @@ def lastfm_exchange(monkeypatch: pytest.MonkeyPatch) -> None:
         "exchange_session",
         lambda _settings, _token: {"username": "listener", "session_key": "key"},
     )
+    monkeypatch.setattr(
+        connections.lastfm,
+        "user_profile_image",
+        lambda _settings, _username: "https://lastfm.test/listener.jpg",
+    )
 
 
 def test_provider_callback_links_the_account_that_started_the_attempt(
@@ -50,9 +55,35 @@ def test_provider_callback_links_the_account_that_started_the_attempt(
     response = connections.complete_lastfm_link(db, owner, token="provider-token", state=state)
 
     assert response.status_code == 303
+    assert response.headers["location"].endswith("/settings")
     assert "linkError" not in response.headers["location"]
     account = db.scalar(select(ExternalAccount).where(ExternalAccount.user_id == owner.id))
     assert account is not None and account.provider is ExternalProvider.LASTFM
+    assert account.profile_image_url == "https://lastfm.test/listener.jpg"
+
+
+def test_provider_callback_still_links_when_the_avatar_fetch_fails(
+    db: Session, make_user: Callable[..., User], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The avatar is a nice-to-have - its failure must never block the link."""
+    owner = make_user(name="Owner")
+    state = _start_lastfm_attempt(db, owner)
+    monkeypatch.setattr(
+        connections.lastfm,
+        "exchange_session",
+        lambda _settings, _token: {"username": "listener", "session_key": "key"},
+    )
+
+    def failing_image(_settings: object, _username: str) -> str | None:
+        raise connections.lastfm.LastfmError("provider down")
+
+    monkeypatch.setattr(connections.lastfm, "user_profile_image", failing_image)
+
+    response = connections.complete_lastfm_link(db, owner, token="provider-token", state=state)
+
+    assert "linkError" not in response.headers["location"]
+    account = db.scalar(select(ExternalAccount).where(ExternalAccount.user_id == owner.id))
+    assert account is not None and account.profile_image_url is None
 
 
 def test_provider_callback_consumes_the_attempt_before_the_remote_exchange(
@@ -72,6 +103,7 @@ def test_provider_callback_consumes_the_attempt_before_the_remote_exchange(
     response = connections.complete_lastfm_link(db, owner, token="provider-token", state=state)
 
     assert "linkError=failed" in response.headers["location"]
+    assert "/settings?" in response.headers["location"]
     replay = connections.complete_lastfm_link(db, owner, token="provider-token", state=state)
     assert "linkError=expired" in replay.headers["location"]
 

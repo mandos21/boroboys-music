@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Disc3 } from "lucide-react";
+import { Link } from "react-router";
 
 import { api } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
@@ -43,6 +44,57 @@ function groupMistakenGuesses(guesses: AttributionSongGuess[]): MistakenGroup[] 
     }
   }
   return [...groups.values()];
+}
+
+function ConfusionAwards({ entries }: { entries: AttributionSubmitterBreakdown[] }) {
+  const confused = new Map<string, { person: AttributionSongGuess["guesser"]; count: number }>();
+  const confusing = entries.map((entry) => ({
+    person: entry.contributor,
+    count: entry.groupTotalCount - entry.groupCorrectCount,
+  }));
+  for (const entry of entries) {
+    for (const song of entry.songs) {
+      for (const guess of song.guesses) {
+        if (guess.isCorrect) continue;
+        const current = confused.get(guess.guesser.id);
+        confused.set(guess.guesser.id, {
+          person: guess.guesser,
+          count: (current?.count ?? 0) + 1,
+        });
+      }
+    }
+  }
+  const awards = [
+    { title: "Most confusing", detail: "Wrong guesses on their tracks", scores: confusing },
+    { title: "Most confused", detail: "Wrong guesses made", scores: [...confused.values()] },
+  ];
+  if (confused.size === 0) return null;
+  return (
+    <div className="attribution-awards" aria-label="Guess Who awards">
+      {awards.map(({ title, detail, scores }) => {
+        const high = Math.max(...scores.map((score) => score.count));
+        return (
+          <div className="attribution-award" key={title}>
+            <h3>{title}</h3>
+            <p>{detail}</p>
+            <div className="attribution-award-winners">
+              {scores
+                .filter((score) => score.count === high)
+                .map(({ person }) => (
+                  <Link key={person.id} to={`/people/${person.id}`}>
+                    <ContributorAvatar member={person} />
+                    <span>{person.displayName}</span>
+                  </Link>
+                ))}
+            </div>
+            <strong>
+              {high} wrong {high === 1 ? "guess" : "guesses"}
+            </strong>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function SongRow({ song }: { song: AttributionSongBreakdown }) {
@@ -178,6 +230,7 @@ export function AttributionBreakdown({
 
   return (
     <section
+      id="round-answers"
       className="panel attribution-breakdown"
       aria-labelledby="attribution-breakdown-heading"
     >
@@ -198,13 +251,16 @@ export function AttributionBreakdown({
         </StatePanel>
       )}
       {breakdown.data && (
-        <ul className="attribution-breakdown-list">
-          {breakdown.data.map((entry) => (
-            <li key={entry.contributor.id}>
-              <SubmitterSection entry={entry} defaultOpen={entry.contributor.id === viewerId} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ConfusionAwards entries={breakdown.data} />
+          <ul className="attribution-breakdown-list" aria-label="People and songs">
+            {breakdown.data.map((entry) => (
+              <li key={entry.contributor.id}>
+                <SubmitterSection entry={entry} defaultOpen={entry.contributor.id === viewerId} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   );

@@ -261,6 +261,7 @@ def test_series_membership_makes_an_unscheduled_series_visible(db: Session) -> N
             "fallbackArtworkUrl": None,
             "isAdmin": False,
             "featuredRound": None,
+            "latestPublishedRound": None,
         }
     ]
     assert history["rounds"] == []
@@ -347,6 +348,8 @@ def test_open_series_are_listed_first_with_contributor_progress(db: Session) -> 
         "contributorCount": 2,
         "prompt": None,
     }
+    assert items[0]["latestPublishedRound"] is None
+    assert items[1]["latestPublishedRound"]["id"] == str(closed_round.id)
 
 
 def test_round_submissions_fall_back_to_the_address_local_part_for_unnamed_contributors(

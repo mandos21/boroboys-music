@@ -154,7 +154,11 @@ export function AttributionMatrix({ roundId, enabled }: { roundId: string; enabl
   const matrix = breakdown.data ? buildMatrix(breakdown.data) : null;
 
   return (
-    <section className="panel attribution-matrix" aria-labelledby="attribution-matrix-heading">
+    <section
+      id="round-matrix"
+      className="panel attribution-matrix"
+      aria-labelledby="attribution-matrix-heading"
+    >
       <div className="section-heading">
         <div>
           <p className="eyebrow">Guess Who?</p>

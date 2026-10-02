@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 function contributor(id: string, displayName: string) {
-  return { id, displayName, spotifyProfileImageUrl: null };
+  return { id, displayName, profileImageUrl: null };
 }
 
 function track(name: string) {

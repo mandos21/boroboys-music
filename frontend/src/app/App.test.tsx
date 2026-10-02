@@ -85,6 +85,12 @@ describe("application recovery screens", () => {
                     submittedCount: 2,
                     contributorCount: 5,
                   },
+                  latestPublishedRound: {
+                    id: "round-previous",
+                    title: "August picks",
+                    status: "published",
+                    publishAt: "2026-09-01T12:00:00Z",
+                  },
                 },
               ]),
               { status: 200 },
@@ -107,6 +113,10 @@ describe("application recovery screens", () => {
     expect(screen.getByRole("link", { name: /September picks/i })).toHaveProperty(
       "href",
       expect.stringContaining("/rounds/round-1"),
+    );
+    expect(screen.getByRole("link", { name: /August picks/i })).toHaveProperty(
+      "href",
+      expect.stringContaining("/rounds/round-previous"),
     );
   });
 });

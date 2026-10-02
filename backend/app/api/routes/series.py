@@ -14,9 +14,9 @@ from sqlalchemy import func, or_, select
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.api.payloads import (
     contributor_display_name,
+    contributor_profile_image_subquery,
     round_artwork_urls_by_round,
     round_timeline,
-    spotify_profile_image_subquery,
     stable_pick,
 )
 from app.api.schemas import SeriesGenreInsightsResponse, SeriesHistoryResponse, SeriesListResponse
@@ -282,6 +282,9 @@ def _series_payloads(
             (round_ for round_ in rounds if round_.status is not RoundStatus.PUBLISHED), None
         )
         featured = featured or (rounds[0] if rounds else None)
+        latest_published = next(
+            (round_ for round_ in rounds if round_.status is RoundStatus.PUBLISHED), None
+        )
         artwork_urls = artwork_by_round.get(featured.id, []) if featured else []
         fallback_artwork_url = (
             artwork_urls[featured.id.int % len(artwork_urls)]
@@ -302,6 +305,11 @@ def _series_payloads(
                     featured, submitted_counts, contributor_counts
                 )
                 if featured
+                else None,
+                "latestPublishedRound": _round_payload_from_counts(
+                    latest_published, submitted_counts, contributor_counts
+                )
+                if latest_published
                 else None,
             }
         )
@@ -412,7 +420,7 @@ def _series_summary_stats(db: DbSession, rounds: list[Round]) -> dict[str, objec
         contributors[user_id] = {
             "id": str(user_id),
             "displayName": contributor_display_name(display_name, email),
-            "spotifyProfileImageUrl": profile_image_url,
+            "profileImageUrl": profile_image_url,
         }
         artists.add(artist.casefold())
 
@@ -448,7 +456,7 @@ def _series_genre_insights(db: DbSession, rounds: list[Round]) -> dict[str, obje
         contributors[user_id] = {
             "id": str(user_id),
             "displayName": contributor_display_name(display_name, email),
-            "spotifyProfileImageUrl": profile_image_url,
+            "profileImageUrl": profile_image_url,
         }
 
     spread: Counter[str] = Counter()
@@ -493,14 +501,14 @@ def _series_genre_insights(db: DbSession, rounds: list[Round]) -> dict[str, obje
 def _series_submission_rows(
     db: DbSession, round_ids: list[uuid.UUID]
 ) -> Sequence[tuple[uuid.UUID, str | None, str | None, str | None, str, uuid.UUID]]:
-    spotify_profile_image = spotify_profile_image_subquery(User.id)
+    profile_image = contributor_profile_image_subquery(User.id)
     return (
         db.execute(
             select(
                 User.id,
                 User.display_name,
                 User.email,
-                spotify_profile_image,
+                profile_image,
                 Track.artist,
                 Submission.track_id,
             )

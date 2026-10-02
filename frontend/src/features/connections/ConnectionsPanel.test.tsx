@@ -3,8 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ConnectionsPage } from "./ConnectionsPage";
 import { ToastProvider } from "../../components/ui/ToastProvider";
+import { ConnectionsPanel } from "./ConnectionsPanel";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -23,7 +23,7 @@ function connection(id: string, provider: string, displayName: string) {
   };
 }
 
-function renderConnections(connections: unknown[], path = "/profile") {
+function renderPanel(connections: unknown[], path = "/settings") {
   vi.stubGlobal(
     "fetch",
     vi.fn(() => Promise.resolve(new Response(JSON.stringify(connections), { status: 200 }))),
@@ -33,16 +33,16 @@ function renderConnections(connections: unknown[], path = "/profile") {
     <ToastProvider>
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={[path]}>
-          <ConnectionsPage />
+          <ConnectionsPanel />
         </MemoryRouter>
       </QueryClientProvider>
     </ToastProvider>,
   );
 }
 
-describe("ConnectionsPage", () => {
+describe("ConnectionsPanel", () => {
   it("lists every linked account for a provider so each can be disconnected", async () => {
-    renderConnections([
+    renderPanel([
       connection("lastfm-1", "lastfm", "Main account"),
       connection("lastfm-2", "lastfm", "Second account"),
     ]);
@@ -54,7 +54,7 @@ describe("ConnectionsPage", () => {
   });
 
   it("explains a failed provider link instead of leaving the page silent", async () => {
-    renderConnections([], "/profile?linkError=already-linked&provider=spotify");
+    renderPanel([], "/settings?linkError=already-linked&provider=spotify");
 
     expect(
       await screen.findByRole("heading", { name: /We couldn’t connect Spotify/ }),

@@ -7,12 +7,12 @@ import type { AttributionLeaderboardEntry } from "./types";
 
 const entries: AttributionLeaderboardEntry[] = [
   {
-    contributor: { id: "alice", displayName: "Alice", spotifyProfileImageUrl: null },
+    contributor: { id: "alice", displayName: "Alice", profileImageUrl: null },
     correctCount: 4,
     totalCount: 4,
   },
   {
-    contributor: { id: "bob", displayName: "Bob", spotifyProfileImageUrl: null },
+    contributor: { id: "bob", displayName: "Bob", profileImageUrl: null },
     correctCount: 2,
     totalCount: 4,
   },
