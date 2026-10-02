@@ -170,27 +170,69 @@ def _member_limits(db: Session, round_: Round) -> dict[uuid.UUID, int]:
     }
 
 
-def game_detail_rows(
-    db: Session, round_id: uuid.UUID, user_id: uuid.UUID
-) -> tuple[AttributionGame, list[tuple[AttributionGuess, Submission]]] | None:
-    """A completed game's stored per-submission guesses, for review after the fact.
+@dataclass(frozen=True)
+class SongGuess:
+    guesser_id: uuid.UUID
+    guessed_contributor_id: uuid.UUID
+    is_correct: bool
 
-    `None` if that player never played this round, or started but hasn't
-    locked in a final answer yet.
+
+@dataclass(frozen=True)
+class SongBreakdown:
+    submission: Submission
+    guesses: list[SongGuess]
+
+
+@dataclass(frozen=True)
+class SubmitterBreakdown:
+    contributor_id: uuid.UUID
+    songs: list[SongBreakdown]
+
+
+def submitter_breakdown(db: Session, round_id: uuid.UUID) -> list[SubmitterBreakdown]:
+    """Every submitter's songs, with everyone's completed guesses for each one.
+
+    Powers the post-reveal "by person" review - who actually submitted what,
+    how the group did guessing them, and who guessed who - as opposed to the
+    one-shot scored reveal shown right after a player submits their guesses.
     """
-    game = get_game(db, round_id, user_id)
-    if game is None or game.submitted_at is None:
-        return None
-    rows = [
-        (guess, submission)
-        for guess, submission in db.execute(
-            select(AttributionGuess, Submission)
-            .join(Submission, Submission.id == AttributionGuess.submission_id)
-            .where(AttributionGuess.game_id == game.id)
+    submissions = list(
+        db.scalars(
+            select(Submission)
+            .where(Submission.round_id == round_id, Submission.status == SubmissionStatus.ACCEPTED)
             .order_by(Submission.created_at)
         )
+    )
+    submission_ids = [submission.id for submission in submissions]
+    guess_rows = db.execute(
+        select(AttributionGuess, AttributionGame.user_id)
+        .join(AttributionGame, AttributionGame.id == AttributionGuess.game_id)
+        .where(
+            AttributionGuess.submission_id.in_(submission_ids),
+            AttributionGame.submitted_at.is_not(None),
+        )
+    )
+    guesses_by_submission: dict[uuid.UUID, list[SongGuess]] = {}
+    for guess, guesser_id in guess_rows:
+        guesses_by_submission.setdefault(guess.submission_id, []).append(
+            SongGuess(
+                guesser_id=guesser_id,
+                guessed_contributor_id=guess.guessed_contributor_id,
+                is_correct=guess.is_correct,
+            )
+        )
+
+    songs_by_contributor: dict[uuid.UUID, list[SongBreakdown]] = {}
+    for submission in submissions:
+        songs_by_contributor.setdefault(submission.contributor_id, []).append(
+            SongBreakdown(
+                submission=submission, guesses=guesses_by_submission.get(submission.id, [])
+            )
+        )
+    return [
+        SubmitterBreakdown(contributor_id=contributor_id, songs=songs)
+        for contributor_id, songs in songs_by_contributor.items()
     ]
-    return game, rows
 
 
 def submit_guesses(

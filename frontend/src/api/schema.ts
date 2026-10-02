@@ -671,7 +671,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/rounds/{round_id}/attribution/games/{user_id}": {
+    "/api/v1/rounds/{round_id}/attribution/breakdown": {
         parameters: {
             query?: never;
             header?: never;
@@ -679,14 +679,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Attribution Game Detail
-         * @description Review any completed player's stored guesses - not the one-time submit reveal.
+         * Get Attribution Breakdown
+         * @description Every submitter's songs and who guessed what for them, once revealed.
          *
-         *     Gated on the requesting viewer's own reveal state, same as the
-         *     leaderboard it's linked from: seeing how someone else did is part of
-         *     what unlocks once names are revealed for you, not a separate privilege.
+         *     Grouped by who actually submitted each song rather than by who did the
+         *     guessing - that's the more useful lens for reviewing after the fact than
+         *     the one-shot scored reveal shown right after a player submits guesses.
          */
-        get: operations["get_attribution_game_detail_api_v1_rounds__round_id__attribution_games__user_id__get"];
+        get: operations["get_attribution_breakdown_api_v1_rounds__round_id__attribution_breakdown_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1221,34 +1221,6 @@ export interface components {
             /** Id */
             id: string;
         };
-        /** AttributionGameDetailItemResponse */
-        AttributionGameDetailItemResponse: {
-            actualContributor: components["schemas"]["ContributorResponse"];
-            guessedContributor: components["schemas"]["ContributorResponse"];
-            /** Iscorrect */
-            isCorrect: boolean;
-            /** Submissionid */
-            submissionId: string;
-            track: components["schemas"]["TrackResponse"];
-        };
-        /**
-         * AttributionGameDetailResponse
-         * @description One completed game, reviewable after the fact - not the submit-time reveal.
-         */
-        AttributionGameDetailResponse: {
-            contributor: components["schemas"]["ContributorResponse"];
-            /** Correctcount */
-            correctCount: number;
-            /** Items */
-            items: components["schemas"]["AttributionGameDetailItemResponse"][];
-            /**
-             * Submittedat
-             * Format: date-time
-             */
-            submittedAt: string;
-            /** Totalcount */
-            totalCount: number;
-        };
         /** AttributionGameResponse */
         AttributionGameResponse: {
             /** Correctcount */
@@ -1304,6 +1276,25 @@ export interface components {
             /** Maxguesses */
             maxGuesses: number;
         };
+        /** AttributionSongBreakdownResponse */
+        AttributionSongBreakdownResponse: {
+            /** Groupcorrectcount */
+            groupCorrectCount: number;
+            /** Grouptotalcount */
+            groupTotalCount: number;
+            /** Guesses */
+            guesses: components["schemas"]["AttributionSongGuessResponse"][];
+            /** Submissionid */
+            submissionId: string;
+            track: components["schemas"]["TrackResponse"];
+        };
+        /** AttributionSongGuessResponse */
+        AttributionSongGuessResponse: {
+            guessedContributor: components["schemas"]["ContributorResponse"];
+            guesser: components["schemas"]["ContributorResponse"];
+            /** Iscorrect */
+            isCorrect: boolean;
+        };
         /** AttributionStatusResponse */
         AttributionStatusResponse: {
             /** Enabled */
@@ -1328,6 +1319,28 @@ export interface components {
             results: components["schemas"]["AttributionGuessResultResponse"][];
             /** Totalcount */
             totalCount: number;
+        };
+        /**
+         * AttributionSubmitterBreakdownResponse
+         * @description One submitter's songs, grouped for post-reveal review by who submitted
+         *     what rather than by who did the guessing.
+         *
+         *     `your_*_count` is null when the viewer hasn't completed their own game
+         *     yet (nothing to report), or when this submitter is the viewer themself
+         *     (you never guess your own songs).
+         */
+        AttributionSubmitterBreakdownResponse: {
+            contributor: components["schemas"]["ContributorResponse"];
+            /** Groupcorrectcount */
+            groupCorrectCount: number;
+            /** Grouptotalcount */
+            groupTotalCount: number;
+            /** Songs */
+            songs: components["schemas"]["AttributionSongBreakdownResponse"][];
+            /** Yourcorrectcount */
+            yourCorrectCount: number | null;
+            /** Yourtotalcount */
+            yourTotalCount: number | null;
         };
         /**
          * CalendarRoundPlan
@@ -3516,13 +3529,12 @@ export interface operations {
             };
         };
     };
-    get_attribution_game_detail_api_v1_rounds__round_id__attribution_games__user_id__get: {
+    get_attribution_breakdown_api_v1_rounds__round_id__attribution_breakdown_get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 round_id: string;
-                user_id: string;
             };
             cookie?: never;
         };
@@ -3534,7 +3546,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AttributionGameDetailResponse"];
+                    "application/json": components["schemas"]["AttributionSubmitterBreakdownResponse"][];
                 };
             };
             /** @description Validation Error */

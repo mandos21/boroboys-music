@@ -784,73 +784,6 @@
         "title": "AdminUserResponse",
         "type": "object"
       },
-      "AttributionGameDetailItemResponse": {
-        "properties": {
-          "actualContributor": {
-            "$ref": "#/components/schemas/ContributorResponse"
-          },
-          "guessedContributor": {
-            "$ref": "#/components/schemas/ContributorResponse"
-          },
-          "isCorrect": {
-            "title": "Iscorrect",
-            "type": "boolean"
-          },
-          "submissionId": {
-            "title": "Submissionid",
-            "type": "string"
-          },
-          "track": {
-            "$ref": "#/components/schemas/TrackResponse"
-          }
-        },
-        "required": [
-          "submissionId",
-          "track",
-          "guessedContributor",
-          "actualContributor",
-          "isCorrect"
-        ],
-        "title": "AttributionGameDetailItemResponse",
-        "type": "object"
-      },
-      "AttributionGameDetailResponse": {
-        "description": "One completed game, reviewable after the fact - not the submit-time reveal.",
-        "properties": {
-          "contributor": {
-            "$ref": "#/components/schemas/ContributorResponse"
-          },
-          "correctCount": {
-            "title": "Correctcount",
-            "type": "integer"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/AttributionGameDetailItemResponse"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "submittedAt": {
-            "format": "date-time",
-            "title": "Submittedat",
-            "type": "string"
-          },
-          "totalCount": {
-            "title": "Totalcount",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "contributor",
-          "submittedAt",
-          "correctCount",
-          "totalCount",
-          "items"
-        ],
-        "title": "AttributionGameDetailResponse",
-        "type": "object"
-      },
       "AttributionGameResponse": {
         "properties": {
           "correctCount": {
@@ -978,6 +911,62 @@
         "title": "AttributionRosterMemberResponse",
         "type": "object"
       },
+      "AttributionSongBreakdownResponse": {
+        "properties": {
+          "groupCorrectCount": {
+            "title": "Groupcorrectcount",
+            "type": "integer"
+          },
+          "groupTotalCount": {
+            "title": "Grouptotalcount",
+            "type": "integer"
+          },
+          "guesses": {
+            "items": {
+              "$ref": "#/components/schemas/AttributionSongGuessResponse"
+            },
+            "title": "Guesses",
+            "type": "array"
+          },
+          "submissionId": {
+            "title": "Submissionid",
+            "type": "string"
+          },
+          "track": {
+            "$ref": "#/components/schemas/TrackResponse"
+          }
+        },
+        "required": [
+          "submissionId",
+          "track",
+          "groupCorrectCount",
+          "groupTotalCount",
+          "guesses"
+        ],
+        "title": "AttributionSongBreakdownResponse",
+        "type": "object"
+      },
+      "AttributionSongGuessResponse": {
+        "properties": {
+          "guessedContributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "guesser": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "isCorrect": {
+            "title": "Iscorrect",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "guesser",
+          "guessedContributor",
+          "isCorrect"
+        ],
+        "title": "AttributionSongGuessResponse",
+        "type": "object"
+      },
       "AttributionStatusResponse": {
         "properties": {
           "enabled": {
@@ -1065,6 +1054,61 @@
           "results"
         ],
         "title": "AttributionSubmitResponse",
+        "type": "object"
+      },
+      "AttributionSubmitterBreakdownResponse": {
+        "description": "One submitter's songs, grouped for post-reveal review by who submitted\nwhat rather than by who did the guessing.\n\n`your_*_count` is null when the viewer hasn't completed their own game\nyet (nothing to report), or when this submitter is the viewer themself\n(you never guess your own songs).",
+        "properties": {
+          "contributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "groupCorrectCount": {
+            "title": "Groupcorrectcount",
+            "type": "integer"
+          },
+          "groupTotalCount": {
+            "title": "Grouptotalcount",
+            "type": "integer"
+          },
+          "songs": {
+            "items": {
+              "$ref": "#/components/schemas/AttributionSongBreakdownResponse"
+            },
+            "title": "Songs",
+            "type": "array"
+          },
+          "yourCorrectCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yourcorrectcount"
+          },
+          "yourTotalCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yourtotalcount"
+          }
+        },
+        "required": [
+          "contributor",
+          "yourCorrectCount",
+          "yourTotalCount",
+          "groupCorrectCount",
+          "groupTotalCount",
+          "songs"
+        ],
+        "title": "AttributionSubmitterBreakdownResponse",
         "type": "object"
       },
       "CalendarRoundPlan": {
@@ -5593,10 +5637,10 @@
         ]
       }
     },
-    "/api/v1/rounds/{round_id}/attribution/games/{user_id}": {
+    "/api/v1/rounds/{round_id}/attribution/breakdown": {
       "get": {
-        "description": "Review any completed player's stored guesses - not the one-time submit reveal.\n\nGated on the requesting viewer's own reveal state, same as the\nleaderboard it's linked from: seeing how someone else did is part of\nwhat unlocks once names are revealed for you, not a separate privilege.",
-        "operationId": "get_attribution_game_detail_api_v1_rounds__round_id__attribution_games__user_id__get",
+        "description": "Every submitter's songs and who guessed what for them, once revealed.\n\nGrouped by who actually submitted each song rather than by who did the\nguessing - that's the more useful lens for reviewing after the fact than\nthe one-shot scored reveal shown right after a player submits guesses.",
+        "operationId": "get_attribution_breakdown_api_v1_rounds__round_id__attribution_breakdown_get",
         "parameters": [
           {
             "in": "path",
@@ -5607,16 +5651,6 @@
               "title": "Round Id",
               "type": "string"
             }
-          },
-          {
-            "in": "path",
-            "name": "user_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "User Id",
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -5624,7 +5658,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AttributionGameDetailResponse"
+                  "items": {
+                    "$ref": "#/components/schemas/AttributionSubmitterBreakdownResponse"
+                  },
+                  "title": "Response Get Attribution Breakdown Api V1 Rounds  Round Id  Attribution Breakdown Get",
+                  "type": "array"
                 }
               }
             },
@@ -5641,7 +5679,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Attribution Game Detail",
+        "summary": "Get Attribution Breakdown",
         "tags": [
           "rounds"
         ]

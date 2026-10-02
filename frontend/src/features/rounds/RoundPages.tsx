@@ -12,8 +12,10 @@ import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
 import { Switch } from "../../components/ui/switch";
+import { AttributionBreakdown } from "../attribution/AttributionBreakdown";
 import { AttributionGame } from "../attribution/AttributionGame";
 import { AttributionLeaderboard } from "../attribution/AttributionLeaderboard";
+import { AttributionMatrix } from "../attribution/AttributionMatrix";
 import type { AttributionStatus } from "../attribution/types";
 import { avatarStyle } from "../../lib/avatar";
 import { formatDate, formatDateOnly, formatDeadline } from "../../lib/format";
@@ -177,8 +179,16 @@ export function RoundPage() {
           onSaveNote={(id, note) => updateNote.mutate({ submissionId: id, note })}
         />
       )}
+      {attribution.data && <AttributionLeaderboard entries={attribution.data.leaderboard} />}
       {attribution.data && (
-        <AttributionLeaderboard roundId={item.id} entries={attribution.data.leaderboard} />
+        <AttributionBreakdown
+          roundId={item.id}
+          viewerId={session.data?.user?.id}
+          enabled={attribution.data.revealed}
+        />
+      )}
+      {attribution.data && (
+        <AttributionMatrix roundId={item.id} enabled={attribution.data.revealed} />
       )}
       <ConfirmDialog
         open={Boolean(submissionToWithdraw)}

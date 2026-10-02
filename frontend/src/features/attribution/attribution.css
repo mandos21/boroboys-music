@@ -67,6 +67,7 @@ html[data-theme="dark"] .attribution-flip-face span { color: #a7bbae; }
 html[data-theme="dark"] .attribution-flip-card.correct .attribution-flip-back { border-color: #16a34a; background: #16251c; }
 html[data-theme="dark"] .attribution-flip-card.incorrect .attribution-flip-back { border-color: #be123c; background: #241417; }
 
+.attribution-leaderboard { margin-top: 1rem; }
 .attribution-leaderboard ol { display: grid; gap: .5rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
 .attribution-leaderboard li { display: grid; grid-template-columns: 1.4rem 1fr auto auto auto; align-items: center; gap: .6rem; padding: .5rem .65rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; }
 .attribution-leaderboard-rank { color: #64748b; font-size: .78rem; font-weight: 800; text-align: center; }
@@ -74,39 +75,87 @@ html[data-theme="dark"] .attribution-flip-card.incorrect .attribution-flip-back 
 .attribution-leaderboard-contributor:hover span { text-decoration: underline; }
 .attribution-leaderboard li > strong { color: #166534; font-size: .85rem; }
 .attribution-leaderboard li > small { color: #64748b; font-size: .72rem; }
-.attribution-leaderboard-answers { border: 1px solid #cbd5e1; border-radius: .55rem; background: #fff; color: #334155; font: inherit; font-size: .72rem; font-weight: 700; padding: .3rem .55rem; cursor: pointer; white-space: nowrap; }
-.attribution-leaderboard-answers:hover { border-color: #16a34a; color: #166534; }
 
 html[data-theme="dark"] .attribution-leaderboard li { border-color: #31483a; background: #172a20; }
 html[data-theme="dark"] .attribution-leaderboard-contributor { color: #dce8e0; }
 html[data-theme="dark"] .attribution-leaderboard-rank, html[data-theme="dark"] .attribution-leaderboard li > small { color: #a7bbae; }
 html[data-theme="dark"] .attribution-leaderboard li > strong { color: #86efac; }
-html[data-theme="dark"] .attribution-leaderboard-answers { border-color: #31483a; background: #17231c; color: #dce8e0; }
-html[data-theme="dark"] .attribution-leaderboard-answers:hover { border-color: #4ade80; color: #86efac; }
 
-.attribution-detail-sheet { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; overflow-y: auto; width: min(28rem, 100vw); }
-.attribution-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.attribution-detail-summary { margin: 0; color: #64748b; font-size: .85rem; }
-.attribution-detail-summary strong { color: #166534; font-size: 1.1rem; margin-right: .3rem; }
-.attribution-detail-list { display: flex; flex-direction: column; gap: .5rem; padding: 0; margin: 0; list-style: none; }
-.attribution-detail-list li { display: grid; grid-template-columns: 2.1rem 1fr auto auto 1.1rem; align-items: center; gap: .6rem; padding: .5rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #fff; }
-.attribution-detail-list li.correct { border-color: #bbf7d0; background: #f0fdf4; }
-.attribution-detail-list li.incorrect { border-color: #fecaca; background: #fef2f2; }
-.attribution-detail-list img { width: 2.1rem; height: 2.1rem; border-radius: .5rem; object-fit: cover; }
-.attribution-detail-track { min-width: 0; overflow: hidden; }
-.attribution-detail-track strong { display: block; font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attribution-detail-track small { display: block; color: #64748b; font-size: .7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attribution-detail-guess, .attribution-detail-actual { display: flex; align-items: center; gap: .35rem; max-width: 6rem; }
-.attribution-detail-guess span, .attribution-detail-actual span { overflow: hidden; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
-.attribution-detail-guess .contributor-avatar, .attribution-detail-actual .contributor-avatar { width: 1.5rem; height: 1.5rem; }
-.attribution-detail-mark { display: grid; place-items: center; color: #166534; }
-.attribution-detail-list li.incorrect .attribution-detail-mark { color: #be123c; }
+.attribution-breakdown { margin-top: 1rem; }
+.attribution-breakdown-list { display: flex; flex-direction: column; gap: .6rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
+.attribution-breakdown-entry { border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; }
+.attribution-breakdown-trigger { display: flex; width: 100%; align-items: center; gap: .65rem; padding: .65rem .85rem; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.attribution-breakdown-trigger > svg { flex: none; color: #64748b; transition: transform .16s ease; }
+.attribution-breakdown-trigger[data-panel-open] > svg { transform: rotate(180deg); }
+.attribution-breakdown-name { flex: 1 1 auto; min-width: 0; overflow: hidden; color: #334155; font-size: .85rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.attribution-breakdown-stats { display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; flex: none; }
+.attribution-breakdown-your-stat { color: #166534; font-size: .76rem; font-weight: 700; }
+.attribution-breakdown-group-stat { color: #64748b; font-size: .72rem; }
+.attribution-breakdown-content { padding: 0 .85rem .75rem; }
+.attribution-breakdown-songs { display: flex; flex-direction: column; gap: .5rem; padding: 0; margin: 0; list-style: none; }
+.attribution-breakdown-song { display: grid; grid-template-columns: 2.1rem 1fr auto; align-items: center; gap: .6rem; padding: .5rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #fff; }
+.attribution-breakdown-song img { width: 2.1rem; height: 2.1rem; border-radius: .5rem; object-fit: cover; grid-row: span 2; }
+.attribution-breakdown-song .attribution-track-chip-placeholder { grid-row: span 2; }
+.attribution-breakdown-track { min-width: 0; overflow: hidden; }
+.attribution-breakdown-track strong { display: block; font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attribution-breakdown-track small { display: block; color: #64748b; font-size: .7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attribution-breakdown-song-stat { color: #64748b; font-size: .72rem; white-space: nowrap; }
+.attribution-breakdown-guess-groups { display: flex; flex-direction: column; gap: .35rem; grid-column: 2 / -1; }
+.attribution-breakdown-guess-group { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
+.attribution-breakdown-guess-group-label { flex: none; color: #64748b; font-size: .7rem; white-space: nowrap; }
+.attribution-breakdown-guessers { display: flex; flex-wrap: wrap; gap: .3rem; }
+.attribution-breakdown-guesser { display: flex; position: relative; border: none; background: none; padding: 0; cursor: pointer; border-radius: 999px; }
+.attribution-breakdown-guesser .contributor-avatar { width: 1.6rem; height: 1.6rem; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #16a34a; }
+.attribution-breakdown-guesser.incorrect .contributor-avatar { box-shadow: 0 0 0 2px #fff, 0 0 0 3px #be123c; }
+.attribution-breakdown-guess-count { position: absolute; right: -.25rem; bottom: -.25rem; display: grid; min-width: 1.05rem; height: 1.05rem; place-items: center; border: 2px solid #fff; border-radius: 999px; background: #be123c; color: #fff; font-size: .62rem; font-weight: 800; line-height: 1; }
 
-html[data-theme="dark"] .attribution-detail-summary { color: #a7bbae; }
-html[data-theme="dark"] .attribution-detail-summary strong { color: #86efac; }
-html[data-theme="dark"] .attribution-detail-list li { border-color: #31483a; background: #17231c; }
-html[data-theme="dark"] .attribution-detail-list li.correct { border-color: #2f6b45; background: #14251a; }
-html[data-theme="dark"] .attribution-detail-list li.incorrect { border-color: #7f1d2e; background: #241417; }
-html[data-theme="dark"] .attribution-detail-track small, html[data-theme="dark"] .attribution-detail-guess span, html[data-theme="dark"] .attribution-detail-actual span { color: #a7bbae; }
-html[data-theme="dark"] .attribution-detail-mark { color: #86efac; }
-html[data-theme="dark"] .attribution-detail-list li.incorrect .attribution-detail-mark { color: #f87171; }
+html[data-theme="dark"] .attribution-breakdown-entry { border-color: #31483a; background: #172a20; }
+html[data-theme="dark"] .attribution-breakdown-trigger > svg { color: #a7bbae; }
+html[data-theme="dark"] .attribution-breakdown-name { color: #dce8e0; }
+html[data-theme="dark"] .attribution-breakdown-your-stat { color: #86efac; }
+html[data-theme="dark"] .attribution-breakdown-group-stat, html[data-theme="dark"] .attribution-breakdown-song-stat, html[data-theme="dark"] .attribution-breakdown-guess-group-label { color: #a7bbae; }
+html[data-theme="dark"] .attribution-breakdown-song { border-color: #31483a; background: #17231c; }
+html[data-theme="dark"] .attribution-breakdown-track small { color: #a7bbae; }
+html[data-theme="dark"] .attribution-breakdown-guesser .contributor-avatar { box-shadow: 0 0 0 2px #17231c, 0 0 0 3px #16a34a; }
+html[data-theme="dark"] .attribution-breakdown-guesser.incorrect .contributor-avatar { box-shadow: 0 0 0 2px #17231c, 0 0 0 3px #f87171; }
+html[data-theme="dark"] .attribution-breakdown-guess-count { border-color: #17231c; }
+
+.attribution-matrix { margin-top: 1rem; }
+.attribution-matrix-caption { margin: .9rem 0 0; color: #64748b; font-size: .78rem; }
+/* Only needed once the grid switches to numbered swatches - hidden above
+   that breakpoint since avatars and names are visible in the grid itself. */
+.attribution-matrix-legend { display: none; }
+.attribution-matrix-grid { display: grid; align-items: start; gap: 3px; margin-top: 1rem; }
+.attribution-matrix-corner { aspect-ratio: 1; }
+.attribution-matrix-header { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; padding: .2rem; border: none; background: none; cursor: default; }
+.attribution-matrix-row-header { display: flex; align-items: center; gap: .4rem; min-height: 0; padding-right: .5rem; }
+.attribution-matrix-header-full { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
+.attribution-matrix-header-compact { display: none; }
+.attribution-matrix-row-header .attribution-matrix-header-full { overflow: hidden; color: #334155; font-size: .8rem; font-weight: 650; white-space: nowrap; }
+.attribution-matrix-swatch { width: 1.5rem; height: 1.5rem; border-radius: 50%; font-size: .68rem; }
+.attribution-matrix-cell { display: grid; place-items: center; aspect-ratio: 1; border: none; border-radius: .3rem; padding: 0; background: #f1f5f9; color: #166534; font-size: .72rem; font-weight: 800; cursor: pointer; }
+.attribution-matrix-cell.correct { background: rgb(22 163 74 / calc(var(--heat) * .72 + .08)); }
+.attribution-matrix-cell.incorrect { background: rgb(190 18 60 / calc(var(--heat) * .72 + .08)); color: #9f1239; }
+.attribution-matrix-cell.heavy { color: #fff; }
+.attribution-matrix-cell.empty { aspect-ratio: 1; background: #f8fafc; cursor: default; }
+
+html[data-theme="dark"] .attribution-matrix-caption { color: #a7bbae; }
+html[data-theme="dark"] .attribution-matrix-row-header .attribution-matrix-header-full { color: #dce8e0; }
+html[data-theme="dark"] .attribution-matrix-cell { background: #17231c; color: #86efac; }
+html[data-theme="dark"] .attribution-matrix-cell.correct { background: rgb(74 222 128 / calc(var(--heat) * .6 + .08)); }
+html[data-theme="dark"] .attribution-matrix-cell.incorrect { background: rgb(248 113 113 / calc(var(--heat) * .6 + .08)); color: #fca5a5; }
+html[data-theme="dark"] .attribution-matrix-cell.heavy { color: #0b1f14; }
+html[data-theme="dark"] .attribution-matrix-cell.empty { background: #141f19; }
+
+@media (max-width: 40rem) {
+  .attribution-matrix-legend { display: flex; flex-wrap: wrap; gap: .5rem .9rem; padding: 0; margin: .9rem 0 0; list-style: none; }
+  .attribution-matrix-legend li { display: flex; align-items: center; gap: .35rem; color: #334155; font-size: .78rem; font-weight: 600; }
+  .attribution-matrix-legend .attribution-matrix-swatch { width: 1.3rem; height: 1.3rem; font-size: .62rem; }
+  .attribution-matrix-header-full { display: none; }
+  .attribution-matrix-header-compact { display: flex; }
+  .attribution-matrix-row-header { justify-content: center; padding-right: 0; }
+  .attribution-matrix-swatch { width: 1.1rem; height: 1.1rem; font-size: .58rem; }
+  .attribution-matrix-cell { font-size: .62rem; }
+
+  html[data-theme="dark"] .attribution-matrix-legend li { color: #dce8e0; }
+}

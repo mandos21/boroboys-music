@@ -169,22 +169,35 @@ class AttributionSubmitResponse(ApiResponse):
     results: list[AttributionGuessResultResponse]
 
 
-class AttributionGameDetailItemResponse(ApiResponse):
-    submission_id: str
-    track: TrackResponse
+class AttributionSongGuessResponse(ApiResponse):
+    guesser: ContributorResponse
     guessed_contributor: ContributorResponse
-    actual_contributor: ContributorResponse
     is_correct: bool
 
 
-class AttributionGameDetailResponse(ApiResponse):
-    """One completed game, reviewable after the fact - not the submit-time reveal."""
+class AttributionSongBreakdownResponse(ApiResponse):
+    submission_id: str
+    track: TrackResponse
+    group_correct_count: int
+    group_total_count: int
+    guesses: list[AttributionSongGuessResponse]
+
+
+class AttributionSubmitterBreakdownResponse(ApiResponse):
+    """One submitter's songs, grouped for post-reveal review by who submitted
+    what rather than by who did the guessing.
+
+    `your_*_count` is null when the viewer hasn't completed their own game
+    yet (nothing to report), or when this submitter is the viewer themself
+    (you never guess your own songs).
+    """
 
     contributor: ContributorResponse
-    submitted_at: datetime
-    correct_count: int
-    total_count: int
-    items: list[AttributionGameDetailItemResponse]
+    your_correct_count: int | None
+    your_total_count: int | None
+    group_correct_count: int
+    group_total_count: int
+    songs: list[AttributionSongBreakdownResponse]
 
 
 class ProfileStatItemResponse(ApiResponse):

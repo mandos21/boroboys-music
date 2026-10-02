@@ -13,9 +13,9 @@ from app.api.deps import DbSession, get_current_user, require_csrf
 from app.api.payloads import contributor_display_name, spotify_profile_image_subquery
 from app.api.routes.rounds._common import _track_payload, _viewer_round, router
 from app.api.schemas import (
-    AttributionGameDetailResponse,
     AttributionStatusResponse,
     AttributionSubmitResponse,
+    AttributionSubmitterBreakdownResponse,
 )
 from app.db.models import RoundMember, Track, User
 from app.services import attribution
@@ -152,20 +152,19 @@ def submit_attribution_guesses(
 
 
 @router.get(
-    "/{round_id}/attribution/games/{user_id}",
-    response_model=AttributionGameDetailResponse,
+    "/{round_id}/attribution/breakdown",
+    response_model=list[AttributionSubmitterBreakdownResponse],
 )
-def get_attribution_game_detail(
+def get_attribution_breakdown(
     round_id: uuid.UUID,
-    user_id: uuid.UUID,
     db: DbSession,
     user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, object]:
-    """Review any completed player's stored guesses - not the one-time submit reveal.
+) -> list[dict[str, object]]:
+    """Every submitter's songs and who guessed what for them, once revealed.
 
-    Gated on the requesting viewer's own reveal state, same as the
-    leaderboard it's linked from: seeing how someone else did is part of
-    what unlocks once names are revealed for you, not a separate privilege.
+    Grouped by who actually submitted each song rather than by who did the
+    guessing - that's the more useful lens for reviewing after the fact than
+    the one-shot scored reveal shown right after a player submits guesses.
     """
     round_, _membership = _viewer_round(db, round_id, user)
     publication = attribution.get_publication(db, round_id)
@@ -174,24 +173,21 @@ def get_attribution_game_detail(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="names for this round are not revealed for you yet",
         )
-    detail = attribution.game_detail_rows(db, round_id, user_id)
-    if detail is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="that player has not completed this round's guessing game",
-        )
-    game, rows = detail
+    breakdowns = attribution.submitter_breakdown(db, round_id)
+    viewer_game = attribution.get_game(db, round_id, user.id)
+    viewer_played = viewer_game is not None and viewer_game.submitted_at is not None
 
-    track_ids = {submission.track_id for _guess, submission in rows}
+    track_ids = {song.submission.track_id for entry in breakdowns for song in entry.songs}
     tracks_by_id = {
         track.id: track for track in db.scalars(select(Track).where(Track.id.in_(track_ids)))
     }
 
-    contributor_ids = (
-        {user_id}
-        | {guess.guessed_contributor_id for guess, _s in rows}
-        | {submission.contributor_id for _guess, submission in rows}
-    )
+    contributor_ids = {entry.contributor_id for entry in breakdowns}
+    for entry in breakdowns:
+        for song in entry.songs:
+            for guess in song.guesses:
+                contributor_ids.add(guess.guesser_id)
+                contributor_ids.add(guess.guessed_contributor_id)
     spotify_profile_image = spotify_profile_image_subquery(User.id)
     contributors_by_id = {
         contributor.id: {
@@ -204,19 +200,57 @@ def get_attribution_game_detail(
         )
     }
 
-    return {
-        "contributor": contributors_by_id[user_id],
-        "submittedAt": game.submitted_at.isoformat() if game.submitted_at else None,
-        "correctCount": game.correct_count,
-        "totalCount": game.total_count,
-        "items": [
+    payload: list[dict[str, object]] = []
+    for entry in sorted(
+        breakdowns,
+        key=lambda e: (
+            contributors_by_id[e.contributor_id]["displayName"].lower(),
+            e.contributor_id,
+        ),
+    ):
+        songs_payload: list[dict[str, object]] = []
+        group_correct = 0
+        group_total = 0
+        your_correct = 0
+        your_total = 0
+        for song in entry.songs:
+            song_group_correct = sum(1 for guess in song.guesses if guess.is_correct)
+            song_group_total = len(song.guesses)
+            group_correct += song_group_correct
+            group_total += song_group_total
+            for guess in song.guesses:
+                if guess.guesser_id == user.id:
+                    your_total += 1
+                    if guess.is_correct:
+                        your_correct += 1
+            songs_payload.append(
+                {
+                    "submissionId": str(song.submission.id),
+                    "track": _track_payload(tracks_by_id[song.submission.track_id]),
+                    "groupCorrectCount": song_group_correct,
+                    "groupTotalCount": song_group_total,
+                    "guesses": [
+                        {
+                            "guesser": contributors_by_id[guess.guesser_id],
+                            "guessedContributor": contributors_by_id[guess.guessed_contributor_id],
+                            "isCorrect": guess.is_correct,
+                        }
+                        for guess in sorted(
+                            song.guesses,
+                            key=lambda g: contributors_by_id[g.guesser_id]["displayName"].lower(),
+                        )
+                    ],
+                }
+            )
+        show_your_stats = viewer_played and entry.contributor_id != user.id
+        payload.append(
             {
-                "submissionId": str(submission.id),
-                "track": _track_payload(tracks_by_id[submission.track_id]),
-                "guessedContributor": contributors_by_id[guess.guessed_contributor_id],
-                "actualContributor": contributors_by_id[submission.contributor_id],
-                "isCorrect": guess.is_correct,
+                "contributor": contributors_by_id[entry.contributor_id],
+                "yourCorrectCount": your_correct if show_your_stats else None,
+                "yourTotalCount": your_total if show_your_stats else None,
+                "groupCorrectCount": group_correct,
+                "groupTotalCount": group_total,
+                "songs": songs_payload,
             }
-            for guess, submission in rows
-        ],
-    }
+        )
+    return payload
