@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AttributionMatrix } from "./AttributionMatrix";
@@ -31,7 +32,7 @@ const bob = contributor("bob", "Bob");
 const carol = contributor("carol", "Carol");
 
 // Alice's song: both Bob and Carol correctly guess Alice.
-// Bob's song: Alice and Carol both (wrongly) guess Carol.
+// Bob's songs: Alice guesses Carol twice; Carol does so once.
 // Carol's song: Alice (wrongly) guesses Bob.
 const breakdown: AttributionSubmitterBreakdown[] = [
   {
@@ -58,7 +59,7 @@ const breakdown: AttributionSubmitterBreakdown[] = [
     yourCorrectCount: null,
     yourTotalCount: null,
     groupCorrectCount: 0,
-    groupTotalCount: 2,
+    groupTotalCount: 3,
     songs: [
       {
         submissionId: "s-bob",
@@ -69,6 +70,13 @@ const breakdown: AttributionSubmitterBreakdown[] = [
           { guesser: alice, guessedContributor: carol, isCorrect: false },
           { guesser: carol, guessedContributor: carol, isCorrect: false },
         ],
+      },
+      {
+        submissionId: "s-bob-two",
+        track: track("Bob's Other Song"),
+        groupCorrectCount: 0,
+        groupTotalCount: 1,
+        guesses: [{ guesser: alice, guessedContributor: carol, isCorrect: false }],
       },
     ],
   },
@@ -125,11 +133,16 @@ describe("AttributionMatrix", () => {
   });
 
   it("aggregates multiple wrong guesses for the same mistaken pair into one cell", async () => {
+    const user = userEvent.setup();
     renderMatrix();
     const cell = await screen.findByRole("button", {
-      name: "Alice and Carol guessed Bob's songs were Carol's",
+      name: "Alice (2 guesses) and Carol guessed Bob's songs were Carol's",
     });
-    expect(cell.textContent).toBe("2");
+    expect(cell.textContent).toBe("3");
+    await user.hover(cell);
+    expect((await screen.findByRole("tooltip")).textContent).toBe(
+      "Alice (2 guesses) and Carol guessed Bob's songs were Carol's",
+    );
   });
 
   it("keeps a single wrong guess as its own cell", async () => {

@@ -119,7 +119,21 @@ function MatrixCellButton({
   }
   const isDiagonal = actual.id === guessed.id;
   const heavy = heat > 0.5;
-  const names = joinNames(cell.guessers.map((guesser) => guesser.displayName));
+  // One person can make the same guess for several songs in a cell. Keep
+  // the cell's total guess count while naming each person only once.
+  const guesserCounts = new Map<string, { name: string; count: number }>();
+  for (const guesser of cell.guessers) {
+    const previous = guesserCounts.get(guesser.id);
+    guesserCounts.set(guesser.id, {
+      name: guesser.displayName,
+      count: (previous?.count ?? 0) + 1,
+    });
+  }
+  const names = joinNames(
+    [...guesserCounts.values()].map(({ name, count }) =>
+      count > 1 ? `${name} (${count} guesses)` : name,
+    ),
+  );
   const description = isDiagonal
     ? `${names} correctly guessed ${actual.displayName}`
     : `${names} guessed ${actual.displayName}'s songs were ${guessed.displayName}'s`;
