@@ -9,7 +9,7 @@ import type { components } from "../../api/schema";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
-import { Button } from "../../components/ui/button";
+import { buttonVariants } from "../../components/ui/button";
 import "./connections.css";
 
 // Spotify search and track lookups run on the app's own credentials now (see
@@ -177,13 +177,13 @@ export function ConnectionsPanel() {
                     </button>
                   </div>
                 ))}
-                <Button
-                  className="connection-button"
-                  render={<a href={`/api/v1/connections/${provider}/login`} />}
+                <a
+                  className={buttonVariants({ className: "connection-button" })}
+                  href={`/api/v1/connections/${provider}/login`}
                 >
                   <Link2 aria-hidden="true" size={17} />{" "}
                   {linked.length ? `Connect another ${name} account` : `Connect ${name}`}
-                </Button>
+                </a>
               </section>
             );
           })}

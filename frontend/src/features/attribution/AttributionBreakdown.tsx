@@ -11,7 +11,8 @@ import {
 } from "../../components/ui/collapsible";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
-import "./attribution.css";
+import "./attribution-shared.css";
+import "./attribution-results.css";
 import { ContributorAvatar } from "./ContributorAvatar";
 import { joinNames } from "./joinNames";
 import type {

@@ -6,7 +6,8 @@ import { post } from "../../api/client";
 import type { components } from "../../api/schema";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/ToastProvider";
-import "./attribution.css";
+import "./attribution-shared.css";
+import "./attribution-game.css";
 import { ContributorAvatar } from "./ContributorAvatar";
 import type { AttributionRosterMember, AttributionStatus, AttributionSubmitResult } from "./types";
 
@@ -49,12 +50,10 @@ function TrackChip({
   submission,
   selected,
   onSelect,
-  onDragStart,
 }: {
   submission: Submission;
   selected: boolean;
   onSelect: () => void;
-  onDragStart: () => void;
 }) {
   return (
     <button
@@ -64,7 +63,6 @@ function TrackChip({
       onDragStart={(event) => {
         event.dataTransfer.setData("text/plain", submission.id);
         event.dataTransfer.effectAllowed = "move";
-        onDragStart();
       }}
       onClick={onSelect}
       aria-pressed={selected}
@@ -134,7 +132,7 @@ function RosterBin({
   assignedTracks: Submission[];
   selectedTrackId: string | null;
   onSelectTrack: (id: string) => void;
-  onDropHere: () => void;
+  onDropHere: (submissionId: string) => void;
   onTapHere: () => void;
   onRemove: (submissionId: string) => void;
 }) {
@@ -145,7 +143,7 @@ function RosterBin({
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
-        onDropHere();
+        onDropHere(event.dataTransfer.getData("text/plain"));
       }}
     >
       <button type="button" className="attribution-roster-header" onClick={onTapHere}>
@@ -165,7 +163,6 @@ function RosterBin({
                 submission={track}
                 selected={selectedTrackId === track.id}
                 onSelect={() => onSelectTrack(track.id)}
-                onDragStart={() => onSelectTrack(track.id)}
               />
               <button
                 type="button"
@@ -288,7 +285,6 @@ export function AttributionGame({
   );
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [result, setResult] = useState<AttributionSubmitResult | null>(null);
 
   const countsByContributor = useMemo(() => {
@@ -348,6 +344,7 @@ export function AttributionGame({
   }
 
   function tryAssign(submissionId: string, contributorId: string) {
+    if (!guessable.some((entry) => entry.id === submissionId)) return;
     const alreadyThere = assignments[submissionId] === contributorId;
     if (alreadyThere) return;
     if ((countsByContributor[contributorId] ?? 0) >= capacityFor(contributorId)) {
@@ -360,15 +357,16 @@ export function AttributionGame({
     }
     setAssignments((current) => ({ ...current, [submissionId]: contributorId }));
     setSelectedTrackId(null);
-    setDraggingId(null);
   }
 
   function unassign(submissionId: string) {
+    if (!assignments[submissionId]) return;
     setAssignments((current) => {
       const next = { ...current };
       delete next[submissionId];
       return next;
     });
+    setSelectedTrackId(null);
   }
 
   const unassignedTracks = guessable.filter((entry) => !assignments[entry.id]);
@@ -399,8 +397,7 @@ export function AttributionGame({
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
-          if (draggingId) unassign(draggingId);
-          setDraggingId(null);
+          unassign(event.dataTransfer.getData("text/plain"));
         }}
       >
         {unassignedTracks.length > 0 ? (
@@ -410,7 +407,6 @@ export function AttributionGame({
               submission={entry}
               selected={selectedTrackId === entry.id}
               onSelect={() => setSelectedTrackId((id) => (id === entry.id ? null : entry.id))}
-              onDragStart={() => setDraggingId(entry.id)}
             />
           ))
         ) : (
@@ -430,7 +426,7 @@ export function AttributionGame({
             )}
             selectedTrackId={selectedTrackId}
             onSelectTrack={(id) => setSelectedTrackId((current) => (current === id ? null : id))}
-            onDropHere={() => draggingId && tryAssign(draggingId, member.contributor.id)}
+            onDropHere={(id) => tryAssign(id, member.contributor.id)}
             onTapHere={() => selectedTrackId && tryAssign(selectedTrackId, member.contributor.id)}
             onRemove={unassign}
           />

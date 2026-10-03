@@ -1,4 +1,4 @@
-import { Fragment, type CSSProperties } from "react";
+import { Fragment, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
@@ -7,7 +7,7 @@ import type { components } from "../../api/schema";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { avatarStyle } from "../../lib/avatar";
-import "./attribution.css";
+import "./attribution-results.css";
 import { ContributorAvatar } from "./ContributorAvatar";
 import { joinNames } from "./joinNames";
 import type { AttributionSubmitterBreakdown } from "./types";
@@ -73,19 +73,54 @@ function MatrixSwatch({ index, person }: { index: number; person: Contributor })
   );
 }
 
+function MatrixTooltip({
+  description,
+  className,
+  style,
+  children,
+}: {
+  description: string;
+  className: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const touchPointer = useRef(false);
+  return (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger
+        className={className}
+        style={style}
+        aria-label={description}
+        closeOnClick={false}
+        onPointerDown={(event) => {
+          touchPointer.current = event.pointerType === "touch";
+        }}
+        onPointerCancel={() => {
+          touchPointer.current = false;
+        }}
+        onClick={() => {
+          if (touchPointer.current) setOpen(true);
+          touchPointer.current = false;
+        }}
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent role="tooltip">{description}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function ColumnHeader({ person, index }: { person: Contributor; index: number }) {
   return (
-    <Tooltip>
-      <TooltipTrigger className="attribution-matrix-header" aria-label={person.displayName}>
-        <span className="attribution-matrix-header-full">
-          <ContributorAvatar member={person} />
-        </span>
-        <span className="attribution-matrix-header-compact">
-          <MatrixSwatch index={index} person={person} />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent role="tooltip">{person.displayName}</TooltipContent>
-    </Tooltip>
+    <MatrixTooltip description={person.displayName} className="attribution-matrix-header">
+      <span className="attribution-matrix-header-full">
+        <ContributorAvatar member={person} />
+      </span>
+      <span className="attribution-matrix-header-compact">
+        <MatrixSwatch index={index} person={person} />
+      </span>
+    </MatrixTooltip>
   );
 }
 
@@ -138,16 +173,13 @@ function MatrixCellButton({
     ? `${names} correctly guessed ${actual.displayName}`
     : `${names} guessed ${actual.displayName}'s songs were ${guessed.displayName}'s`;
   return (
-    <Tooltip>
-      <TooltipTrigger
-        className={`attribution-matrix-cell${isDiagonal ? " correct" : " incorrect"}${heavy ? " heavy" : ""}`}
-        style={{ "--heat": heat } as CSSProperties}
-        aria-label={description}
-      >
-        {cell.count}
-      </TooltipTrigger>
-      <TooltipContent role="tooltip">{description}</TooltipContent>
-    </Tooltip>
+    <MatrixTooltip
+      description={description}
+      className={`attribution-matrix-cell${isDiagonal ? " correct" : " incorrect"}${heavy ? " heavy" : ""}`}
+      style={{ "--heat": heat } as CSSProperties}
+    >
+      {cell.count}
+    </MatrixTooltip>
   );
 }
 

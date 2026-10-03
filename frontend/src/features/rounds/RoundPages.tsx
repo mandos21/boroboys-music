@@ -20,7 +20,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../../components/ui/collapsible";
-import { Button } from "../../components/ui/button";
+import { buttonVariants } from "../../components/ui/button";
 import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { StatePanel } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/ToastProvider";
@@ -380,7 +380,9 @@ function RoundOverview({
             // The decline toggle lives in the same branch as the submit action:
             // both exist only while there is still something left to submit.
             <>
-              <Button render={<Link to={`/rounds/${round.id}/submit`} />}>Choose a track</Button>
+              <Link className={buttonVariants()} to={`/rounds/${round.id}/submit`}>
+                Choose a track
+              </Link>
               <label className="round-decline-toggle">
                 <Switch
                   size="sm"
@@ -817,9 +819,12 @@ export function SeriesPage() {
             {item.description && <p>{item.description}</p>}
           </div>
           {item.isAdmin && (
-            <Button variant="secondary" render={<Link to={`/admin/series/${item.id}`} />}>
+            <Link
+              className={buttonVariants({ variant: "secondary" })}
+              to={`/admin/series/${item.id}`}
+            >
               Manage series
-            </Button>
+            </Link>
           )}
         </div>
         <p className="muted">A record of the rounds and releases your group has made together.</p>

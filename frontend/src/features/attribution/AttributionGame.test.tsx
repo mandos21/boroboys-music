@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -109,6 +109,18 @@ function renderGame(onRevealed: () => void = vi.fn()) {
   );
 }
 
+function dragTrack(track: Element, target: Element) {
+  const data = new Map<string, string>();
+  const dataTransfer = {
+    setData: (type: string, value: string) => data.set(type, value),
+    getData: (type: string) => data.get(type) ?? "",
+    effectAllowed: "none",
+  };
+  fireEvent.dragStart(track, { dataTransfer });
+  fireEvent.dragOver(target, { dataTransfer });
+  fireEvent.drop(target, { dataTransfer });
+}
+
 describe("AttributionGame", () => {
   it("shows the viewer's own track as automatically filled in, excluded from the guessable pool", async () => {
     renderGame();
@@ -150,6 +162,48 @@ describe("AttributionGame", () => {
     expect(
       (screen.getByRole("button", { name: /lock in my guesses/i }) as HTMLButtonElement).disabled,
     ).toBe(false);
+  });
+
+  it("drags an assigned track directly to another person and back to the tray", async () => {
+    const user = userEvent.setup();
+    renderGame();
+    await user.click(screen.getByRole("button", { name: /Song A/ }));
+    await user.click(screen.getByRole("button", { name: /Alice/ }));
+
+    const aliceBin = screen
+      .getByRole("button", { name: /Alice/ })
+      .closest(".attribution-roster-bin");
+    const bobBin = screen.getByRole("button", { name: /Bob/ }).closest(".attribution-roster-bin");
+    const tray = screen.getByLabelText("Unassigned tracks");
+    expect(aliceBin).not.toBeNull();
+    expect(bobBin).not.toBeNull();
+
+    dragTrack(screen.getByRole("button", { name: "Song AArtist A" }), bobBin!);
+    expect(aliceBin?.textContent).toContain("0 of 1 placed");
+    expect(bobBin?.textContent).toContain("Song A");
+    expect(tray.textContent).not.toContain("Song A");
+
+    dragTrack(screen.getByRole("button", { name: "Song AArtist A" }), tray);
+    expect(bobBin?.textContent).toContain("0 of 1 placed");
+    expect(tray.textContent).toContain("Song A");
+  });
+
+  it("keeps an assigned track in place when the destination is full", async () => {
+    const user = userEvent.setup();
+    renderGame();
+    await user.click(screen.getByRole("button", { name: /Song A/ }));
+    await user.click(screen.getByRole("button", { name: /Alice/ }));
+    await user.click(screen.getByRole("button", { name: /Song B/ }));
+    await user.click(screen.getByRole("button", { name: /Bob/ }));
+
+    const aliceBin = screen
+      .getByRole("button", { name: /Alice/ })
+      .closest(".attribution-roster-bin");
+    const bobBin = screen.getByRole("button", { name: /Bob/ }).closest(".attribution-roster-bin");
+    dragTrack(screen.getByRole("button", { name: "Song AArtist A" }), bobBin!);
+    expect(aliceBin?.textContent).toContain("Song A");
+    expect(bobBin?.textContent).toContain("Song B");
+    expect(await screen.findByText(/as many as they could have submitted/i)).toBeTruthy();
   });
 
   it("submits guesses with snake_case ids and shows the scored reveal", async () => {

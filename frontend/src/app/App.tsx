@@ -7,7 +7,7 @@ import { api, post } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
 import type { components } from "../api/schema";
 import { AppShell } from "../components/layout/AppShell";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import { PageSkeleton } from "../components/ui/PageSkeleton";
 import { StatePanel } from "../components/ui/StatePanel";
 import { ToastProvider } from "../components/ui/ToastProvider";
@@ -342,9 +342,9 @@ function LandingPage() {
             BoroCrew Music is for passing songs around with friends—monthly favorites, a strange
             theme somebody picked, or whatever has been stuck in your head lately.
           </p>
-          <Button render={<a href="/api/v1/auth/login" />}>
+          <a className={buttonVariants()} href="/api/v1/auth/login">
             Sign in to BoroCrew Music <ChevronRight aria-hidden="true" size={18} />
-          </Button>
+          </a>
         </div>
         <aside className="landing-card" aria-label="How BoroCrew Music works">
           <span className="landing-card-icon">

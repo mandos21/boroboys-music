@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -143,6 +143,15 @@ describe("AttributionMatrix", () => {
     expect((await screen.findByRole("tooltip")).textContent).toBe(
       "Alice (2 guesses) and Carol guessed Bob's songs were Carol's",
     );
+  });
+
+  it("opens a cell's existing tooltip on touch tap", async () => {
+    renderMatrix();
+    const description = "Alice guessed Carol's songs were Bob's";
+    const cell = await screen.findByRole("button", { name: description });
+    fireEvent.pointerDown(cell, { pointerType: "touch" });
+    fireEvent.click(cell);
+    expect((await screen.findByRole("tooltip")).textContent).toBe(description);
   });
 
   it("keeps a single wrong guess as its own cell", async () => {

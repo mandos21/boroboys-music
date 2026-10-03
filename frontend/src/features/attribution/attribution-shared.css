@@ -1,0 +1,2 @@
+.attribution-track-chip-placeholder { display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: .5rem; background: #e2e8f0; color: #64748b; }
+html[data-theme="dark"] .attribution-track-chip-placeholder { background: #213329; color: #a7bbae; }

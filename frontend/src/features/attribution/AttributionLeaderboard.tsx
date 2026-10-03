@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 
-import "./attribution.css";
+import "./attribution-results.css";
 import { ContributorAvatar } from "./ContributorAvatar";
 import type { AttributionLeaderboardEntry } from "./types";
 

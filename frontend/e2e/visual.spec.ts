@@ -56,6 +56,47 @@ test("distinguishable result colors apply to the dark matrix", async ({ page }, 
   expect(colors[1]).toContain("251, 146, 60");
 });
 
+test("matrix cells reveal their explanation on a phone tap", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "visual-mobile-light", "Touch viewport only.");
+  const alice = { id: "alice", displayName: "Alice", profileImageUrl: null };
+  const bob = { id: "bob", displayName: "Bob", profileImageUrl: null };
+  await page.route("**/api/v1/rounds/round-published-demo/attribution", (route) =>
+    route.fulfill({
+      json: {
+        enabled: true,
+        published: true,
+        revealed: true,
+        revealAt: null,
+        roster: [],
+        game: null,
+        leaderboard: [],
+      },
+    }),
+  );
+  await page.route("**/api/v1/rounds/round-published-demo/attribution/breakdown", (route) =>
+    route.fulfill({
+      json: [
+        {
+          contributor: alice,
+          songs: [
+            {
+              submissionId: "song-a",
+              guesses: [{ guesser: bob, guessedContributor: bob, isCorrect: false }],
+            },
+          ],
+        },
+        { contributor: bob, songs: [] },
+      ],
+    }),
+  );
+  await page.goto("/rounds/round-published-demo");
+  const cell = page.getByRole("button", { name: "Bob guessed Alice's songs were Bob's" });
+  await expect(cell).toBeVisible();
+  await cell.tap();
+  await expect(page.getByRole("tooltip")).toContainText("Bob guessed Alice's songs were Bob's");
+  expect(await cell.evaluate((element) => getComputedStyle(element).userSelect)).toBe("none");
+});
+
 test("the Settings connection action keeps its button contrast", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "accessibility", "One browser covers button styling.");
   await page.goto("/settings");

@@ -7,7 +7,6 @@ import { queryKeys } from "../../api/queryKeys";
 import type { components } from "../../api/schema";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -16,6 +15,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "../ui/alert-dialog";
+import { buttonVariants } from "../ui/button";
 
 type Connection = components["schemas"]["ConnectionResponse"];
 
@@ -81,9 +81,9 @@ export function LastfmReminderDialog({ enabled }: { enabled: boolean }) {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Maybe later</AlertDialogCancel>
-          <AlertDialogAction render={<a href="/api/v1/connections/lastfm/login" />}>
+          <a className={buttonVariants()} href="/api/v1/connections/lastfm/login">
             Connect Last.fm
-          </AlertDialogAction>
+          </a>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
