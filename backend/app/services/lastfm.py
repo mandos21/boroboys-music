@@ -11,6 +11,7 @@ from app.core.config import Settings
 
 API_URL = "https://ws.audioscrobbler.com/2.0/"
 AUTH_URL = "https://www.last.fm/api/auth/"
+MISSING_ARTWORK_ID = "2a96cbd8b46e442fc41c2b86b821562f"
 
 
 class LastfmError(Exception):
@@ -88,7 +89,12 @@ def monthly_top_tracks(
             if isinstance(images, list):
                 image_urls = [image.get("#text") for image in images if isinstance(image, dict)]
                 artwork_url = next(
-                    (url for url in reversed(image_urls) if isinstance(url, str) and url), None
+                    (
+                        url
+                        for url in reversed(image_urls)
+                        if isinstance(url, str) and url and MISSING_ARTWORK_ID not in url.lower()
+                    ),
+                    None,
                 )
             suggestions.append({"name": name, "artist": artist_name, "artworkUrl": artwork_url})
     return suggestions

@@ -33,6 +33,42 @@ for (const route of visualRoutes) {
   });
 }
 
+test("round settings and checks have breathing room", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "accessibility", "One browser covers the spacing.");
+  await page.route("**/api/v1/admin/rounds/round-open", (route) =>
+    route.fulfill({
+      json: {
+        id: "round-open",
+        seriesId: "series-1",
+        title: "October 2026",
+        status: "open",
+        timezone: "America/New_York",
+        opensAt: "2026-10-01T00:00:00-04:00",
+        closesAt: "2026-10-31T23:59:00-04:00",
+        publishAt: "2026-11-01T23:59:00-05:00",
+        submissionLimit: 3,
+        prompt: null,
+        publisherAccountId: null,
+        attributionRevealDelaySeconds: null,
+        policySnapshot: [],
+        members: [],
+      },
+    }),
+  );
+  await page.route("**/api/v1/admin/rounds/round-open/publication", (route) =>
+    route.fulfill({ json: null }),
+  );
+  await page.goto("/admin/rounds/round-open");
+  const sections = page.locator(".admin-shell > .round-settings");
+  await expect(sections).toHaveCount(2);
+  const gap = await sections.evaluateAll(([first, second]) => {
+    const firstBox = first.getBoundingClientRect();
+    const secondBox = second.getBoundingClientRect();
+    return secondBox.top - firstBox.bottom;
+  });
+  expect(gap).toBeGreaterThanOrEqual(12);
+});
+
 test("distinguishable result colors apply to the dark matrix", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "accessibility", "One browser covers the palette behavior.");
   await page.goto("/settings");

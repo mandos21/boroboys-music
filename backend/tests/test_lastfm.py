@@ -42,7 +42,16 @@ class FakeResponse:
         return {
             "toptracks": {
                 "track": [
-                    {"name": "A Track", "artist": {"name": "An Artist"}},
+                    {
+                        "name": "A Track",
+                        "artist": {"name": "An Artist"},
+                        "image": [
+                            {
+                                "#text": "https://lastfm.freetls.fastly.net/i/u/174s/"
+                                "2a96cbd8b46e442fc41c2b86b821562f.png"
+                            }
+                        ],
+                    },
                     {"name": "No artist"},
                 ]
             }

@@ -248,11 +248,6 @@ export function SubmissionPage() {
     (mineCount === undefined ? undefined : Math.max(0, round.data.submissionLimit - mineCount));
   const policyResults = evaluation.data?.policyResults ?? submission.data?.policyResults ?? [];
   const canSubmit = Boolean(selected && evaluation.data?.canSubmit && !submission.isPending);
-  const evidenceRefreshPending = Boolean(
-    evidenceRefreshStartedAt.current &&
-    Date.now() - evidenceRefreshStartedAt.current <= 30_000 &&
-    needsEvidenceRefresh(evidence.data, evidenceRefreshStartedAt.current),
-  );
   return (
     <main className="shell submission-shell">
       <Link className="back" to={`/rounds/${roundId}`}>
@@ -287,9 +282,7 @@ export function SubmissionPage() {
           isEvaluating={evaluation.isPending}
           evaluationFailed={evaluation.isError}
           policyResults={policyResults}
-          isLoadingEvidence={Boolean(
-            evaluation.data && (evidence.isPending || evidenceRefreshPending),
-          )}
+          isLoadingEvidence={Boolean(evaluation.data && evidence.isFetching)}
           evidence={evidence.data}
           requiresWarningConfirmation={Boolean(evaluation.data?.requiresWarningConfirmation)}
           confirmWarnings={confirmWarnings}
