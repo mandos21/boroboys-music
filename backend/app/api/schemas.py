@@ -200,6 +200,14 @@ class AttributionSubmitterBreakdownResponse(ApiResponse):
     songs: list[AttributionSongBreakdownResponse]
 
 
+class RoundAwardResponse(ApiResponse):
+    title: str
+    variant: str
+    detail: str
+    explanation: str
+    contributor: ContributorResponse
+
+
 class ProfileStatItemResponse(ApiResponse):
     name: str
     count: int

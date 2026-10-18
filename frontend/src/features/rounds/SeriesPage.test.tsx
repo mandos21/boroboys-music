@@ -89,24 +89,23 @@ function renderSeries(rounds: unknown[], insightStats?: Record<string, unknown>)
 }
 
 describe("SeriesPage", () => {
-  it("leads with the open round rather than the most recent release", async () => {
-    // The API sorts an open round first; the page must not reorder past it.
+  it("highlights the open round beside the latest release", async () => {
     renderSeries([openRound, publishedRound]);
 
-    const featured = await screen.findByRole("link", { name: /Current round/ });
+    const featured = await screen.findByRole("link", { name: /Up next · open now/ });
     expect(within(featured).getByRole("heading", { name: "September picks" })).toBeTruthy();
   });
 
   it("keeps an unpublished round out of the release archive", async () => {
     renderSeries([openRound, publishedRound]);
 
-    await screen.findByRole("link", { name: /Current round/ });
+    await screen.findByRole("link", { name: /Up next · open now/ });
     const spotlight = screen.getByRole("region", { name: "Latest playlist and current round" });
     expect(
       within(spotlight).getByRole("link", { name: /Latest playlist.*August picks/ }),
     ).toBeTruthy();
     expect(
-      within(spotlight).getByRole("link", { name: /Current round.*September picks/ }),
+      within(spotlight).getByRole("link", { name: /Up next · open now.*September picks/ }),
     ).toBeTruthy();
     expect(within(spotlight).queryByText(/Published.*September picks/)).toBeNull();
   });

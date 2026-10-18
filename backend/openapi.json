@@ -2010,6 +2010,38 @@
         "title": "RollingRoundPlan",
         "type": "object"
       },
+      "RoundAwardResponse": {
+        "properties": {
+          "contributor": {
+            "$ref": "#/components/schemas/ContributorResponse"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "variant": {
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "variant",
+          "detail",
+          "explanation",
+          "contributor"
+        ],
+        "title": "RoundAwardResponse",
+        "type": "object"
+      },
       "RoundCreate": {
         "properties": {
           "attribution_reveal_delay_seconds": {
@@ -5744,6 +5776,53 @@
           }
         },
         "summary": "Submit Attribution Guesses",
+        "tags": [
+          "rounds"
+        ]
+      }
+    },
+    "/api/v1/rounds/{round_id}/awards": {
+      "get": {
+        "operationId": "get_round_awards_api_v1_rounds__round_id__awards_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "round_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Round Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoundAwardResponse"
+                  },
+                  "title": "Response Get Round Awards Api V1 Rounds  Round Id  Awards Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Round Awards",
         "tags": [
           "rounds"
         ]

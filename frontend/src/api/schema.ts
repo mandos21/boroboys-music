@@ -712,6 +712,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rounds/{round_id}/awards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Round Awards */
+        get: operations["get_round_awards_api_v1_rounds__round_id__awards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rounds/{round_id}/draft": {
         parameters: {
             query?: never;
@@ -1679,6 +1696,18 @@ export interface components {
              * @default {previous_title} — next
              */
             title_template: string;
+        };
+        /** RoundAwardResponse */
+        RoundAwardResponse: {
+            contributor: components["schemas"]["ContributorResponse"];
+            /** Detail */
+            detail: string;
+            /** Explanation */
+            explanation: string;
+            /** Title */
+            title: string;
+            /** Variant */
+            variant: string;
         };
         /** RoundCreate */
         RoundCreate: {
@@ -3583,6 +3612,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AttributionSubmitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_round_awards_api_v1_rounds__round_id__awards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                round_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundAwardResponse"][];
                 };
             };
             /** @description Validation Error */

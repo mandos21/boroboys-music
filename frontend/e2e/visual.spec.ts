@@ -97,6 +97,140 @@ test("matrix cells reveal their explanation on a phone tap", async ({ page }, te
   expect(await cell.evaluate((element) => getComputedStyle(element).userSelect)).toBe("none");
 });
 
+test("Guess Who awards keep their layout across screen sizes", async ({ page }, testInfo) => {
+  test.skip(
+    ![
+      "visual-desktop-light",
+      "visual-desktop-dark",
+      "visual-mobile-light",
+      "visual-mobile-dark",
+    ].includes(testInfo.project.name),
+  );
+  const kevin = { id: "kevin", displayName: "Kevin Reynolds", profileImageUrl: null };
+  const kay = { id: "kay", displayName: "Kay Michelet", profileImageUrl: null };
+  const matt = { id: "matt", displayName: "Matt DeGenaro", profileImageUrl: null };
+  type PreviewGuess = {
+    guesser: typeof kevin;
+    guessedContributor: typeof kevin;
+    isCorrect: boolean;
+  };
+  const song = (name: string, guesses: PreviewGuess[]) => ({
+    submissionId: name,
+    track: { name, artist: "A favorite artist", artworkUrl: null },
+    groupCorrectCount: guesses.filter((guess) => guess.isCorrect).length,
+    groupTotalCount: guesses.length,
+    guesses,
+  });
+  await page.route("**/api/v1/rounds/round-published-demo/attribution", (route) =>
+    route.fulfill({
+      json: {
+        enabled: true,
+        published: true,
+        revealed: true,
+        revealAt: null,
+        roster: [],
+        game: null,
+        leaderboard: [
+          { contributor: kay, correctCount: 12, totalCount: 20 },
+          { contributor: matt, correctCount: 12, totalCount: 20 },
+          { contributor: kevin, correctCount: 7, totalCount: 20 },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/v1/rounds/round-published-demo/attribution/breakdown", (route) =>
+    route.fulfill({
+      json: [
+        {
+          contributor: kevin,
+          groupCorrectCount: 1,
+          groupTotalCount: 2,
+          yourCorrectCount: null,
+          yourTotalCount: null,
+          songs: [
+            song("Kevin's pick", [
+              { guesser: kay, guessedContributor: matt, isCorrect: false },
+              { guesser: matt, guessedContributor: kevin, isCorrect: true },
+            ]),
+          ],
+        },
+        {
+          contributor: kay,
+          groupCorrectCount: 0,
+          groupTotalCount: 2,
+          yourCorrectCount: null,
+          yourTotalCount: null,
+          songs: [
+            song("Kay's pick", [
+              { guesser: kevin, guessedContributor: matt, isCorrect: false },
+              { guesser: matt, guessedContributor: matt, isCorrect: false },
+            ]),
+          ],
+        },
+        {
+          contributor: matt,
+          groupCorrectCount: 2,
+          groupTotalCount: 2,
+          yourCorrectCount: null,
+          yourTotalCount: null,
+          songs: [
+            song("Matt's pick", [
+              { guesser: kay, guessedContributor: matt, isCorrect: true },
+              { guesser: kevin, guessedContributor: matt, isCorrect: true },
+            ]),
+          ],
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/v1/rounds/round-published-demo/awards", (route) =>
+    route.fulfill({
+      json: [
+        {
+          title: "Underground",
+          variant: "underground",
+          detail: "Dug deepest into the catalog.",
+          explanation: "3 of 3 tracks in this round's least listened-to third",
+          contributor: kevin,
+        },
+        {
+          title: "Eclectic",
+          variant: "eclectic",
+          detail: "Took the long way around the genres.",
+          explanation: "3 of 3 tracks covered distinct genre groups",
+          contributor: kay,
+        },
+        {
+          title: "Specialized",
+          variant: "specialized",
+          detail: "Stayed in a familiar lane.",
+          explanation: "3 of 3 tracks shared similar genre groups",
+          contributor: matt,
+        },
+        {
+          title: "Uncharted",
+          variant: "uncharted",
+          detail: "Made the genre map draw a blank.",
+          explanation: "2 of 3 tracks had no recognized genre tags",
+          contributor: kevin,
+        },
+      ],
+    }),
+  );
+  await page.goto("/rounds/round-published-demo");
+  const roundAwards = page.getByLabel("Round awards");
+  await expect(roundAwards.locator(".attribution-award")).toHaveCount(4);
+  const awards = page.getByLabel("Guess Who awards");
+  await expect(awards.locator(".attribution-award")).toHaveCount(4);
+  const columns = await awards.evaluate(
+    (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+  );
+  expect(columns).toBe(testInfo.project.name.includes("desktop") ? 4 : 1);
+  await page.addStyleTag({ content: ".app-header { position: static !important; }" });
+  await expect(awards).toHaveScreenshot("guess-who-awards.png", { animations: "disabled" });
+  await expect(roundAwards).toHaveScreenshot("round-awards.png", { animations: "disabled" });
+});
+
 test("the Settings connection action keeps its button contrast", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "accessibility", "One browser covers button styling.");
   await page.goto("/settings");
@@ -111,6 +245,19 @@ test("the Settings connection action keeps its button contrast", async ({ page }
   expect(await action.evaluate((element) => getComputedStyle(element).color)).toBe(
     "rgb(255, 255, 255)",
   );
+});
+
+test("the series management action stays readable in dark mode", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "accessibility", "One browser covers button styling.");
+  await page.goto("/series/series-1");
+  const action = page.getByRole("link", { name: "Manage series" });
+  await expect(action).toBeVisible();
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
+  await expect
+    .poll(() => action.evaluate((element) => getComputedStyle(element).color))
+    .toBe("rgb(220, 232, 224)");
 });
 
 test("published rounds keep the playlist prominent and fold away history and extra tracks", async ({

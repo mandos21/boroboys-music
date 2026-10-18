@@ -342,7 +342,7 @@ function LandingPage() {
             BoroCrew Music is for passing songs around with friends—monthly favorites, a strange
             theme somebody picked, or whatever has been stuck in your head lately.
           </p>
-          <a className={buttonVariants()} href="/api/v1/auth/login">
+          <a data-slot="button" className={buttonVariants()} href="/api/v1/auth/login">
             Sign in to BoroCrew Music <ChevronRight aria-hidden="true" size={18} />
           </a>
         </div>

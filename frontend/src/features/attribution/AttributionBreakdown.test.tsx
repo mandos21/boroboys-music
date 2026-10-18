@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 
 import { AttributionBreakdown } from "./AttributionBreakdown";
-import type { AttributionSubmitterBreakdown } from "./types";
+import type { AttributionLeaderboardEntry, AttributionSubmitterBreakdown } from "./types";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -80,7 +80,11 @@ const breakdown: AttributionSubmitterBreakdown[] = [
   },
 ];
 
-function renderBreakdown(enabled = true, entries = breakdown) {
+function renderBreakdown(
+  enabled = true,
+  entries = breakdown,
+  leaderboard?: AttributionLeaderboardEntry[],
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.stubGlobal(
     "fetch",
@@ -95,7 +99,12 @@ function renderBreakdown(enabled = true, entries = breakdown) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <AttributionBreakdown roundId="round-1" viewerId="me" enabled={enabled} />
+        <AttributionBreakdown
+          roundId="round-1"
+          viewerId="me"
+          enabled={enabled}
+          leaderboard={leaderboard}
+        />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -152,19 +161,42 @@ describe("AttributionBreakdown", () => {
     expect(screen.queryByLabelText("Carol guessed Bob")).toBeNull();
   });
 
-  it("shows tied confusion awards from incorrect guesses", async () => {
+  it("shows the Guess Who superlatives with clear statistics", async () => {
     renderBreakdown();
     const awards = within(await screen.findByLabelText("Guess Who awards"));
-    expect(awards.getByText("Most confusing")).toBeTruthy();
-    expect(awards.getByText("Most confused")).toBeTruthy();
-    expect(awards.getByRole("link", { name: "Alice" })).toBeTruthy();
-    expect(awards.getByRole("link", { name: "Me" })).toBeTruthy();
-    expect(awards.getByRole("link", { name: "Carol" })).toBeTruthy();
+    expect(awards.getByText("Elusive")).toBeTruthy();
+    expect(awards.getByText("Well-Known")).toBeTruthy();
+    expect(awards.getByText("Imposter")).toBeTruthy();
+    expect(awards.getByText("2 guesses out of 2 named Bob")).toBeTruthy();
+    expect(awards.getAllByRole("link", { name: "Alice" })).toHaveLength(2);
+    expect(awards.getAllByRole("link", { name: "Me" })).toHaveLength(2);
   });
 
-  it("omits confusion awards when every guess was correct", async () => {
+  it("does not award above-average recognition when every guess was correct", async () => {
     renderBreakdown(true, [breakdown[0]]);
     await screen.findByRole("list", { name: "People and songs" });
-    expect(screen.queryByLabelText("Guess Who awards")).toBeNull();
+    const awards = within(screen.getByLabelText("Guess Who awards"));
+    expect(awards.getByText("Unanimous")).toBeTruthy();
+    expect(awards.queryByText("Well-Known")).toBeNull();
+  });
+
+  it("names everyone tied for best guessing accuracy", async () => {
+    renderBreakdown(true, breakdown, [
+      {
+        contributor: { id: "me", displayName: "Me", profileImageUrl: null },
+        correctCount: 3,
+        totalCount: 5,
+      },
+      {
+        contributor: { id: "alice", displayName: "Alice", profileImageUrl: null },
+        correctCount: 6,
+        totalCount: 10,
+      },
+    ]);
+    const awards = within(await screen.findByLabelText("Guess Who awards"));
+    const best = awards.getByText("Detective").closest(".attribution-award");
+    expect(best?.textContent).toContain("Me");
+    expect(best?.textContent).toContain("Alice");
+    expect(best?.textContent).toContain("60% of guesses correct");
   });
 });

@@ -12,14 +12,26 @@ html[data-theme="dark"] .attribution-leaderboard-contributor { color: #dce8e0; }
 html[data-theme="dark"] .attribution-leaderboard-rank, html[data-theme="dark"] .attribution-leaderboard li > small { color: #a7bbae; }
 
 .attribution-breakdown { margin-top: 1rem; }
-.attribution-awards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; }
-.attribution-award { padding: .85rem; border: 1px solid #d7eadc; border-radius: .75rem; background: #f8fcf9; }
-.attribution-award h3 { margin: 0; font-size: .95rem; }
-.attribution-award p { margin: .2rem 0 .65rem; color: #64748b; font-size: .75rem; }
-.attribution-award-winners { display: flex; flex-wrap: wrap; gap: .5rem .85rem; }
-.attribution-award-winners a { display: inline-flex; align-items: center; gap: .4rem; font-size: .82rem; font-weight: 700; }
-.attribution-award-winners .contributor-avatar { width: 1.7rem; height: 1.7rem; }
-.attribution-award > strong { display: block; margin-top: .6rem; color: var(--signal-negative-strong); font-size: .76rem; }
+.attribution-awards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; }
+.attribution-award { display: flex; min-width: 0; flex-direction: column; gap: .7rem; overflow: hidden; padding: 1rem; border: 1px solid #d7eadc; border-top: 3px solid var(--award-accent); border-radius: .75rem; background: #f8fcf9; }
+.attribution-award.elusive { --award-accent: #7c3aed; --award-text: #6d28d9; }
+.attribution-award.stumped { --award-accent: #d97706; --award-text: #92400e; }
+.attribution-award.well-known { --award-accent: #0284c7; --award-text: #075985; }
+.attribution-award.detective { --award-accent: #0d9488; --award-text: #115e59; }
+.attribution-award.imposter, .attribution-award.underground { --award-accent: #7c3aed; --award-text: #6d28d9; }
+.attribution-award.doppelgangers, .attribution-award.mainstream { --award-accent: #0284c7; --award-text: #075985; }
+.attribution-award.plot-twist, .attribution-award.eclectic { --award-accent: #d97706; --award-text: #92400e; }
+.attribution-award.unanimous, .attribution-award.specialized { --award-accent: #0d9488; --award-text: #115e59; }
+.attribution-award.split-decision, .attribution-award.uncharted { --award-accent: #db2777; --award-text: #9d174d; }
+.round-awards-section { margin-top: 1rem; }
+.attribution-award h3 { margin: 0; color: #1e293b; font-size: .95rem; font-weight: 750; line-height: 1.25; }
+.attribution-award p { min-height: 2.25em; margin: .2rem 0 0; color: #64748b; font-size: .75rem; line-height: 1.4; }
+.attribution-award-winners { display: grid; align-content: start; gap: .45rem; }
+.attribution-award-winners a { display: inline-flex; width: fit-content; max-width: 100%; align-items: center; gap: .5rem; font-size: .82rem; font-weight: 700; line-height: 1.25; }
+.attribution-award-winners a:hover span:last-child { text-decoration: underline; }
+.attribution-award-winners a span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.attribution-award-winners .contributor-avatar { width: 1.8rem; height: 1.8rem; flex: none; }
+.attribution-award > strong { display: block; padding-top: .65rem; margin-top: auto; border-top: 1px solid #d7eadc; color: var(--award-text); font-size: .82rem; }
 .attribution-breakdown-list { display: flex; flex-direction: column; gap: .6rem; padding: 0; margin: 1.15rem 0 0; list-style: none; }
 .attribution-breakdown-entry { border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; }
 .attribution-breakdown-trigger { display: flex; width: 100%; align-items: center; gap: .65rem; padding: .65rem .85rem; border: 0; background: transparent; cursor: pointer; text-align: left; }
@@ -48,8 +60,19 @@ html[data-theme="dark"] .attribution-leaderboard-rank, html[data-theme="dark"] .
 .attribution-breakdown-guess-count { position: absolute; right: -.25rem; bottom: -.25rem; display: grid; min-width: 1.05rem; height: 1.05rem; place-items: center; border: 2px solid #fff; border-radius: 999px; background: var(--signal-negative); color: #fff; font-size: .62rem; font-weight: 800; line-height: 1; }
 
 html[data-theme="dark"] .attribution-breakdown-entry { border-color: #31483a; background: #172a20; }
-html[data-theme="dark"] .attribution-award { border-color: #31483a; background: #172a20; }
+html[data-theme="dark"] .attribution-award { border-color: #31483a; border-top-color: var(--award-accent); background: #172a20; }
+html[data-theme="dark"] .attribution-award.elusive { --award-accent: #a78bfa; --award-text: #c4b5fd; }
+html[data-theme="dark"] .attribution-award.stumped { --award-accent: #fbbf24; --award-text: #fcd34d; }
+html[data-theme="dark"] .attribution-award.well-known { --award-accent: #38bdf8; --award-text: #7dd3fc; }
+html[data-theme="dark"] .attribution-award.detective { --award-accent: #2dd4bf; --award-text: #5eead4; }
+html[data-theme="dark"] .attribution-award.imposter, html[data-theme="dark"] .attribution-award.underground { --award-accent: #a78bfa; --award-text: #c4b5fd; }
+html[data-theme="dark"] .attribution-award.doppelgangers, html[data-theme="dark"] .attribution-award.mainstream { --award-accent: #38bdf8; --award-text: #7dd3fc; }
+html[data-theme="dark"] .attribution-award.plot-twist, html[data-theme="dark"] .attribution-award.eclectic { --award-accent: #fbbf24; --award-text: #fcd34d; }
+html[data-theme="dark"] .attribution-award.unanimous, html[data-theme="dark"] .attribution-award.specialized { --award-accent: #2dd4bf; --award-text: #5eead4; }
+html[data-theme="dark"] .attribution-award.split-decision, html[data-theme="dark"] .attribution-award.uncharted { --award-accent: #f472b6; --award-text: #f9a8d4; }
+html[data-theme="dark"] .attribution-award h3 { color: #eef8f0; }
 html[data-theme="dark"] .attribution-award p { color: #a7bbae; }
+html[data-theme="dark"] .attribution-award > strong { border-color: #31483a; }
 html[data-theme="dark"] .attribution-breakdown-trigger > svg { color: #a7bbae; }
 html[data-theme="dark"] .attribution-breakdown-name { color: #dce8e0; }
 html[data-theme="dark"] .attribution-breakdown-group-stat, html[data-theme="dark"] .attribution-breakdown-song-stat, html[data-theme="dark"] .attribution-breakdown-guess-group-label { color: #a7bbae; }
@@ -61,12 +84,15 @@ html[data-theme="dark"] .attribution-breakdown-guess-count { border-color: #1723
 
 .attribution-matrix { margin-top: 1rem; }
 .attribution-matrix-caption { margin: .9rem 0 0; color: #64748b; font-size: .78rem; }
+.attribution-matrix-axis-label { margin: 1rem 0 -.5rem; color: #475569; font-size: .75rem; font-weight: 800; text-align: center; }
 /* Only needed once the grid switches to numbered swatches - hidden above
    that breakpoint since avatars and names are visible in the grid itself. */
 .attribution-matrix-legend { display: none; }
 .attribution-matrix-grid { display: grid; align-items: start; gap: 3px; margin-top: 1rem; }
-.attribution-matrix-corner { aspect-ratio: 1; }
-.attribution-matrix-header { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; padding: .2rem; border: none; background: none; cursor: default; }
+.attribution-matrix-corner { display: flex; align-items: end; padding: .25rem; color: #64748b; font-size: .68rem; font-weight: 750; }
+.attribution-matrix-header { display: flex; align-items: center; justify-content: center; min-height: 4.2rem; padding: .2rem; border: none; background: none; cursor: default; }
+.attribution-matrix-header .attribution-matrix-header-full { display: flex; flex-direction: column; gap: .2rem; }
+.attribution-matrix-column-name { max-width: 6.5rem; overflow: hidden; color: #334155; font-size: .67rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .attribution-matrix-row-header { display: flex; align-items: center; gap: .4rem; min-height: 0; padding-right: .5rem; }
 .attribution-matrix-header-full { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
 .attribution-matrix-header-compact { display: none; }
@@ -80,19 +106,26 @@ html[data-theme="dark"] .attribution-breakdown-guess-count { border-color: #1723
 .attribution-matrix-cell.empty { aspect-ratio: 1; background: #f8fafc; cursor: default; }
 
 html[data-theme="dark"] .attribution-matrix-caption { color: #a7bbae; }
+html[data-theme="dark"] .attribution-matrix-axis-label, html[data-theme="dark"] .attribution-matrix-corner { color: #a7bbae; }
+html[data-theme="dark"] .attribution-matrix-column-name { color: #dce8e0; }
 html[data-theme="dark"] .attribution-matrix-row-header .attribution-matrix-header-full { color: #dce8e0; }
 
 
 html[data-theme="dark"] .attribution-matrix-cell.heavy { color: #0b1f14; }
 html[data-theme="dark"] .attribution-matrix-cell.empty { background: #141f19; }
 
-@media (max-width: 40rem) {
-  .attribution-awards { grid-template-columns: 1fr; }
+@media (max-width: 68rem) { .attribution-awards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 40rem) { .attribution-awards { grid-template-columns: 1fr; } }
+
+@media (max-width: 60rem) {
   .attribution-matrix-legend { display: flex; flex-wrap: wrap; gap: .5rem .9rem; padding: 0; margin: .9rem 0 0; list-style: none; }
   .attribution-matrix-legend li { display: flex; align-items: center; gap: .35rem; color: #334155; font-size: .78rem; font-weight: 600; }
   .attribution-matrix-legend .attribution-matrix-swatch { width: 1.3rem; height: 1.3rem; font-size: .62rem; }
   .attribution-matrix-header-full { display: none; }
+  .attribution-matrix-header .attribution-matrix-header-full { display: none; }
   .attribution-matrix-header-compact { display: flex; }
+  .attribution-matrix-corner { max-width: 2rem; overflow: hidden; font-size: .5rem; line-height: 1.1; }
+  .attribution-matrix-header { min-height: 2rem; }
   .attribution-matrix-row-header { justify-content: center; padding-right: 0; }
   .attribution-matrix-swatch { width: 1.1rem; height: 1.1rem; font-size: .58rem; }
   .attribution-matrix-cell { font-size: .62rem; }

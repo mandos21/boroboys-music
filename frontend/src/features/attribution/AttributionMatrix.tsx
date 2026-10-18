@@ -116,6 +116,7 @@ function ColumnHeader({ person, index }: { person: Contributor; index: number })
     <MatrixTooltip description={person.displayName} className="attribution-matrix-header">
       <span className="attribution-matrix-header-full">
         <ContributorAvatar member={person} />
+        <span className="attribution-matrix-column-name">{person.displayName}</span>
       </span>
       <span className="attribution-matrix-header-compact">
         <MatrixSwatch index={index} person={person} />
@@ -224,8 +225,9 @@ export function AttributionMatrix({ roundId, enabled }: { roundId: string; enabl
       {matrix && matrix.people.length > 0 && (
         <>
           <p className="attribution-matrix-caption">
-            Rows are who actually submitted, columns are who a guess named.
+            Each row shows who submitted the tracks. Each column shows who people guessed.
           </p>
+          <p className="attribution-matrix-axis-label">Guessed as →</p>
           <ul className="attribution-matrix-legend">
             {matrix.people.map((person, index) => (
               <li key={person.id}>
@@ -239,7 +241,7 @@ export function AttributionMatrix({ roundId, enabled }: { roundId: string; enabl
             className="attribution-matrix-grid"
             style={{ gridTemplateColumns: `auto repeat(${matrix.people.length}, 1fr)` }}
           >
-            <div className="attribution-matrix-corner" aria-hidden="true" />
+            <div className="attribution-matrix-corner">Submitted by ↓</div>
             {matrix.people.map((person, index) => (
               <ColumnHeader key={person.id} person={person} index={index} />
             ))}

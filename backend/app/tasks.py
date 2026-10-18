@@ -14,14 +14,15 @@ loop for the duration of a Spotify publish and hold up the heartbeat with it.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from procrastinate import App, PsycopgConnector
 from procrastinate.exceptions import AlreadyEnqueued
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 
 from app.core.config import get_settings
-from app.db.models import Publication, PublicationState, Round
+from app.db.models import Publication, PublicationState, Round, Submission, SubmissionStatus, Track
 from app.db.session import get_session_factory
 from app.services.auth_cleanup import purge_expired_auth_state
 from app.services.evidence import refresh_round_evidence
@@ -95,6 +96,47 @@ def purge_auth_state(timestamp: int) -> None:
         db.commit()
 
 
+@app.periodic(cron="18 * * * *", queue="scheduling")
+@app.task(queue="scheduling", queueing_lock="backfill-track-award-metadata")
+def backfill_track_award_metadata(timestamp: int) -> None:
+    """Queue a bounded batch of old published tracks for listener/genre enrichment."""
+    del timestamp
+    if not settings.lastfm_api_key:
+        return
+    retry_before = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    with get_session_factory()() as db:
+        track_ids = list(
+            db.scalars(
+                select(Track.id)
+                .join(Submission, Submission.track_id == Track.id)
+                .join(Publication, Publication.round_id == Submission.round_id)
+                .where(
+                    Submission.status == SubmissionStatus.ACCEPTED,
+                    Publication.published_at.is_not(None),
+                    or_(
+                        ~Track.provider_metadata.has_key("lastfmTrackListenersCheckedAt"),
+                        and_(
+                            Track.provider_metadata["lastfmTrackListenersStatus"].astext == "retry",
+                            Track.provider_metadata["lastfmTrackListenersCheckedAt"].astext
+                            < retry_before,
+                        ),
+                        ~Track.provider_metadata.has_key("genreEnrichmentStatus"),
+                        and_(
+                            Track.provider_metadata["genreEnrichmentStatus"].astext == "incomplete",
+                            Track.provider_metadata["genreEnrichmentCheckedAt"].astext
+                            < retry_before,
+                        ),
+                    ),
+                )
+                .group_by(Track.id)
+                .order_by(func.max(Publication.published_at).desc(), Track.id)
+                .limit(40)
+            )
+        )
+    for track_id in track_ids:
+        defer_track_genre_enrichment(str(track_id))
+
+
 @app.task(queue="publishing")
 def publish_round(publication_id: str) -> None:
     with get_session_factory()() as db:
@@ -110,6 +152,16 @@ def publish_round(publication_id: str) -> None:
             and publication.state is PublicationState.PUBLISHED
         ):
             defer_round_published_notification(str(publication.round_id))
+            track_ids = set(
+                db.scalars(
+                    select(Submission.track_id).where(
+                        Submission.round_id == publication.round_id,
+                        Submission.status == SubmissionStatus.ACCEPTED,
+                    )
+                )
+            )
+            for track_id in track_ids:
+                defer_track_genre_enrichment(str(track_id))
 
 
 @app.task(queue="publishing")

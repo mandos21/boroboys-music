@@ -33,6 +33,7 @@ export const queryKeys = {
   attribution: (roundId: string | undefined) => ["attribution", roundId] as const,
   attributionBreakdown: (roundId: string | undefined) =>
     ["attribution-breakdown", roundId] as const,
+  roundAwards: (roundId: string | undefined) => ["round-awards", roundId] as const,
 
   adminSeries: () => ["admin-series"] as const,
   adminSeriesDetail: (seriesId: string | undefined) => ["admin-series", seriesId] as const,

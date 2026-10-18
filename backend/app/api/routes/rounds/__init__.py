@@ -13,6 +13,7 @@ from app.api.routes.rounds.attribution import (
     get_attribution_status,
     submit_attribution_guesses,
 )
+from app.api.routes.rounds.awards import get_round_awards
 from app.api.routes.rounds.discovery import (
     get_evidence,
     get_listening_suggestions,
@@ -56,6 +57,7 @@ __all__ = [
     "get_evidence",
     "get_listening_suggestions",
     "get_round",
+    "get_round_awards",
     "get_submission_draft",
     "list_my_rounds",
     "list_round_submission_counts",

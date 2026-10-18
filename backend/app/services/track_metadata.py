@@ -13,12 +13,13 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.db.models import Track, TrackArtist, TrackGenre
+from app.db.models import Publication, Submission, SubmissionStatus, Track, TrackArtist, TrackGenre
 from app.services import lastfm, spotify
 from app.services.evidence import primary_artist_name
 from app.services.genre_taxonomy import family_for
 
 _GENRE_REFRESH_INTERVAL = timedelta(days=7)
+_FAILED_REFRESH_INTERVAL = timedelta(days=1)
 
 
 def sync_track_artists(db: Session, track: Track, artists: Iterable[tuple[str, str, int]]) -> None:
@@ -64,7 +65,9 @@ def sync_track_artists(db: Session, track: Track, artists: Iterable[tuple[str, s
     db.flush()
 
 
-def store_track_genres(db: Session, track: Track, genres: Iterable[str]) -> int:
+def store_track_genres(
+    db: Session, track: Track, genres: Iterable[str], *, complete: bool = True
+) -> int:
     """Add genre tags and record a successful refresh without removing old tags."""
     cleaned = {genre.strip() for genre in genres if genre.strip()}
     for genre in cleaned:
@@ -83,6 +86,7 @@ def store_track_genres(db: Session, track: Track, genres: Iterable[str]) -> int:
     if known or cleaned:
         metadata["genres"] = sorted(known | cleaned, key=str.casefold)
     metadata["genreEnrichmentCheckedAt"] = datetime.now(UTC).isoformat()
+    metadata["genreEnrichmentStatus"] = "complete" if complete else "incomplete"
     track.provider_metadata = metadata
     return len(cleaned)
 
@@ -96,13 +100,51 @@ def refresh_track_genres(db: Session, track_id: uuid.UUID) -> None:
     supplement for the tracks Spotify has no opinion on, not a second vote.
     """
     track = db.get(Track, track_id)
-    if track is None or not _needs_genre_refresh(track.provider_metadata):
+    if track is None:
         return
     settings = get_settings()
-    genres = _spotify_artist_genres(db, track, settings)
-    if not genres and settings.lastfm_is_configured:
-        genres = supplement_with_lastfm_genres(db, settings, track)
-    store_track_genres(db, track, genres)
+    if _needs_genre_refresh(track.provider_metadata):
+        spotify_succeeded = True
+        try:
+            genres = _spotify_artist_genres(db, track, settings)
+        except (httpx.HTTPError, spotify.SpotifyError):
+            genres = set()
+            spotify_succeeded = False
+        complete = bool(genres)
+        if not genres and getattr(settings, "lastfm_api_key", None):
+            try:
+                genres = supplement_with_lastfm_genres(db, settings, track)
+                complete = spotify_succeeded or bool(genres)
+            except (httpx.HTTPError, lastfm.LastfmError):
+                complete = False
+        store_track_genres(db, track, genres, complete=complete)
+    published = db.scalar(
+        select(Publication.id)
+        .join(Submission, Submission.round_id == Publication.round_id)
+        .where(
+            Submission.track_id == track.id,
+            Submission.status == SubmissionStatus.ACCEPTED,
+            Publication.published_at.is_not(None),
+        )
+        .limit(1)
+    )
+    if (
+        published is not None
+        and getattr(settings, "lastfm_api_key", None)
+        and _needs_listener_refresh(track.provider_metadata)
+    ):
+        metadata = dict(track.provider_metadata)
+        try:
+            listeners = lastfm.track_listeners(settings, primary_artist_name(db, track), track.name)
+        except (httpx.HTTPError, lastfm.LastfmError, ValueError, TypeError):
+            metadata["lastfmTrackListenersStatus"] = "retry"
+        else:
+            metadata["lastfmTrackListeners"] = listeners
+            metadata["lastfmTrackListenersStatus"] = (
+                "complete" if listeners is not None else "unmatched"
+            )
+        metadata["lastfmTrackListenersCheckedAt"] = datetime.now(UTC).isoformat()
+        track.provider_metadata = metadata
     db.commit()
 
 
@@ -114,10 +156,7 @@ def supplement_with_lastfm_genres(db: Session, settings: Settings, track: Track)
     Spotify genres already pass through is what tells the two apart without a
     hand-maintained denylist: a tag counts only if the taxonomy recognises it.
     """
-    try:
-        tags = lastfm.genre_tags(settings, primary_artist_name(db, track), track.name)
-    except (httpx.HTTPError, lastfm.LastfmError):
-        return set()
+    tags = lastfm.genre_tags(settings, primary_artist_name(db, track), track.name)
     return {tag for tag in tags if family_for(tag) is not None}
 
 
@@ -143,6 +182,11 @@ def _spotify_artist_genres(db: Session, track: Track, settings: Settings) -> set
 
 
 def _needs_genre_refresh(metadata: dict[str, Any]) -> bool:
+    interval = (
+        _GENRE_REFRESH_INTERVAL
+        if metadata.get("genreEnrichmentStatus") == "complete"
+        else _FAILED_REFRESH_INTERVAL
+    )
     value = metadata.get("genreEnrichmentCheckedAt")
     if not isinstance(value, str):
         return True
@@ -152,4 +196,17 @@ def _needs_genre_refresh(metadata: dict[str, Any]) -> bool:
         return True
     if checked_at.tzinfo is None:
         return True
-    return checked_at < datetime.now(UTC) - _GENRE_REFRESH_INTERVAL
+    return checked_at < datetime.now(UTC) - interval
+
+
+def _needs_listener_refresh(metadata: dict[str, Any]) -> bool:
+    if metadata.get("lastfmTrackListenersStatus") in {"complete", "unmatched"}:
+        return False
+    value = metadata.get("lastfmTrackListenersCheckedAt")
+    if not isinstance(value, str):
+        return True
+    try:
+        checked_at = datetime.fromisoformat(value)
+    except ValueError:
+        return True
+    return checked_at.tzinfo is None or checked_at < datetime.now(UTC) - _FAILED_REFRESH_INTERVAL

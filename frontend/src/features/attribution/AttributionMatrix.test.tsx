@@ -130,6 +130,9 @@ describe("AttributionMatrix", () => {
       name: "Bob and Carol correctly guessed Alice",
     });
     expect(cell.textContent).toBe("2");
+    expect(screen.getByText("Guessed as →")).toBeTruthy();
+    expect(screen.getByText("Submitted by ↓")).toBeTruthy();
+    expect(document.querySelectorAll(".attribution-matrix-column-name")).toHaveLength(3);
   });
 
   it("aggregates multiple wrong guesses for the same mistaken pair into one cell", async () => {

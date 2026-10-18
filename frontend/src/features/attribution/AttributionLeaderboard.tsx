@@ -23,15 +23,19 @@ export function AttributionLeaderboard({
         </div>
       </div>
       <ol>
-        {entries.map((entry, index) => {
+        {entries.map((entry) => {
           const percent =
             entry.totalCount === 0
-              ? 100
+              ? null
               : Math.round((entry.correctCount / entry.totalCount) * 100);
           return (
             <li key={entry.contributor.id}>
               <span className="attribution-leaderboard-rank" aria-hidden="true">
-                {index + 1}
+                {entries.findIndex(
+                  (other) =>
+                    (other.totalCount === 0 ? 0 : other.correctCount / other.totalCount) ===
+                    (entry.totalCount === 0 ? 0 : entry.correctCount / entry.totalCount),
+                ) + 1}
               </span>
               <Link
                 className="attribution-leaderboard-contributor"
@@ -40,7 +44,7 @@ export function AttributionLeaderboard({
                 <ContributorAvatar member={entry.contributor} />
                 <span>{entry.contributor.displayName}</span>
               </Link>
-              <strong>{percent}%</strong>
+              <strong>{percent === null ? "—" : `${percent}%`}</strong>
               <small>
                 {entry.correctCount}/{entry.totalCount}
               </small>

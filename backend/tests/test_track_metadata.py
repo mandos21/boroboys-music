@@ -58,11 +58,13 @@ def test_genre_refresh_adds_to_existing_cached_metadata(
 class _SpotifySettings:
     spotify_is_configured = True
     lastfm_is_configured = False
+    lastfm_api_key = None
 
 
 class _NoGenreSpotifySettings:
     spotify_is_configured = True
     lastfm_is_configured = True
+    lastfm_api_key = "test-key"
 
 
 def test_genre_refresh_falls_back_to_lastfm_when_spotify_has_no_genres(
@@ -144,7 +146,7 @@ def test_supplement_with_lastfm_genres_keeps_only_recognised_genre_tags(
     assert genres == {"Dream Pop", "shoegaze"}
 
 
-def test_supplement_with_lastfm_genres_swallows_lastfm_errors(
+def test_supplement_with_lastfm_genres_reports_lastfm_errors(
     monkeypatch: pytest.MonkeyPatch, make_track: Callable[..., Track], db: Session
 ) -> None:
     track = make_track(artist="An Artist", name="A Track")
@@ -154,7 +156,38 @@ def test_supplement_with_lastfm_genres_swallows_lastfm_errors(
 
     monkeypatch.setattr(lastfm, "genre_tags", failing)
 
-    assert supplement_with_lastfm_genres(db, _NoGenreSpotifySettings(), track) == set()
+    with pytest.raises(lastfm.LastfmError):
+        supplement_with_lastfm_genres(db, _NoGenreSpotifySettings(), track)
+
+
+def test_failed_tag_lookup_is_not_recorded_as_successful_no_tags(
+    db: Session,
+    make_track: Callable[..., Track],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    track = make_track(artist="An Artist", name="A Track")
+    db.add(
+        TrackArtist(
+            track_id=track.id,
+            spotify_artist_id="spotify-artist",
+            name="An Artist",
+            position=0,
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(
+        "app.services.track_metadata.get_settings", lambda: _NoGenreSpotifySettings()
+    )
+    monkeypatch.setattr(spotify, "client_credentials_token", lambda _settings: "token")
+    monkeypatch.setattr(spotify, "artists_by_id", lambda _token, _ids: [{"genres": []}])
+
+    def unavailable(*_args: object) -> list[str]:
+        raise lastfm.LastfmError("provider unavailable")
+
+    monkeypatch.setattr(lastfm, "genre_tags", unavailable)
+    refresh_track_genres(db, track.id)
+    db.expire_all()
+    assert db.get(Track, track.id).provider_metadata["genreEnrichmentStatus"] == "incomplete"
 
 
 def test_a_refresh_within_the_interval_makes_no_remote_call(

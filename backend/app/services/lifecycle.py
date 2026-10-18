@@ -142,6 +142,7 @@ def create_rolling_successor(
         # by a current series administrator before it can publish. Carrying the
         # selection forward makes an explicitly automated series stay automated.
         publisher_account_id=published_round.publisher_account_id,
+        attribution_reveal_delay_seconds=series.default_attribution_reveal_delay_seconds,
         successor_of_round_id=published_round.id,
         policy_snapshot=published_round.policy_snapshot,
     )
@@ -207,6 +208,7 @@ def create_calendar_successor(
         publish_at=publish_at,
         status=RoundStatus.OPEN if opens_at <= instant < closes_at else RoundStatus.SCHEDULED,
         publisher_account_id=published_round.publisher_account_id,
+        attribution_reveal_delay_seconds=series.default_attribution_reveal_delay_seconds,
         successor_of_round_id=published_round.id,
         policy_snapshot=published_round.policy_snapshot,
     )

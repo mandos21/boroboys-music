@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.models import Round, Series, Submission, Track, TrackArtist
 from app.db.session import get_session_factory
-from app.services import spotify
+from app.services import lastfm, spotify
 from app.services.track_metadata import (
     _needs_genre_refresh,
     store_track_genres,
@@ -191,10 +191,15 @@ def _backfill_metadata(
                 for artist_id, _, _ in credits
                 for genre in genres_by_artist.get(artist_id, set())
             }
-            if not genres and settings.lastfm_is_configured:
-                genres = supplement_with_lastfm_genres(db, settings, track)
-                lastfm_enriched += bool(genres)
-            enriched += bool(store_track_genres(db, track, genres))
+            complete = bool(genres)
+            if not genres and settings.lastfm_api_key:
+                try:
+                    genres = supplement_with_lastfm_genres(db, settings, track)
+                    complete = True
+                    lastfm_enriched += bool(genres)
+                except (httpx.HTTPError, lastfm.LastfmError):
+                    complete = False
+            enriched += bool(store_track_genres(db, track, genres, complete=complete))
         db.commit()
     return BackfillResult(eligible, resolved, enriched, lastfm_enriched, missing, invalid)
 

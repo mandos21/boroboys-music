@@ -160,6 +160,7 @@ def test_published_rolling_round_creates_one_open_successor_with_member_snapshot
         timezone="UTC",
         default_policies=[],
         auto_start_next_round=True,
+        default_attribution_reveal_delay_seconds=259200,
         round_plan={
             "kind": "rolling",
             "duration_days": 3,
@@ -209,6 +210,7 @@ def test_published_rolling_round_creates_one_open_successor_with_member_snapshot
     assert successor.closes_at == published_at + timedelta(hours=72)
     assert successor.publish_at == published_at + timedelta(hours=72, minutes=30)
     assert successor.submission_limit == 3
+    assert successor.attribution_reveal_delay_seconds == 259200
     assert successor.policy_snapshot == published.policy_snapshot
     assert successor.publisher_account_id == publisher.id
     assert successor.successor_of_round_id == published.id
@@ -290,6 +292,7 @@ def test_calendar_successor_skips_elapsed_windows_and_keeps_the_series_timezone(
         timezone="America/New_York",
         default_policies=[],
         auto_start_next_round=True,
+        default_attribution_reveal_delay_seconds=259200,
         round_plan={
             "kind": "calendar",
             "open_day": 1,
@@ -333,6 +336,7 @@ def test_calendar_successor_skips_elapsed_windows_and_keeps_the_series_timezone(
     assert successor.closes_at == datetime(2026, 6, 8, 13, tzinfo=UTC)
     assert successor.publish_at == datetime(2026, 6, 8, 14, 30, tzinfo=UTC)
     assert successor.submission_limit == 2
+    assert successor.attribution_reveal_delay_seconds == 259200
     assert successor.policy_snapshot == published.policy_snapshot
     assert successor.publisher_account_id == publisher.id
     assert successor.successor_of_round_id == published.id

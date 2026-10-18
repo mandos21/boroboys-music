@@ -43,4 +43,34 @@ describe("AttributionLeaderboard", () => {
     );
     expect(container.textContent).toBe("");
   });
+
+  it("uses the same rank for equal accuracy, even with different totals", () => {
+    const tied = [
+      entries[0],
+      {
+        ...entries[0],
+        contributor: { id: "carol", displayName: "Carol", profileImageUrl: null },
+        correctCount: 2,
+        totalCount: 2,
+      },
+      entries[1],
+    ];
+    render(
+      <MemoryRouter>
+        <AttributionLeaderboard entries={tied} />
+      </MemoryRouter>,
+    );
+    const ranks = Array.from(document.querySelectorAll(".attribution-leaderboard-rank"));
+    expect(ranks.map((rank) => rank.textContent)).toEqual(["1", "1", "3"]);
+  });
+
+  it("does not call a game with no guesses 100% accurate", () => {
+    render(
+      <MemoryRouter>
+        <AttributionLeaderboard entries={[{ ...entries[0], correctCount: 0, totalCount: 0 }]} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText("100%")).toBeNull();
+    expect(screen.getByText("—")).toBeTruthy();
+  });
 });

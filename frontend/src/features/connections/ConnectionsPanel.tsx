@@ -178,6 +178,7 @@ export function ConnectionsPanel() {
                   </div>
                 ))}
                 <a
+                  data-slot="button"
                   className={buttonVariants({ className: "connection-button" })}
                   href={`/api/v1/connections/${provider}/login`}
                 >

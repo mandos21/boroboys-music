@@ -1,14 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CalendarDays,
-  ChevronDown,
-  CircleHelp,
-  Clock3,
-  Disc3,
-  ListMusic,
-  UsersRound,
-} from "lucide-react";
+import { CalendarDays, ChevronDown, Clock3, Disc3, ListMusic } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { api, patch, post } from "../../api/client";
@@ -35,6 +27,7 @@ import { formatDate, formatDateOnly, formatDeadline } from "../../lib/format";
 import { markPerformance } from "../../lib/performance";
 import { DeferredSeriesInsights } from "./DeferredSeriesInsights";
 import { GuessWhoPhase } from "./GuessWhoPhase";
+import { RoundAwards } from "./RoundAwards";
 
 type Round = components["schemas"]["RoundDetailResponse"];
 type Submission = components["schemas"]["SubmissionResponse"];
@@ -83,6 +76,13 @@ export function RoundPage() {
     queryFn: () => api<AttributionStatus>(`/rounds/${roundId}/attribution`),
     enabled: Boolean(roundId) && mayHavePublished,
     retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.enabled &&
+      query.state.data.published &&
+      (!query.state.data.revealed ||
+        (query.state.data.revealAt && Date.parse(query.state.data.revealAt) > Date.now()))
+        ? 30_000
+        : false,
   });
   const session = useQuery({
     queryKey: queryKeys.session(),
@@ -229,12 +229,17 @@ export function RoundPage() {
           onSaveNote={(id, note) => updateNote.mutate({ submissionId: id, note })}
         />
       )}
+      {item.status === "published" &&
+        attribution.data &&
+        (!attribution.data.enabled || showAttributionResults) && <RoundAwards roundId={item.id} />}
       {showAttributionResults && <AttributionLeaderboard entries={attribution.data?.leaderboard} />}
       {showAttributionResults && (
         <AttributionBreakdown
           roundId={item.id}
           viewerId={session.data?.user?.id}
           enabled={showAttributionResults}
+          liveUntil={attribution.data?.revealAt}
+          leaderboard={attribution.data?.leaderboard}
         />
       )}
       {showAttributionResults && (
@@ -305,19 +310,19 @@ function RoundOverview({
           : undefined
       }
     >
-      {round.status === "open" && (
-        <div className="round-cover-placeholder" aria-hidden="true">
-          <CircleHelp size={168} strokeWidth={1.25} />
-        </div>
-      )}
       <div className="round-overview-content">
         <span className={`status ${round.status}`}>{round.status}</span>
         {compact ? <h2>{round.title} details</h2> : <h1>{round.title}</h1>}
+        {round.prompt && <p className="round-prompt">{round.prompt}</p>}
         <p>
           {compact ? "Contributors could share" : "Share"} up to {round.submissionLimit} track
           {round.submissionLimit === 1 ? "" : "s"} with this group before the release date.
         </p>
-        {round.prompt && <p className="round-prompt">Prompt: {round.prompt}</p>}
+        {round.status === "open" && !compact && (
+          <p className="round-note-invitation">
+            Add a note about why you picked each track; it will appear with the playlist.
+          </p>
+        )}
         {round.status === "open" && (
           <p className="round-deadline">
             {formatDeadline(round.closesAt)}
@@ -336,27 +341,24 @@ function RoundOverview({
               <small>Your submissions</small>
             </span>
           </div>
-          <div>
-            <UsersRound aria-hidden="true" size={18} />
-            <span>
-              <strong>{round.status === "open" ? "Open now" : round.status}</strong>
-              <small>Round status</small>
-            </span>
-          </div>
         </div>
         <div className="timeline">
-          <div>
-            <strong>
-              <CalendarDays aria-hidden="true" size={14} /> Opens
-            </strong>
-            <span>{formatDate(round.opensAt)}</span>
-          </div>
-          <div>
-            <strong>
-              <Clock3 aria-hidden="true" size={14} /> Closes
-            </strong>
-            <span>{formatDate(round.closesAt)}</span>
-          </div>
+          {round.status !== "open" && (
+            <div>
+              <strong>
+                <CalendarDays aria-hidden="true" size={14} /> Opens
+              </strong>
+              <span>{formatDate(round.opensAt)}</span>
+            </div>
+          )}
+          {round.status !== "open" && (
+            <div>
+              <strong>
+                <Clock3 aria-hidden="true" size={14} /> Closes
+              </strong>
+              <span>{formatDate(round.closesAt)}</span>
+            </div>
+          )}
           <div>
             <strong>
               <CalendarDays aria-hidden="true" size={14} /> Releases
@@ -380,7 +382,11 @@ function RoundOverview({
             // The decline toggle lives in the same branch as the submit action:
             // both exist only while there is still something left to submit.
             <>
-              <Link className={buttonVariants()} to={`/rounds/${round.id}/submit`}>
+              <Link
+                data-slot="button"
+                className={`${buttonVariants()} round-primary-action`}
+                to={`/rounds/${round.id}/submit`}
+              >
                 Choose a track
               </Link>
               <label className="round-decline-toggle">
@@ -507,11 +513,23 @@ function ArtworkMosaic({ artworkUrls, label }: { artworkUrls: string[]; label: s
 }
 
 function NowSpinning({ tracks }: { tracks: string[] }) {
+  const title = tracks.join(" · ");
+  const scrolling = tracks.length > 5;
   return (
-    <p className="now-spinning" aria-label="Now spinning">
+    <p className="now-spinning">
       <span>Now spinning</span>
       <span className="now-spinning-viewport">
-        <strong>{tracks.join(" · ")}</strong>
+        <span className="sr-only">{title}</span>
+        <strong
+          className={scrolling ? "scrolling" : undefined}
+          aria-hidden="true"
+          style={
+            scrolling ? { animationDuration: `${Math.max(14, tracks.length * 2)}s` } : undefined
+          }
+        >
+          <span>{title}</span>
+          {scrolling && <span>{title}</span>}
+        </strong>
       </span>
     </p>
   );
@@ -567,7 +585,7 @@ function RoundSubmissions({
     >
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Shared so far</p>
+          <p className="eyebrow">{roundIsOpen ? "Shared so far" : "On this release"}</p>
           <h2 id="submissions-heading">Submissions</h2>
         </div>
         <span className="submission-count">
@@ -820,6 +838,7 @@ export function SeriesPage() {
           </div>
           {item.isAdmin && (
             <Link
+              data-slot="button"
               className={buttonVariants({ variant: "secondary" })}
               to={`/admin/series/${item.id}`}
             >
@@ -957,7 +976,7 @@ function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
   const active = round.status !== "published";
   return (
     <Link
-      className="series-featured-round"
+      className={`series-featured-round${active ? " series-featured-round-next" : ""}`}
       to={`/rounds/${round.id}`}
       style={
         {
@@ -968,7 +987,13 @@ function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
       }
     >
       <div className="featured-round-copy">
-        <p className="eyebrow">{active ? "Current round" : "Latest playlist"}</p>
+        <p className="eyebrow">
+          {active
+            ? round.status === "open"
+              ? "Up next · open now"
+              : "Up next"
+            : "Latest playlist"}
+        </p>
         <h2>{round.title}</h2>
         {!active && <GuessWhoPhase roundId={round.id} />}
         <p>
@@ -977,6 +1002,7 @@ function FeaturedRound({ round }: { round: SeriesHistory["rounds"][number] }) {
             : `Released ${formatDate(round.publishAt)}`}
         </p>
         {round.prompt && <p className="featured-prompt">Prompt: {round.prompt}</p>}
+        {active && <span className="featured-round-cta">Explore this round →</span>}
       </div>
       {round.artworkUrls.length > 0 && (
         <div className="featured-round-artwork">

@@ -10,9 +10,9 @@ const buttonVariants = cva(
         default:
           "border-[#166534] bg-[#15803d] text-white shadow-[0_7px_14px_rgb(21_128_61_/_17%)] hover:-translate-y-px hover:bg-[#166534] hover:text-white hover:shadow-[0_10px_18px_rgb(22_101_52_/_24%)]",
         outline:
-          "border-[#cbd5e1] bg-white text-[#334155] shadow-none hover:bg-[#f8fafc] hover:text-[#172554] dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-[#cbd5e1] bg-white text-[#334155] shadow-none hover:bg-[#f8fafc] hover:text-[#172554] dark:border-input dark:bg-input/30 dark:text-[#dce8e0] dark:hover:bg-input/50 dark:hover:text-[#f1f8f3]",
         secondary:
-          "border-[#cbd5e1] bg-white text-[#334155] shadow-none hover:bg-[#f8fafc] hover:text-[#172554] dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-[#cbd5e1] bg-white text-[#334155] shadow-none hover:bg-[#f8fafc] hover:text-[#172554] dark:border-input dark:bg-input/30 dark:text-[#dce8e0] dark:hover:bg-input/50 dark:hover:text-[#f1f8f3]",
         ghost:
           "border-transparent bg-transparent text-[#526179] shadow-none hover:bg-[#f1f5f9] hover:text-[#1e293b] dark:hover:bg-[#213329] dark:hover:text-[#f1f8f3]",
         destructive:

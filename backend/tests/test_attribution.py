@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.api.routes.rounds import (
     get_attribution_breakdown,
     get_attribution_status,
+    get_round_awards,
     list_round_submission_counts,
     list_round_submissions,
     submit_attribution_guesses,
@@ -159,6 +160,52 @@ def test_is_revealed_for_waits_for_the_delay_or_a_completed_guess(
     publication.published_at = datetime.now(UTC) - timedelta(hours=2)
     db.commit()
     assert attribution.is_revealed_for(db, round_, publication, other.id) is True
+
+
+def test_round_awards_follow_the_same_personal_reveal_gate(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+) -> None:
+    viewer = make_user(name="Viewer")
+    round_ = make_round(
+        make_series(),
+        members=[viewer],
+        status=RoundStatus.PUBLISHED,
+        attribution_reveal_delay_seconds=3600,
+    )
+    account = ExternalAccount(
+        user_id=viewer.id,
+        provider=ExternalProvider.SPOTIFY,
+        provider_subject=f"publisher-{uuid.uuid4().hex[:12]}",
+    )
+    db.add(account)
+    db.flush()
+    db.add(
+        Publication(
+            round_id=round_.id,
+            publisher_account_id=account.id,
+            idempotency_key=f"key-{uuid.uuid4().hex[:12]}",
+            state=PublicationState.PUBLISHED,
+            published_at=datetime.now(UTC),
+        )
+    )
+    db.commit()
+    with pytest.raises(HTTPException) as hidden:
+        get_round_awards(round_.id, db, viewer)
+    assert hidden.value.status_code == 403
+    db.add(
+        AttributionGame(
+            round_id=round_.id,
+            user_id=viewer.id,
+            submitted_at=datetime.now(UTC),
+            correct_count=0,
+            total_count=0,
+        )
+    )
+    db.commit()
+    assert get_round_awards(round_.id, db, viewer) == []
 
 
 def test_submit_guesses_scores_correctly_and_excludes_the_viewers_own_submission(

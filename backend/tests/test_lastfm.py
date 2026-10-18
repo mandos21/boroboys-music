@@ -21,6 +21,45 @@ class FakeResponse:
         }
 
 
+class FakeTrackInfoResponse:
+    def __init__(self, payload: object) -> None:
+        self.payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> object:
+        return self.payload
+
+
+def test_track_listeners_uses_global_unique_listeners_not_user_playcount(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_get(*_: object, **kwargs: object) -> FakeTrackInfoResponse:
+        observed.update(kwargs)
+        return FakeTrackInfoResponse({"track": {"listeners": "123456", "playcount": "999999"}})
+
+    monkeypatch.setattr(lastfm.httpx, "get", fake_get)
+    assert lastfm.track_listeners(Settings(lastfm_api_key="api-key"), "Artist", "Song") == 123456
+    assert observed["params"]["method"] == "track.getInfo"  # type: ignore[index]
+    assert "username" not in observed["params"]  # type: ignore[operator]
+
+
+def test_track_listeners_keeps_missing_and_failed_lookups_distinct(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(lastfm.httpx, "get", lambda *_, **__: FakeTrackInfoResponse({"error": 7}))
+    assert lastfm.track_listeners(Settings(lastfm_api_key="api-key"), "Artist", "Song") is None
+    monkeypatch.setattr(lastfm.httpx, "get", lambda *_, **__: FakeTrackInfoResponse({"error": 29}))
+    with pytest.raises(lastfm.LastfmError):
+        lastfm.track_listeners(Settings(lastfm_api_key="api-key"), "Artist", "Song")
+    monkeypatch.setattr(lastfm.httpx, "get", lambda *_, **__: FakeTrackInfoResponse({"error": 6}))
+    with pytest.raises(lastfm.LastfmError):
+        lastfm.track_listeners(Settings(lastfm_api_key="api-key"), "Artist", "Song")
+
+
 def test_monthly_top_tracks_returns_usable_track_suggestions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

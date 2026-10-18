@@ -17,6 +17,42 @@ class LastfmError(Exception):
     pass
 
 
+def track_listeners(settings: Settings, artist: str, track: str) -> int | None:
+    """Get Last.fm's global unique listener count for an artist/track match.
+
+    A missing match stays unknown; it must never become an apparent zero.
+    """
+    if not settings.lastfm_api_key:
+        raise LastfmError("Last.fm is not configured")
+    response = httpx.get(
+        API_URL,
+        params={
+            "method": "track.getInfo",
+            "api_key": settings.lastfm_api_key.get_secret_value(),
+            "artist": artist,
+            "track": track,
+            "format": "json",
+            "autocorrect": "1",
+        },
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if isinstance(payload, dict) and "error" in payload:
+        error_code = str(payload["error"])
+        message = str(payload.get("message", "")).casefold()
+        if error_code == "7" or (error_code == "6" and "not found" in message):
+            return None
+        raise LastfmError("Last.fm track lookup failed")
+    item = payload.get("track") if isinstance(payload, dict) else None
+    count = item.get("listeners") if isinstance(item, dict) else None
+    if isinstance(count, str) and count.isdecimal():
+        return int(count)
+    if isinstance(count, int) and count >= 0:
+        return count
+    raise LastfmError("Last.fm returned no listener count")
+
+
 def monthly_top_tracks(
     settings: Settings, username: str, limit: int = 8
 ) -> list[dict[str, str | None]]:
@@ -84,6 +120,12 @@ def _top_tags(api_key: str, params: dict[str, str]) -> list[str]:
     )
     response.raise_for_status()
     payload = response.json()
+    if isinstance(payload, dict) and "error" in payload:
+        error_code = str(payload["error"])
+        message = str(payload.get("message", "")).casefold()
+        if error_code == "7" or (error_code == "6" and "not found" in message):
+            return []
+        raise LastfmError("Last.fm tag lookup failed")
     container = payload.get("toptags") if isinstance(payload, dict) else None
     rows = container.get("tag") if isinstance(container, dict) else None
     if not isinstance(rows, list):

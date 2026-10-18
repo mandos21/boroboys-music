@@ -81,7 +81,11 @@ export function LastfmReminderDialog({ enabled }: { enabled: boolean }) {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Maybe later</AlertDialogCancel>
-          <a className={buttonVariants()} href="/api/v1/connections/lastfm/login">
+          <a
+            data-slot="button"
+            className={buttonVariants()}
+            href="/api/v1/connections/lastfm/login"
+          >
             Connect Last.fm
           </a>
         </AlertDialogFooter>

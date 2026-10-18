@@ -126,12 +126,16 @@ export function SubmissionReviewPanel({
           <label className="note-label" htmlFor="submission-note">
             Optional note
           </label>
+          <p className="field-hint">
+            Tell the group what makes this track a favorite. Your note appears with it when the
+            playlist is released.
+          </p>
           <textarea
             id="submission-note"
             value={note}
             maxLength={4000}
             onChange={(event) => onNoteChange(event.target.value)}
-            placeholder="Why this track?"
+            placeholder="What did you love about this track?"
           />
         </>
       ) : (

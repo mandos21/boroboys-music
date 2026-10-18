@@ -15,10 +15,12 @@ import "./attribution-shared.css";
 import "./attribution-results.css";
 import { ContributorAvatar } from "./ContributorAvatar";
 import { joinNames } from "./joinNames";
+import { guessWhoAwards } from "./guessWhoAwards";
 import type {
   AttributionSongBreakdown,
   AttributionSongGuess,
   AttributionSubmitterBreakdown,
+  AttributionLeaderboardEntry,
 } from "./types";
 
 function groupAccuracyLabel(correct: number, total: number) {
@@ -47,51 +49,32 @@ function groupMistakenGuesses(guesses: AttributionSongGuess[]): MistakenGroup[] 
   return [...groups.values()];
 }
 
-function ConfusionAwards({ entries }: { entries: AttributionSubmitterBreakdown[] }) {
-  const confused = new Map<string, { person: AttributionSongGuess["guesser"]; count: number }>();
-  const confusing = entries.map((entry) => ({
-    person: entry.contributor,
-    count: entry.groupTotalCount - entry.groupCorrectCount,
-  }));
-  for (const entry of entries) {
-    for (const song of entry.songs) {
-      for (const guess of song.guesses) {
-        if (guess.isCorrect) continue;
-        const current = confused.get(guess.guesser.id);
-        confused.set(guess.guesser.id, {
-          person: guess.guesser,
-          count: (current?.count ?? 0) + 1,
-        });
-      }
-    }
-  }
-  const awards = [
-    { title: "Most confusing", detail: "Wrong guesses on their tracks", scores: confusing },
-    { title: "Most confused", detail: "Wrong guesses made", scores: [...confused.values()] },
-  ];
-  if (confused.size === 0) return null;
+function GuessWhoAwards({
+  entries,
+  leaderboard = [],
+}: {
+  entries: AttributionSubmitterBreakdown[];
+  leaderboard?: AttributionLeaderboardEntry[];
+}) {
+  const awards = guessWhoAwards(entries, leaderboard);
+  if (awards.length === 0) return null;
   return (
     <div className="attribution-awards" aria-label="Guess Who awards">
-      {awards.map(({ title, detail, scores }) => {
-        const high = Math.max(...scores.map((score) => score.count));
+      {awards.map(({ title, detail, people, explanation, variant }) => {
         return (
-          <div className="attribution-award" key={title}>
+          <article className={`attribution-award ${variant}`} key={title}>
             <h3>{title}</h3>
             <p>{detail}</p>
             <div className="attribution-award-winners">
-              {scores
-                .filter((score) => score.count === high)
-                .map(({ person }) => (
-                  <Link key={person.id} to={`/people/${person.id}`}>
-                    <ContributorAvatar member={person} />
-                    <span>{person.displayName}</span>
-                  </Link>
-                ))}
+              {people.map((person) => (
+                <Link key={person.id} to={`/people/${person.id}`}>
+                  <ContributorAvatar member={person} />
+                  <span>{person.displayName}</span>
+                </Link>
+              ))}
             </div>
-            <strong>
-              {high} wrong {high === 1 ? "guess" : "guesses"}
-            </strong>
-          </div>
+            <strong>{explanation}</strong>
+          </article>
         );
       })}
     </div>
@@ -215,15 +198,21 @@ export function AttributionBreakdown({
   roundId,
   viewerId,
   enabled,
+  liveUntil,
+  leaderboard,
 }: {
   roundId: string;
   viewerId: string | undefined;
   enabled: boolean;
+  liveUntil?: string | null;
+  leaderboard?: AttributionLeaderboardEntry[];
 }) {
   const breakdown = useQuery({
     queryKey: queryKeys.attributionBreakdown(roundId),
     queryFn: () => api<AttributionSubmitterBreakdown[]>(`/rounds/${roundId}/attribution/breakdown`),
     enabled,
+    refetchInterval: () =>
+      enabled && liveUntil && Date.parse(liveUntil) > Date.now() ? 30_000 : false,
     retry: false,
   });
 
@@ -253,7 +242,7 @@ export function AttributionBreakdown({
       )}
       {breakdown.data && (
         <>
-          <ConfusionAwards entries={breakdown.data} />
+          <GuessWhoAwards entries={breakdown.data} leaderboard={leaderboard} />
           <ul className="attribution-breakdown-list" aria-label="People and songs">
             {breakdown.data.map((entry) => (
               <li key={entry.contributor.id}>
