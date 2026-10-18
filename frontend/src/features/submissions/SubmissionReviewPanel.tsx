@@ -1,3 +1,4 @@
+import { LoaderCircle } from "lucide-react";
 import { Link } from "react-router";
 import { InfoHint } from "../../components/ui/InfoHint";
 import { Button } from "../../components/ui/button";
@@ -166,6 +167,7 @@ export function SubmissionReviewPanel({
           ) : null}
           {isLoadingEvidence && (
             <p className="evidence-refresh" role="status">
+              <LoaderCircle className="spin" size={15} aria-hidden="true" />
               Checking for recent Last.fm listens…
             </p>
           )}
