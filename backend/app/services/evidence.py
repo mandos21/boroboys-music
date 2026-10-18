@@ -144,7 +144,7 @@ def _lastfm_playcount(
         params={
             "method": method,
             "api_key": api_key.get_secret_value() if api_key else "",
-            "user": username,
+            "username": username,
             "artist": artist,
             **({"track": track.name} if method == "track.getInfo" else {}),
             **({"album": track.album} if method == "album.getInfo" and track.album else {}),
@@ -177,12 +177,17 @@ def _highest_count(previous: int | None, fresh: int | None) -> int | None:
 
 def _playcount(payload: object, key: str = "track") -> int:
     if not isinstance(payload, dict):
-        return 0
+        raise ValueError("Last.fm returned an invalid response")
     item = payload.get(key)
     if not isinstance(item, dict):
-        return 0
-    raw = item.get("userplaycount", 0)
+        raise ValueError("Last.fm returned no matching item")
+    # artist.getInfo nests the listener's count under stats, unlike the
+    # track and album methods. Missing counts are unknown, not zero plays.
+    stats = item.get("stats") if key == "artist" else None
+    raw = stats.get("userplaycount") if isinstance(stats, dict) else item.get("userplaycount")
+    if raw is None:
+        raise ValueError("Last.fm did not return a user playcount")
     try:
         return max(0, int(raw))
     except (TypeError, ValueError):
-        return 0
+        raise ValueError("Last.fm returned an invalid user playcount") from None

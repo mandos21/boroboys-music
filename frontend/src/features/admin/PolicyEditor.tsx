@@ -39,9 +39,10 @@ const definitions: PolicyDefinition[] = [
 type PolicyEditorProps = {
   value: Policy[];
   onChange: (policies: Policy[]) => void;
+  scope?: "new-round" | "round" | "series";
 };
 
-export function PolicyEditor({ value, onChange }: PolicyEditorProps) {
+export function PolicyEditor({ value, onChange, scope = "new-round" }: PolicyEditorProps) {
   const available = definitions.filter(
     (definition) => !value.some((policy) => policy.kind === definition.kind),
   );
@@ -54,8 +55,11 @@ export function PolicyEditor({ value, onChange }: PolicyEditorProps) {
     <fieldset className="policy-editor">
       <legend>Round checks</legend>
       <p className="field-hint">
-        These checks are snapshotted when the round is scheduled, so future policy changes never
-        rewrite past decisions.
+        {scope === "new-round"
+          ? "These checks are copied into the round when it is scheduled."
+          : scope === "series"
+            ? "Future rounds copy these defaults when they are created."
+            : "These checks apply when someone submits or replaces a track."}
       </p>
       <div className="policy-list">
         {value.map((policy, index) => {
@@ -138,7 +142,9 @@ export function PolicyEditor({ value, onChange }: PolicyEditorProps) {
       )}
       {value.length === 0 && (
         <p className="field-hint">
-          No round-specific checks. The series defaults apply if configured.
+          {scope === "new-round"
+            ? "No round-specific checks. The series defaults apply if configured."
+            : "No checks configured."}
         </p>
       )}
     </fieldset>

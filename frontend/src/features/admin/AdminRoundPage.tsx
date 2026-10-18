@@ -10,6 +10,7 @@ import { PageSkeleton } from "../../components/ui/PageSkeleton";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { PublicationPanel } from "./PublicationPanel";
+import { PolicySettings } from "./PolicySettings";
 import { RoundSettingsForm } from "./RoundSettingsForm";
 import { errorMessage } from "./adminUtils";
 import type { AdminRound, Connection, User } from "./types";
@@ -127,6 +128,23 @@ export function AdminRoundPage() {
           <p className="muted">
             The schedule and default limit are frozen once a round has closed.
           </p>
+        )}
+      </Disclosure>
+      <Disclosure
+        className="panel round-settings"
+        title="Round checks"
+        description="Review or update the checks for this round."
+      >
+        {membershipEditable ? (
+          <PolicySettings
+            key={`${round.id}:${JSON.stringify(round.policySnapshot)}`}
+            id={round.id}
+            scope="round"
+            policies={round.policySnapshot}
+            onSaved={invalidate}
+          />
+        ) : (
+          <p className="muted">Round checks are frozen after the round closes.</p>
         )}
       </Disclosure>
       <div className="admin-columns">

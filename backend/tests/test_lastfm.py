@@ -6,6 +6,34 @@ from app.core.config import Settings
 from app.services import lastfm
 
 
+def test_suggestion_artwork_only_uses_matching_spotify_track(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api.routes.rounds.discovery import _spotify_suggestion_artwork
+    from app.services import spotify
+
+    matches = [
+        {
+            "id": "wrong",
+            "name": "Ego",
+            "artists": [{"name": "Someone Else"}],
+            "album": {"images": [{"url": "wrong.jpg"}]},
+        },
+        {
+            "id": "right",
+            "name": "Ego",
+            "artists": [{"name": "The Warning"}],
+            "album": {"images": [{"url": "right.jpg"}]},
+        },
+    ]
+    monkeypatch.setattr(spotify, "search_tracks", lambda *_args: matches)
+    assert (
+        _spotify_suggestion_artwork("token", {"name": "Ego", "artist": "The Warning"})
+        == "right.jpg"
+    )
+    assert _spotify_suggestion_artwork("token", {"name": "Ritual", "artist": "The Warning"}) is None
+
+
 class FakeResponse:
     def raise_for_status(self) -> None:
         return None

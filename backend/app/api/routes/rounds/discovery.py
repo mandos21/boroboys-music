@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Annotated, Any
 
 import httpx
@@ -62,9 +63,49 @@ def get_listening_suggestions(
     if account is None:
         return []
     try:
-        return lastfm.monthly_top_tracks(get_settings(), account.provider_subject)
+        suggestions = lastfm.monthly_top_tracks(get_settings(), account.provider_subject)
     except (httpx.HTTPError, lastfm.LastfmError, ValueError):
         return []
+    if not any(not suggestion.get("artworkUrl") for suggestion in suggestions):
+        return suggestions
+    try:
+        token = spotify.client_credentials_token(get_settings())
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError):
+        return suggestions
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        artwork = list(pool.map(lambda row: _spotify_suggestion_artwork(token, row), suggestions))
+    for suggestion, image in zip(suggestions, artwork, strict=True):
+        suggestion["artworkUrl"] = suggestion.get("artworkUrl") or image
+    return suggestions
+
+
+def _spotify_suggestion_artwork(token: str, suggestion: dict[str, str | None]) -> str | None:
+    if suggestion.get("artworkUrl"):
+        return None
+    name, artist = suggestion.get("name"), suggestion.get("artist")
+    if not name or not artist:
+        return None
+    try:
+        matches = spotify.search_tracks(token, f"{artist} {name}")
+    except (httpx.HTTPError, spotify.SpotifyError, ValueError):
+        return None
+    for match in matches:
+        artists = match.get("artists")
+        if (
+            isinstance(match.get("id"), str)
+            and isinstance(match.get("name"), str)
+            and match["name"].casefold() == name.casefold()
+            and isinstance(artists, list)
+            and any(
+                isinstance(credit, dict)
+                and isinstance(credit.get("name"), str)
+                and credit["name"].casefold() == artist.casefold()
+                for credit in artists
+            )
+        ):
+            image = _search_result_payload(match).get("artworkUrl")
+            return image if isinstance(image, str) else None
+    return None
 
 
 @router.get("/{round_id}/submissions", response_model=list[SubmissionResponse])

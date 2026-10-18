@@ -2475,6 +2475,21 @@
             ],
             "title": "Opens At"
           },
+          "policy_snapshot": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Snapshot"
+          },
           "prompt": {
             "anyOf": [
               {

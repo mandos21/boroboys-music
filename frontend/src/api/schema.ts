@@ -1879,6 +1879,10 @@ export interface components {
             closes_at?: string | null;
             /** Opens At */
             opens_at?: string | null;
+            /** Policy Snapshot */
+            policy_snapshot?: {
+                [key: string]: unknown;
+            }[] | null;
             /** Prompt */
             prompt?: string | null;
             /** Publish At */

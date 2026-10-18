@@ -294,9 +294,10 @@ img { display: block; max-width: 100%; }
 .back:hover { color: #166534; text-decoration: none; }
 .detail { width: 100%; }
 .round-overview { position: relative; overflow: hidden; background-color: #fff; background-image: linear-gradient(135deg, rgb(255 255 255 / 96%), rgb(255 255 255 / 86%)), var(--round-cover, none); background-position: center; background-size: cover; }
-.round-overview h1 { margin: .15rem 0 .4rem; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; }
+.round-overview h1 { margin: .15rem 0 .7rem; font-size: clamp(2.4rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -.04em; }
 .round-overview-content > p:not(.round-prompt):not(.round-deadline) { max-width: 44rem; }
 .round-note-invitation { margin: .35rem 0 0; color: #526179; font-size: .88rem; }
+.round-release-date { margin: 0; color: #64748b; font-size: .82rem; }
 .round-overview-content { position: relative; z-index: 1; }
 .detail .status { margin-bottom: .85rem; }
 .round-summary { display: grid; grid-template-columns: minmax(0, 18rem); gap: .75rem; margin: 1.25rem 0 0; }
@@ -315,7 +316,7 @@ img { display: block; max-width: 100%; }
 .round-overview-actions > [data-slot="button"], .round-overview-actions > .round-capacity-note, .round-overview-actions > .muted { width: fit-content; margin: 0; }
 .round-overview-actions > .round-primary-action { width: fit-content; min-width: 12rem; }
 .round-decline-toggle { display: inline-flex; align-items: center; gap: .55rem; width: fit-content; color: #64748b; font-size: .82rem; cursor: pointer; }
-.round-deadline { display: inline-flex; width: fit-content; align-items: center; gap: .4rem; padding: .35rem .55rem; border: 1px solid #bbf7d0; border-radius: 999px; background: rgb(240 253 244 / 76%); color: #166534; font-size: .75rem; font-weight: 800; }
+.round-deadline { display: block; width: fit-content; max-width: 100%; margin: 0 0 1.25rem; padding: .4rem .65rem; border: 1px solid #bbf7d0; border-radius: 999px; background: rgb(240 253 244 / 76%); color: #166534; font-size: .75rem; font-weight: 800; }
 .round-deadline small { color: #526179; font-size: .7rem; font-weight: 650; }
 .round-secondary-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .history-link { display: inline-flex; align-items: center; min-height: 2.4rem; padding: .52rem .72rem; border: 1px solid #bbd8c1; border-radius: .62rem; background: rgb(255 255 255 / 70%); color: #166534; font-size: .84rem; font-weight: 800; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
@@ -356,6 +357,7 @@ input:focus, textarea:focus, select:focus { border-color: #22c55e; outline: 0; b
 .policy { margin: .5rem 0; padding: .35rem 0 .35rem .7rem; border-left: 3px solid #f59e0b; color: #526179; font-size: .87rem; line-height: 1.45; }
 .policy.reject { border-color: var(--signal-negative); color: var(--signal-negative-strong); }
 .policy.accept { border-color: var(--signal-positive); }
+.policy.history { border-color: #94a3b8; color: #64748b; }
 .evidence p { margin: .5rem 0; color: #475569; font-size: .85rem; line-height: 1.5; }
 .evidence small { color: #94a3b8; }
 .evidence .evidence-explainer { margin: 0 0 .7rem; color: #64748b; font-size: .78rem; }
@@ -672,4 +674,5 @@ html[data-theme="dark"] input::placeholder, html[data-theme="dark"] textarea::pl
 html[data-theme="dark"] input:hover, html[data-theme="dark"] textarea:hover, html[data-theme="dark"] select:hover, html[data-theme="dark"] .track-result:hover { border-color: #5cb878; background: #193023; }
 html[data-theme="dark"] .timeline, html[data-theme="dark"] .selected-track, html[data-theme="dark"] .policy-results, html[data-theme="dark"] .evidence, html[data-theme="dark"] .series-round-item, html[data-theme="dark"] .submission-history li { border-color: #31483a; }
 html[data-theme="dark"] .timeline span, html[data-theme="dark"] .round-summary strong, html[data-theme="dark"] label, html[data-theme="dark"] .policy-results h3, html[data-theme="dark"] .evidence h3 { color: #dce8e0; }
+html[data-theme="dark"] .policy.history { color: #a7bbae; }
 html[data-theme="dark"] .timeline strong, html[data-theme="dark"] .round-summary small, html[data-theme="dark"] .track-result small, html[data-theme="dark"] .selected-track p, html[data-theme="dark"] .evidence p { color: #a7bbae; }

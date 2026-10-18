@@ -99,7 +99,11 @@ def test_refresh_caches_track_artist_and_album_counts(
         "get",
         lambda *_a, **kwargs: _Response(
             {
-                key: {"userplaycount": value}
+                key: (
+                    {"stats": {"userplaycount": value}}
+                    if key == "artist"
+                    else {"userplaycount": value}
+                )
                 for key, value in counts.items()
                 if kwargs["params"]["method"].startswith(key)
             }
@@ -184,8 +188,9 @@ def test_refresh_asks_lastfm_about_the_lead_artist_not_the_joined_credit(
     def answer(*_a: object, **kwargs: object) -> _Response:
         params = kwargs["params"]
         assert isinstance(params, dict)
+        assert params["username"] == account.provider_subject
         asked.append(str(params["artist"]))
-        return _Response({"track": {"userplaycount": 2}, "artist": {"userplaycount": 9}})
+        return _Response({"track": {"userplaycount": 2}, "artist": {"stats": {"userplaycount": 9}}})
 
     monkeypatch.setattr(evidence.httpx, "get", answer)
     evidence._refresh_account(db, account, track)

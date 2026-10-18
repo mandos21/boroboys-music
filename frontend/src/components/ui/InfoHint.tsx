@@ -1,7 +1,6 @@
 import { CircleHelp } from "lucide-react";
+import { Popover } from "@base-ui/react/popover";
 import { useId, useState, type ReactNode } from "react";
-
-import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 export function InfoHint({
   children,
@@ -14,27 +13,28 @@ export function InfoHint({
   const descriptionId = useId();
 
   return (
-    <Tooltip disableHoverablePopup onOpenChange={setIsOpen}>
-      <TooltipTrigger
+    <Popover.Root onOpenChange={setIsOpen}>
+      <Popover.Trigger
         aria-describedby={isOpen ? descriptionId : undefined}
         aria-label={label}
         className="info-hint"
       >
         <CircleHelp aria-hidden="true" size={12} />
-      </TooltipTrigger>
-      <TooltipContent
-        align="end"
-        className="info-hint-popup"
-        collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "end" }}
-        collisionPadding={12}
-        id={descriptionId}
-        positionMethod="fixed"
-        role="tooltip"
-        side="bottom"
-        sideOffset={6}
-      >
-        {children}
-      </TooltipContent>
-    </Tooltip>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner
+          align="end"
+          collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "end" }}
+          collisionPadding={12}
+          positionMethod="fixed"
+          side="bottom"
+          sideOffset={6}
+        >
+          <Popover.Popup className="info-hint-popup" id={descriptionId}>
+            {children}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

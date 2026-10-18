@@ -27,6 +27,14 @@ import {
   trackFromInput,
 } from "./types";
 
+function needsEvidenceRefresh(data: Evidence | undefined, startedAt: number) {
+  const rows = data?.evidence;
+  return (
+    !rows?.length ||
+    rows.some((item) => !item.refreshAfter || Date.parse(item.refreshAfter) <= startedAt)
+  );
+}
+
 export function SubmissionPage() {
   const { roundId } = useParams();
   const navigate = useNavigate();
@@ -37,6 +45,7 @@ export function SubmissionPage() {
   const [query, setQuery] = useState("");
   const [confirmWarnings, setConfirmWarnings] = useState(false);
   const submittedRef = useRef(false);
+  const evidenceRefreshStartedAt = useRef(0);
   const draftPayloadRef = useRef<{ track: Track | null; note: string }>({ track: null, note: "" });
   const form = useForm<{ selected: Track | null; note: string }>({
     defaultValues: { selected: null, note: "" },
@@ -69,6 +78,11 @@ export function SubmissionPage() {
     queryKey: queryKeys.evidence(roundId, evaluation.data?.trackId),
     queryFn: () => api<Evidence>(`/rounds/${roundId}/tracks/${evaluation.data?.trackId}/evidence`),
     enabled: Boolean(roundId && evaluation.data?.trackId),
+    refetchInterval: (current) => {
+      const startedAt = evidenceRefreshStartedAt.current;
+      if (!startedAt || Date.now() - startedAt > 30_000) return false;
+      return needsEvidenceRefresh(current.state.data, startedAt) ? 1500 : false;
+    },
   });
   const draft = useQuery({
     queryKey: queryKeys.submissionDraft(roundId),
@@ -139,6 +153,7 @@ export function SubmissionPage() {
   const { reset: resetSubmission } = submission;
   const chooseTrack = useCallback(
     (track: Track) => {
+      evidenceRefreshStartedAt.current = Date.now();
       form.setValue("selected", track);
       setConfirmWarnings(false);
       resetEvaluation();
@@ -233,6 +248,11 @@ export function SubmissionPage() {
     (mineCount === undefined ? undefined : Math.max(0, round.data.submissionLimit - mineCount));
   const policyResults = evaluation.data?.policyResults ?? submission.data?.policyResults ?? [];
   const canSubmit = Boolean(selected && evaluation.data?.canSubmit && !submission.isPending);
+  const evidenceRefreshPending = Boolean(
+    evidenceRefreshStartedAt.current &&
+    Date.now() - evidenceRefreshStartedAt.current <= 30_000 &&
+    needsEvidenceRefresh(evidence.data, evidenceRefreshStartedAt.current),
+  );
   return (
     <main className="shell submission-shell">
       <Link className="back" to={`/rounds/${roundId}`}>
@@ -267,7 +287,9 @@ export function SubmissionPage() {
           isEvaluating={evaluation.isPending}
           evaluationFailed={evaluation.isError}
           policyResults={policyResults}
-          isLoadingEvidence={evidence.isFetching}
+          isLoadingEvidence={Boolean(
+            evaluation.data && (evidence.isPending || evidenceRefreshPending),
+          )}
           evidence={evidence.data}
           requiresWarningConfirmation={Boolean(evaluation.data?.requiresWarningConfirmation)}
           confirmWarnings={confirmWarnings}

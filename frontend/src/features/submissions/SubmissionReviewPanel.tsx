@@ -75,7 +75,10 @@ export function SubmissionReviewPanel({
         <div className="policy-results">
           <h3>Round checks</h3>
           {policyResults.map((result) => (
-            <p className={`policy ${result.decision}`} key={`${result.kind}-${result.message}`}>
+            <p
+              className={`policy ${result.decision}${result.kind === "previously_submitted" ? " history" : ""}`}
+              key={`${result.kind}-${result.message}`}
+            >
               {result.message}
             </p>
           ))}
@@ -83,16 +86,20 @@ export function SubmissionReviewPanel({
       )}
       {isLoadingEvidence && (
         <p className="field-hint" role="status">
-          Loading cached listening evidence…
+          Checking for newer Last.fm listens…
         </p>
       )}
       {evidence && (
         <div className="evidence">
           <h3>Group listening evidence</h3>
           <InfoHint label="How listening evidence works">
-            Listening counts come from linked Last.fm accounts. They may be slightly behind recent
-            plays, but previously recorded listens are retained rather than discarded.
+            These are cached all-time listens from linked Last.fm accounts, not submissions to this
+            series. Recent plays can take a moment to appear. Previous submissions are checked
+            separately under Round checks.
           </InfoHint>
+          <p className="evidence-explainer">
+            Cached Last.fm listens; previous submissions are checked separately.
+          </p>
           {evidence.evidence.length === 0 ? (
             <p className="field-hint">
               No shared Last.fm evidence is cached yet. It will refresh in the background.
@@ -102,7 +109,7 @@ export function SubmissionReviewPanel({
               {evidence.evidence.map((item) => (
                 <p key={item.accountId}>
                   <strong>{item.isMine ? "You" : (item.displayName ?? "A contributor")}</strong>:
-                  song {item.playcount ?? 0} · artist {item.artistPlaycount ?? "—"}
+                  track {item.playcount ?? "—"} · artist {item.artistPlaycount ?? "—"}
                   {item.albumPlaycount !== null ? ` · album ${item.albumPlaycount}` : ""}{" "}
                   <small>observed {formatDate(item.fetchedAt)}</small>
                 </p>

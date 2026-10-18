@@ -325,6 +325,7 @@ def test_series_admin_can_update_a_scheduled_round_and_its_status_is_recalculate
             closes_at=now + timedelta(hours=1),
             publish_at=now + timedelta(days=1),
             submission_limit=3,
+            policy_snapshot=[{"kind": "duplicate_in_series", "on_match": "warn"}],
         ),
         db,
         admin,
@@ -333,6 +334,7 @@ def test_series_admin_can_update_a_scheduled_round_and_its_status_is_recalculate
     assert result["title"] == "Now open"
     assert result["submissionLimit"] == 3
     assert result["status"] == "open"
+    assert round_.policy_snapshot == [{"kind": "duplicate_in_series", "on_match": "warn"}]
 
     with pytest.raises(HTTPException, match="opening time cannot be changed"):
         update_round(

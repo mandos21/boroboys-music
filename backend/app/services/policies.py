@@ -162,6 +162,36 @@ def evaluate_submission(
                     result={"status": "unsupported"},
                 )
             )
+    # Show prior appearances even when this series has not configured a
+    # blocking repeat rule. A previous submission is distinct from Last.fm
+    # listening evidence and is useful context while choosing a track.
+    if not any(
+        policy.get("enabled", True)
+        and policy.get("kind") in {"duplicate_in_series", "no_recent_series_repeat"}
+        for policy in policies
+    ):
+        previous = db.execute(
+            select(Submission.id, Round.title)
+            .join(Round, Round.id == Submission.round_id)
+            .where(
+                Round.series_id == round_.series_id,
+                Round.id != round_.id,
+                Submission.track_id == track_id,
+                Submission.status == SubmissionStatus.ACCEPTED,
+            )
+            .order_by(Submission.created_at.desc())
+            .limit(1)
+        ).first()
+        if previous:
+            results.append(
+                PolicyResult(
+                    kind="previously_submitted",
+                    version="1",
+                    decision=EvaluationDecision.ACCEPT,
+                    message=f"This track was shared in {previous.title}.",
+                    result={"existingSubmissionId": str(previous.id)},
+                )
+            )
     return results
 
 

@@ -13,6 +13,7 @@ import { useToast } from "../../components/ui/ToastProvider";
 import { formatDate } from "../../lib/format";
 import { HistoricalImportPanel } from "./HistoricalImportPanel";
 import { InvitePanel } from "./InvitePanel";
+import { PolicySettings } from "./PolicySettings";
 import { RoundScheduleForm } from "./RoundScheduleForm";
 import { SuccessorPlanEditor } from "./SuccessorPlanEditor";
 import { errorMessage } from "./adminUtils";
@@ -179,6 +180,19 @@ export function AdminSeriesPage() {
           onSaved={invalidate}
         />
       </section>
+      <Disclosure
+        className="panel round-settings"
+        title="Default round checks"
+        description="Set checks for rounds created from now on."
+      >
+        <PolicySettings
+          key={`${series.id}:${JSON.stringify(series.defaultPolicies)}`}
+          id={series.id}
+          scope="series"
+          policies={series.defaultPolicies}
+          onSaved={invalidate}
+        />
+      </Disclosure>
       <Disclosure
         className="panel series-identity"
         title="Series details and look"

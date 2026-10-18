@@ -88,6 +88,7 @@ class RoundUpdate(BaseModel):
     prompt: str | None = Field(default=None, max_length=2000)
     publisher_account_id: uuid.UUID | None = None
     attribution_reveal_delay_seconds: int | None = Field(default=None, ge=0)
+    policy_snapshot: list[dict[str, Any]] | None = None
 
 
 @router.post("/rounds", status_code=status.HTTP_201_CREATED, response_model=AdminIdResponse)
@@ -200,6 +201,13 @@ def update_round(
         round_.publisher_account_id = payload.publisher_account_id
     if "attribution_reveal_delay_seconds" in payload.model_fields_set:
         round_.attribution_reveal_delay_seconds = payload.attribution_reveal_delay_seconds
+    if "policy_snapshot" in payload.model_fields_set:
+        if payload.policy_snapshot is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="round checks must be a list",
+            )
+        round_.policy_snapshot = payload.policy_snapshot
     round_.opens_at, round_.closes_at, round_.publish_at = opens_at, closes_at, publish_at
     round_.status = status_for_timeline(opens_at, closes_at)
     db.commit()

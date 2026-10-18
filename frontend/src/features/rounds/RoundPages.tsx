@@ -313,22 +313,16 @@ function RoundOverview({
       <div className="round-overview-content">
         <span className={`status ${round.status}`}>{round.status}</span>
         {compact ? <h2>{round.title} details</h2> : <h1>{round.title}</h1>}
+        {round.status === "open" && (
+          <p className="round-deadline">
+            {formatDeadline(round.closesAt)} <small>· {formatDate(round.closesAt)}</small>
+          </p>
+        )}
         {round.prompt && <p className="round-prompt">{round.prompt}</p>}
         <p>
           {compact ? "Contributors could share" : "Share"} up to {round.submissionLimit} track
           {round.submissionLimit === 1 ? "" : "s"} with this group before the release date.
         </p>
-        {round.status === "open" && !compact && (
-          <p className="round-note-invitation">
-            Add a note about why you picked each track; it will appear with the playlist.
-          </p>
-        )}
-        {round.status === "open" && (
-          <p className="round-deadline">
-            {formatDeadline(round.closesAt)}
-            <small>{formatDate(round.closesAt)}</small>
-          </p>
-        )}
         <div className="round-summary" aria-label="Round summary">
           <div>
             <ListMusic aria-hidden="true" size={18} />
@@ -342,30 +336,28 @@ function RoundOverview({
             </span>
           </div>
         </div>
-        <div className="timeline">
-          {round.status !== "open" && (
+        {round.status !== "open" && (
+          <div className="timeline">
             <div>
               <strong>
                 <CalendarDays aria-hidden="true" size={14} /> Opens
               </strong>
               <span>{formatDate(round.opensAt)}</span>
             </div>
-          )}
-          {round.status !== "open" && (
             <div>
               <strong>
                 <Clock3 aria-hidden="true" size={14} /> Closes
               </strong>
               <span>{formatDate(round.closesAt)}</span>
             </div>
-          )}
-          <div>
-            <strong>
-              <CalendarDays aria-hidden="true" size={14} /> Releases
-            </strong>
-            <span>{formatDate(round.publishAt)}</span>
+            <div>
+              <strong>
+                <CalendarDays aria-hidden="true" size={14} /> Releases
+              </strong>
+              <span>{formatDate(round.publishAt)}</span>
+            </div>
           </div>
-        </div>
+        )}
         <div className="round-overview-actions">
           {round.status !== "open" ? (
             <p className="muted">Submissions are currently closed.</p>
@@ -389,6 +381,9 @@ function RoundOverview({
               >
                 Choose a track
               </Link>
+              <p className="round-note-invitation">
+                A quick note about why you chose it will appear with the playlist.
+              </p>
               <label className="round-decline-toggle">
                 <Switch
                   size="sm"
@@ -430,6 +425,9 @@ function RoundOverview({
               </Link>
             )}
           </div>
+          {round.status === "open" && (
+            <p className="round-release-date">Playlist releases {formatDate(round.publishAt)}</p>
+          )}
         </div>
       </div>
     </section>
@@ -595,17 +593,11 @@ function RoundSubmissions({
       </div>
       {roundIsOpen && <RoundParticipantCounts counts={submissionCounts} viewerId={viewerId} />}
       {entries.length === 0 ? (
-        <StatePanel
-          title={
-            roundIsOpen
-              ? "You haven’t shared a track yet"
-              : "The playlist is waiting for its first track"
-          }
-        >
-          {roundIsOpen
-            ? "Everyone else’s picks stay secret until the round closes."
-            : "Be the one to set the tone for this round."}
-        </StatePanel>
+        !roundIsOpen && (
+          <StatePanel title="The playlist is waiting for its first track">
+            Be the one to set the tone for this round.
+          </StatePanel>
+        )
       ) : (
         <ul id="round-submission-list">
           {(expanded ? entries : entries.slice(0, 5)).map((entry) => {

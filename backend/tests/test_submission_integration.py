@@ -450,6 +450,11 @@ def test_recent_series_repeat_only_considers_the_configured_published_window(db:
     db.add(Submission(round_id=older.id, contributor_id=user.id, track_id=track.id))
     db.commit()
 
+    history = evaluate_submission(db, current, track.id, [])
+    assert len(history) == 1
+    assert history[0].kind == "previously_submitted"
+    assert history[0].decision is EvaluationDecision.ACCEPT
+
     policy = {"kind": "no_recent_series_repeat", "lookback_rounds": 1}
     assert evaluate_submission(db, current, track.id, [policy]) == []
 
