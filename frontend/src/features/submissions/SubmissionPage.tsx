@@ -45,7 +45,7 @@ export function SubmissionPage() {
   const [query, setQuery] = useState("");
   const [confirmWarnings, setConfirmWarnings] = useState(false);
   const submittedRef = useRef(false);
-  const evidenceRefreshStartedAt = useRef(0);
+  const [evidenceRefreshStartedAt, setEvidenceRefreshStartedAt] = useState(0);
   const draftPayloadRef = useRef<{ track: Track | null; note: string }>({ track: null, note: "" });
   const form = useForm<{ selected: Track | null; note: string }>({
     defaultValues: { selected: null, note: "" },
@@ -79,10 +79,15 @@ export function SubmissionPage() {
     queryFn: () => api<Evidence>(`/rounds/${roundId}/tracks/${evaluation.data?.trackId}/evidence`),
     enabled: Boolean(roundId && evaluation.data?.trackId),
     refetchInterval: (current) => {
-      const startedAt = evidenceRefreshStartedAt.current;
-      if (!startedAt || Date.now() - startedAt > 30_000) return false;
-      return needsEvidenceRefresh(current.state.data, startedAt) ? 1500 : false;
+      if (!evidenceRefreshStartedAt || Date.now() - evidenceRefreshStartedAt > 30_000) return false;
+      return needsEvidenceRefresh(current.state.data, evidenceRefreshStartedAt) ? 1500 : false;
     },
+  });
+  const connections = useQuery({
+    queryKey: queryKeys.connections(),
+    queryFn: () => api<Array<{ provider: string; isActive: boolean }>>("/connections"),
+    enabled: Boolean(selected),
+    retry: false,
   });
   const draft = useQuery({
     queryKey: queryKeys.submissionDraft(roundId),
@@ -153,7 +158,7 @@ export function SubmissionPage() {
   const { reset: resetSubmission } = submission;
   const chooseTrack = useCallback(
     (track: Track) => {
-      evidenceRefreshStartedAt.current = Date.now();
+      setEvidenceRefreshStartedAt(Date.now());
       form.setValue("selected", track);
       setConfirmWarnings(false);
       resetEvaluation();
@@ -162,6 +167,12 @@ export function SubmissionPage() {
     },
     [evaluateTrack, form, resetEvaluation, resetSubmission],
   );
+
+  useEffect(() => {
+    if (!evidenceRefreshStartedAt) return;
+    const timer = window.setTimeout(() => setEvidenceRefreshStartedAt(0), 30_000);
+    return () => window.clearTimeout(timer);
+  }, [evidenceRefreshStartedAt]);
 
   // Defer hydration one task so React sees it as a response to the query result,
   // rather than a synchronous state change while committing this render.
@@ -282,8 +293,21 @@ export function SubmissionPage() {
           isEvaluating={evaluation.isPending}
           evaluationFailed={evaluation.isError}
           policyResults={policyResults}
-          isLoadingEvidence={Boolean(evaluation.data && evidence.isFetching)}
+          isLoadingEvidence={Boolean(
+            evaluation.data &&
+            !evidence.isError &&
+            evidenceRefreshStartedAt &&
+            needsEvidenceRefresh(evidence.data, evidenceRefreshStartedAt),
+          )}
           evidence={evidence.data}
+          evidenceFailed={evidence.isError}
+          hasLastfmConnection={
+            connections.data
+              ? connections.data.some(
+                  (account) => account.provider === "lastfm" && account.isActive,
+                )
+              : undefined
+          }
           requiresWarningConfirmation={Boolean(evaluation.data?.requiresWarningConfirmation)}
           confirmWarnings={confirmWarnings}
           onConfirmWarningsChange={setConfirmWarnings}

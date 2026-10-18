@@ -348,7 +348,7 @@ input:focus, textarea:focus, select:focus { border-color: #22c55e; outline: 0; b
 .track-result small { overflow: hidden; color: #64748b; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
 .review-panel { position: sticky; top: 6rem; }
 .review-panel h2 { margin-bottom: 1.15rem; }
-.selected-track { display: flex; align-items: center; gap: .8rem; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; }
+.selected-track { display: flex; align-items: center; gap: .8rem; }
 .selected-track h3 { margin: 0; color: #1e293b; font-size: 1rem; }
 .selected-track p { margin: .2rem 0 0; color: #64748b; font-size: .87rem; }
 .policy-results, .evidence { padding-top: 1rem; margin-top: 1rem; border-top: 1px solid #e2e8f0; }
@@ -358,12 +358,24 @@ input:focus, textarea:focus, select:focus { border-color: #22c55e; outline: 0; b
 .policy.reject { border-color: var(--signal-negative); color: var(--signal-negative-strong); }
 .policy.accept { border-color: var(--signal-positive); }
 .policy.history { border-color: #94a3b8; color: #64748b; }
-.evidence p { margin: .5rem 0; color: #475569; font-size: .85rem; line-height: 1.5; }
-.evidence small { color: #94a3b8; }
-.evidence .evidence-explainer { margin: 0 0 .7rem; color: #64748b; font-size: .78rem; }
-.evidence-list { display: grid; gap: .45rem; }
-.evidence-list p { padding: .65rem .7rem; margin: 0; border-radius: .65rem; background: #f8fafc; }
-.evidence-list strong { color: #334155; }
+.policy-warning { padding: .9rem 1rem; border: 1px solid #f6c965; border-left: 4px solid #d97706; border-radius: .7rem; background: #fffbeb; color: #713f12; }
+.policy-warning > strong { display: block; margin-bottom: .35rem; font-size: .9rem; }
+.policy-warning > p { margin: 0; font-size: .88rem; line-height: 1.5; }
+.policy-warning > p + p { margin-top: .35rem; }
+.policy-warning .confirmation { align-items: start; padding-top: .8rem; margin: .8rem 0 0; border-top: 1px solid #efd69d; color: #713f12; cursor: pointer; }
+.policy-warning .confirmation span { display: grid; gap: .25rem; }
+.policy-warning .confirmation small { color: #775a35; font-size: .76rem; font-weight: 500; line-height: 1.45; }
+.evidence p { margin: .5rem 0; font-size: .84rem; line-height: 1.5; }
+.evidence .evidence-explainer { margin: 0 0 .75rem; color: #64748b; font-size: .78rem; }
+.evidence .evidence-summary { margin: 0 0 .75rem; color: #334155; font-weight: 650; }
+.evidence-list { display: grid; gap: .45rem; padding: 0; margin: 0; list-style: none; }
+.evidence-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .3rem .8rem; padding: .65rem .75rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; font-size: .79rem; }
+.evidence-person { color: #1e293b; font-size: .83rem; }
+.evidence-counts { display: flex; flex-wrap: wrap; gap: .35rem .7rem; color: #526179; }
+.evidence-counts strong { color: #334155; font-variant-numeric: tabular-nums; }
+.evidence .evidence-refresh, .evidence .evidence-connect { margin: .75rem 0 0; color: #526179; font-size: .78rem; }
+.evidence-connect a { font-weight: 700; }
+.review-panel .note-label { margin-top: 1.25rem; }
 
 .series-round-list, .submission-history ul { display: grid; gap: .75rem; padding: 0; margin: 1.4rem 0 0; list-style: none; }
 .series-round-item, .submission-history li { padding: 1rem 0 0; border-top: 1px solid #e2e8f0; }
@@ -619,7 +631,7 @@ html[data-theme="dark"] .mobile-action-bar { border-color: #42684d; background: 
 html[data-theme="dark"] .mobile-action-bar > span { color: #bed0c3; }
 html[data-theme="dark"] .round-card:hover { border-color: #4b8a60; box-shadow: 0 15px 28px rgb(0 0 0 / 30%); }
 html[data-theme="dark"] .section-heading h2, html[data-theme="dark"] .panel h2, html[data-theme="dark"] .landing-card h2, html[data-theme="dark"] .round-card h3, html[data-theme="dark"] .selected-track h3, html[data-theme="dark"] .state-panel h2, html[data-theme="dark"] .confirm-dialog h2 { color: #eef8f0; }
-html[data-theme="dark"] .dashboard-meta, html[data-theme="dark"] .dashboard-history-link, html[data-theme="dark"] .round-summary > div, html[data-theme="dark"] .state-panel, html[data-theme="dark"] .evidence-list p { border-color: #31483a; background: #172a20; color: #b7c9bb; }
+html[data-theme="dark"] .dashboard-meta, html[data-theme="dark"] .dashboard-history-link, html[data-theme="dark"] .round-summary > div, html[data-theme="dark"] .state-panel, html[data-theme="dark"] .evidence-list li { border-color: #31483a; background: #172a20; color: #b7c9bb; }
 html[data-theme="dark"] .dashboard-history-action { border-color: #4b8a60; background: #1b3825; color: #bbf7d0; }
 html[data-theme="dark"] .series-card { border-color: #31483a; background-color: #17231c; background-image: linear-gradient(135deg, rgb(23 35 28 / 95%), rgb(16 25 20 / 86%)), var(--series-cover, none); box-shadow: 0 10px 32px rgb(0 0 0 / 24%); }
 html[data-theme="dark"] .featured-open-series { border-color: #396344; background-color: #17231c; background-image: linear-gradient(135deg, rgb(23 35 28 / 95%), rgb(16 25 20 / 89%)), var(--series-cover, none); box-shadow: 0 12px 32px rgb(0 0 0 / 30%); }
@@ -676,3 +688,8 @@ html[data-theme="dark"] .timeline, html[data-theme="dark"] .selected-track, html
 html[data-theme="dark"] .timeline span, html[data-theme="dark"] .round-summary strong, html[data-theme="dark"] label, html[data-theme="dark"] .policy-results h3, html[data-theme="dark"] .evidence h3 { color: #dce8e0; }
 html[data-theme="dark"] .policy.history { color: #a7bbae; }
 html[data-theme="dark"] .timeline strong, html[data-theme="dark"] .round-summary small, html[data-theme="dark"] .track-result small, html[data-theme="dark"] .selected-track p, html[data-theme="dark"] .evidence p { color: #a7bbae; }
+html[data-theme="dark"] .policy-warning { border-color: #795b2b; border-left-color: #fbbf24; background: #302819; color: #f9dfa2; }
+html[data-theme="dark"] .policy-warning .confirmation { border-color: #685231; color: #f9dfa2; }
+html[data-theme="dark"] .policy-warning .confirmation small { color: #d3bd96; }
+html[data-theme="dark"] .evidence .evidence-summary, html[data-theme="dark"] .evidence-person, html[data-theme="dark"] .evidence-counts strong { color: #edf7ef; }
+html[data-theme="dark"] .evidence-counts { color: #b7c9bb; }

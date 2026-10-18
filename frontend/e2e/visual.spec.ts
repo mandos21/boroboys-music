@@ -69,6 +69,98 @@ test("round settings and checks have breathing room", async ({ page }, testInfo)
   expect(gap).toBeGreaterThanOrEqual(12);
 });
 
+test("submission review keeps refresh status steady and explains shared listens", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "accessibility", "One browser covers the review behavior.");
+  await page.route("**/api/v1/connections", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/v1/rounds/round-open/track-search?*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          name: "Night Drive",
+          artist: "The Lanterns",
+          album: "Slow Gold",
+          artworkUrl: null,
+          spotifyTrackId: "track-1",
+          spotifyUri: "spotify:track:1",
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/v1/rounds/round-open/evaluate-track", (route) =>
+    route.fulfill({
+      json: {
+        trackId: "track-1",
+        canSubmit: true,
+        limitRemaining: 2,
+        requiresWarningConfirmation: true,
+        policyResults: [
+          {
+            kind: "duplicate_in_series",
+            decision: "warn",
+            message: "This track has already appeared in this series.",
+            result: {},
+            version: "1",
+          },
+        ],
+      },
+    }),
+  );
+  let evidenceRequests = 0;
+  await page.route("**/api/v1/rounds/round-open/tracks/track-1/evidence", (route) => {
+    evidenceRequests += 1;
+    return route.fulfill({
+      json: {
+        roundId: "round-open",
+        trackId: "track-1",
+        evidence: [
+          {
+            accountId: "listener-1",
+            displayName: "Riley",
+            isMine: false,
+            playcount: 2,
+            artistPlaycount: 207,
+            albumPlaycount: 2,
+            fetchedAt: "2026-09-08T12:00:00-04:00",
+            refreshAfter:
+              evidenceRequests === 1 ? "2026-09-08T12:00:00-04:00" : "2026-09-10T12:00:00-04:00",
+            status: "available",
+          },
+        ],
+      },
+    });
+  });
+  await page.goto("/rounds/round-open/submit");
+  await page.getByRole("button", { name: "Maybe later" }).click();
+  await page.getByLabel("Search Spotify").fill("Night Drive");
+  await page.getByRole("button", { name: /Night Drive.*The Lanterns/ }).click();
+  await expect(
+    page.getByText("This may be familiar to 1 other person in the round."),
+  ).toBeVisible();
+  await expect(page.getByText("Checking for recent Last.fm listens…")).toBeVisible();
+  await expect(page.getByText("Checking for recent Last.fm listens…")).toBeHidden({
+    timeout: 6000,
+  });
+  expect(evidenceRequests).toBeGreaterThanOrEqual(2);
+  await expect(page.getByText("This track has already appeared in this series.")).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: /I understand and still want to submit/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Link it in settings" })).toBeVisible();
+  await expect(page.getByText(/observed Sep/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Submit track" })).toBeDisabled();
+  await page.getByRole("checkbox", { name: /I understand and still want to submit/ }).check();
+  await expect(page.getByRole("button", { name: "Submit track" })).toBeEnabled();
+  const accessibility = await new AxeBuilder({ page }).include(".review-panel").analyze();
+  expect(accessibility.violations).toEqual([]);
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
+  const darkAccessibility = await new AxeBuilder({ page }).include(".review-panel").analyze();
+  expect(darkAccessibility.violations).toEqual([]);
+});
+
 test("distinguishable result colors apply to the dark matrix", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "accessibility", "One browser covers the palette behavior.");
   await page.goto("/settings");
@@ -339,26 +431,24 @@ test("keyboard users can skip the shell and reach page content", async ({ page }
   await expect(page.locator("#main-content")).toBeFocused();
 });
 
-test("help hints stay in the viewport and dismiss after focus leaves", async ({
-  page,
-}, testInfo) => {
+test("help hints stay in the viewport and dismiss with Escape", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "accessibility", "Accessibility project only.");
   await page.goto("/series/series-1");
 
   const hint = page.getByRole("button", { name: "How the group genre mix works" });
-  await hint.focus();
-  const tooltip = page.getByRole("tooltip");
-  await expect(tooltip).toBeVisible();
+  await hint.click();
+  const hintPanel = page.locator(".info-hint-popup").filter({ hasText: "Each bar is built" });
+  await expect(hintPanel).toBeVisible();
 
-  const bounds = await tooltip.boundingBox();
+  const bounds = await hintPanel.boundingBox();
   expect(bounds).not.toBeNull();
   expect(bounds?.x).toBeGreaterThanOrEqual(0);
   expect(bounds?.y).toBeGreaterThanOrEqual(0);
   expect(bounds?.x + bounds?.width).toBeLessThanOrEqual(1440);
   expect(bounds?.y + bounds?.height).toBeLessThanOrEqual(1000);
 
-  await page.getByRole("link", { name: "BoroCrew Music home" }).focus();
-  await expect(tooltip).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(hintPanel).toBeHidden();
 });
 
 test("the mobile account menu uses a dismissible sheet", async ({ page }, testInfo) => {
