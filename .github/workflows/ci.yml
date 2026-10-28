@@ -111,9 +111,11 @@ jobs:
           test "$(docker run --rm --entrypoint id music-rounds-web -u)" != "0"
       - name: API migrates and serves
         run: |
+          PGPASSWORD=music_rounds createdb -h localhost -U music_rounds music_rounds_test
           docker run -d --name api --network host \
-            -e DATABASE_URL=postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds \
-            -e PROCRASTINATE_DATABASE_URL=postgresql://music_rounds:music_rounds@localhost:5432/music_rounds \
+            -e DATABASE_URL=postgresql+psycopg://music_rounds:music_rounds@localhost:5432/music_rounds_test \
+            -e PROCRASTINATE_DATABASE_URL=postgresql://music_rounds:music_rounds@localhost:5432/music_rounds_test \
+            -e APP_BASE_URL=http://localhost:8080 \
             music-rounds-api \
             sh -c 'alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000'
           for _ in $(seq 30); do
@@ -123,11 +125,13 @@ jobs:
           curl -sf http://localhost:8000/api/v1/health || (docker logs api && exit 1)
       - name: Frontend image serves the built app
         run: |
-          # nginx resolves the api upstream at config load, so it needs the
-          # name to exist even though this check never proxies through it.
-          docker run -d --name web -p 8080:8080 --add-host api:127.0.0.1 music-rounds-web
+          docker exec -i api python < backend/scripts/seed_preview_smoke.py
+          docker run -d --name web --network host --add-host api:127.0.0.1 music-rounds-web
           for _ in $(seq 30); do
             curl -sf http://localhost:8080/ && break
             sleep 1
           done
           curl -sf http://localhost:8080/ | grep -q '<div id="root">' || (docker logs web && exit 1)
+          python frontend/scripts/check-preview-http.py http://localhost:8080
+          docker stop api
+          python frontend/scripts/check-preview-http.py http://localhost:8080 --fallback

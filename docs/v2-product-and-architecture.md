@@ -278,6 +278,36 @@ Authorization is checked by domain policy functions, not only by hiding frontend
 buttons. Every repository query that returns private data is scoped by the current
 user's series-administration or round-contributor membership.
 
+#### Public link previews
+
+Sharing an existing `/rounds/{id}` link exposes a deliberately limited anonymous
+preview: title, prompt, schedule, and general submission limit. Once both the
+round and its publication are published, the preview may also expose the
+published track count and up to four album covers from the publication snapshot.
+Draft, cancelled, failed, unavailable, and unpublishing rounds use generic site
+metadata. No member identities, participation, notes, listening evidence, or
+Guess Who data are included. The ordinary round APIs still require authentication.
+
+Nginx inserts a FastAPI-generated head fragment into the production React shell
+using SSI. Browsers and crawlers receive the same HTML; there is no bot detection
+or client-side dependency for metadata. The fragment has explicit public-field
+queries and never runs lifecycle reconciliation. Failed subrequests fall back to
+the built-in site metadata and a static branded PNG, preserving the app shell.
+
+PNG cards use a bundled OFL-licensed Inter font, a relative headline such as
+“Closes in three days”, and a smaller absolute date such as “October 31st at 12pm
+Eastern”. Relative dates use the round's timezone and calendar days, including
+DST transitions. HTML is revalidated on each request; images have short public
+caching and content-versioned URLs. Chat clients may retain previously posted
+previews independently of these headers. Revocation rechecks current visibility
+even for old image URLs, but cannot recall copies already downloaded elsewhere.
+
+Artwork downloads happen only on image requests, from the approved Spotify image
+CDN, with bounded time, size, decoding, and in-process caches. HTML rendering
+never depends on external image services. Missing artwork uses illustrated
+record sleeves. Preview images are derived data and require no schema migration
+or persistent volume.
+
 ### 5.4 External-account links
 
 `external_accounts` belongs to one application user and has provider (`spotify` or

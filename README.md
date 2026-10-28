@@ -54,6 +54,30 @@ The local frontend is at `http://localhost:5173`; API health is at
 `http://localhost:8000/api/v1/health`. OIDC and provider integrations remain
 disabled until their values are filled in `.env`.
 
+### Link previews
+
+Production round links include public Open Graph metadata and generated PNG cards.
+Cards show relative deadlines with a smaller absolute date in the round's timezone;
+published cards may show released album artwork. The public fields and privacy
+boundary are documented in the architecture guide's **Public link previews** section.
+
+Vite development serves generic site metadata. To exercise per-round HTML, use
+the built web image: its Nginx SSI layer inserts the API's preview fragment into
+the initial response. `npm run build` prepares this shell automatically. Set
+`APP_BASE_URL` to the externally reachable web origin so crawlers can retrieve
+the image URLs. Existing chat messages may keep cached previews after an edit.
+
+CI's image job tests the actual Nginx/API path, authentication, draft redaction,
+PNG dimensions, and fallback HTML with the API stopped. Its fixtures are created
+by `backend/scripts/seed_preview_smoke.py`, which refuses any database whose name
+does not end in `_test`. `frontend/scripts/check-preview-http.py` performs the
+HTTP checks; `--fallback` checks the unavailable-API case. The bundled default
+card can be regenerated from the backend directory with:
+
+```sh
+poetry run python -c 'from pathlib import Path; from app.services.link_previews import Preview; from app.services.preview_images import render_image; Path("../frontend/public/share-default.png").write_bytes(render_image(Preview()))'
+```
+
 ## Historical playlist import
 
 The private historical bundle is deliberately ignored by Git. It contains one
