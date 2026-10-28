@@ -146,9 +146,11 @@ make visual
 make a11y
 ```
 
-Review screenshot changes intentionally. To update an approved visual baseline, run
-`cd frontend && npm run test:visual -- --update-snapshots` and commit the resulting
-`e2e/*.spec.ts-snapshots/` files with the UI change.
+Review screenshot changes intentionally. Generate approved baselines in the same
+`mcr.microsoft.com/playwright:v1.63.0-noble` container as CI, with `fonts-inter`
+installed. Host operating-system font rendering produces incompatible baselines.
+In that environment, run `cd frontend && npm run test:visual -- --update-snapshots`
+and commit the resulting `e2e/*.spec.ts-snapshots/` files with the UI change.
 
 Copy `.env.example` to `.env` before starting local services. Never commit secrets.
 

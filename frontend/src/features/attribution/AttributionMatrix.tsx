@@ -86,8 +86,21 @@ function MatrixTooltip({
 }) {
   const [open, setOpen] = useState(false);
   const touchPointer = useRef(false);
+  const touchOpened = useRef(false);
   return (
-    <Tooltip open={open} onOpenChange={setOpen}>
+    <Tooltip
+      open={open}
+      onOpenChange={(nextOpen, details) => {
+        // Touch generates compatibility mouse events after the tap. Those
+        // must not immediately dismiss the explanation the tap just opened.
+        if (touchOpened.current && details.reason === "trigger-hover") {
+          details.cancel();
+          return;
+        }
+        if (!nextOpen) touchOpened.current = false;
+        setOpen(nextOpen);
+      }}
+    >
       <TooltipTrigger
         className={className}
         style={style}
@@ -100,7 +113,10 @@ function MatrixTooltip({
           touchPointer.current = false;
         }}
         onClick={() => {
-          if (touchPointer.current) setOpen(true);
+          if (touchPointer.current) {
+            touchOpened.current = !open;
+            setOpen(!open);
+          }
           touchPointer.current = false;
         }}
       >

@@ -194,7 +194,7 @@ test("distinguishable result colors apply to the dark matrix", async ({ page }, 
 });
 
 test("matrix cells reveal their explanation on a phone tap", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "visual-mobile-light", "Touch viewport only.");
+  test.skip(!testInfo.project.name.startsWith("visual-mobile-"), "Touch viewports only.");
   const alice = { id: "alice", displayName: "Alice", profileImageUrl: null };
   const bob = { id: "bob", displayName: "Bob", profileImageUrl: null };
   await page.route("**/api/v1/rounds/round-published-demo/attribution", (route) =>
@@ -232,6 +232,12 @@ test("matrix cells reveal their explanation on a phone tap", async ({ page }, te
   await cell.tap();
   await expect(page.getByRole("tooltip")).toContainText("Bob guessed Alice's songs were Bob's");
   expect(await cell.evaluate((element) => getComputedStyle(element).userSelect)).toBe("none");
+  await cell.tap();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await cell.tap();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await page.getByRole("heading", { name: "Who got mixed up with who" }).tap();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
 });
 
 test("Guess Who awards keep their layout across screen sizes", async ({ page }, testInfo) => {
