@@ -44,6 +44,7 @@ from app.db.models import (
     User,
 )
 from app.services.membership import ensure_default_series_membership
+from app.services.notification_rules import seed_rules
 from app.services.publications import (
     PublicationError,
     import_historical_playlist,
@@ -361,6 +362,7 @@ def create_series(
     db.flush()
     db.add(SeriesAdmin(series_id=series.id, user_id=user.id))
     ensure_default_series_membership(db, series.id, user.id)
+    seed_rules(db, series)
     db.commit()
     return {"id": str(series.id), "slug": series.slug}
 

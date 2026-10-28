@@ -23,8 +23,8 @@ const TOGGLES: {
   {
     key: "notifyReminderEmails",
     requestKey: "notify_reminder_emails",
-    label: "Deadline reminders",
-    description: "An email 48 and 24 hours before a round you're in closes for submissions.",
+    label: "Round reminders",
+    description: "Reminders and announcements scheduled by your series administrators.",
   },
   {
     key: "notifyRoundPublishedEmails",

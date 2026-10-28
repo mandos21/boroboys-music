@@ -70,7 +70,9 @@ class Settings(BaseSettings):
 
     @property
     def mattermost_is_configured(self) -> bool:
-        return self.mattermost_webhook_url is not None
+        return bool(
+            self.mattermost_webhook_url and self.mattermost_webhook_url.get_secret_value().strip()
+        )
 
     @property
     def oidc_is_configured(self) -> bool:

@@ -293,6 +293,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/series/{series_id}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Notifications */
+        get: operations["get_notifications_api_v1_admin_series__series_id__notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/series/{series_id}/notifications/channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Channel */
+        put: operations["update_channel_api_v1_admin_series__series_id__notifications_channel_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/series/{series_id}/notifications/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Rule */
+        post: operations["preview_rule_api_v1_admin_series__series_id__notifications_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/series/{series_id}/notifications/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Rule */
+        post: operations["create_rule_api_v1_admin_series__series_id__notifications_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/series/{series_id}/notifications/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Rule */
+        put: operations["update_rule_api_v1_admin_series__series_id__notifications_rules__rule_id__put"];
+        post?: never;
+        /** Delete Rule */
+        delete: operations["delete_rule_api_v1_admin_series__series_id__notifications_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/series/{series_id}/users": {
         parameters: {
             query?: never;
@@ -1396,6 +1482,30 @@ export interface components {
              */
             title_template: string;
         };
+        /** ChannelUpdate */
+        ChannelUpdate: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "shared" | "custom" | "disabled";
+            /** Webhook Url */
+            webhook_url?: string | null;
+        };
+        /** ChannelsResponse */
+        ChannelsResponse: {
+            /** Emailready */
+            emailReady: boolean;
+            /**
+             * Mattermostmode
+             * @enum {string}
+             */
+            mattermostMode: "shared" | "custom" | "disabled";
+            /** Mattermostready */
+            mattermostReady: boolean;
+            /** Sharedmattermostready */
+            sharedMattermostReady: boolean;
+        };
         /** ConnectionResponse */
         ConnectionResponse: {
             /** Disconnectedat */
@@ -1478,6 +1588,33 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HistoryResponse */
+        HistoryResponse: {
+            /** Channel */
+            channel: string;
+            /** Detail */
+            detail: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Roundtitle */
+            roundTitle: string;
+            /** Rulename */
+            ruleName: string;
+            /**
+             * Scheduledat
+             * Format: date-time
+             */
+            scheduledAt: string;
+            /** Sent */
+            sent: number;
+            /** Status */
+            status: string;
+            /** Total */
+            total: number;
+        };
         /** InviteCreate */
         InviteCreate: {
             /**
@@ -1549,6 +1686,44 @@ export interface components {
             };
             /** Version */
             version: string;
+        };
+        /** PreviewInput */
+        PreviewInput: {
+            /**
+             * Audience
+             * @default members
+             * @enum {string}
+             */
+            audience: "members" | "remaining";
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "email" | "mattermost";
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Message Template */
+            message_template: string;
+            /**
+             * Milestone
+             * @enum {string}
+             */
+            milestone: "opens" | "closes" | "scheduled_release" | "published";
+            /** Name */
+            name: string;
+            /**
+             * Offset Minutes
+             * @default 0
+             */
+            offset_minutes: number;
+            /**
+             * Round Id
+             * Format: uuid
+             */
+            round_id: string;
         };
         /**
          * ProfileAffinityResponse
@@ -1894,6 +2069,70 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** RuleInput */
+        RuleInput: {
+            /**
+             * Audience
+             * @default members
+             * @enum {string}
+             */
+            audience: "members" | "remaining";
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "email" | "mattermost";
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Message Template */
+            message_template: string;
+            /**
+             * Milestone
+             * @enum {string}
+             */
+            milestone: "opens" | "closes" | "scheduled_release" | "published";
+            /** Name */
+            name: string;
+            /**
+             * Offset Minutes
+             * @default 0
+             */
+            offset_minutes: number;
+        };
+        /** RuleResponse */
+        RuleResponse: {
+            /**
+             * Audience
+             * @enum {string}
+             */
+            audience: "members" | "remaining";
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "email" | "mattermost";
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Message Template */
+            message_template: string;
+            /**
+             * Milestone
+             * @enum {string}
+             */
+            milestone: "opens" | "closes" | "scheduled_release" | "published";
+            /** Name */
+            name: string;
+            /** Offset Minutes */
+            offset_minutes: number;
+        };
         /**
          * SeriesContributorResponse
          * @description A contributor plus the genre mix they bring to the series.
@@ -2025,6 +2264,18 @@ export interface components {
             name: string;
             /** Timezone */
             timezone: string;
+        };
+        /** SeriesNotificationsResponse */
+        SeriesNotificationsResponse: {
+            channels: components["schemas"]["ChannelsResponse"];
+            /** History */
+            history: components["schemas"]["HistoryResponse"][];
+            /** Rules */
+            rules: components["schemas"]["RuleResponse"][];
+            /** Timezone */
+            timezone: string;
+            /** Upcoming */
+            upcoming: components["schemas"]["UpcomingResponse"][];
         };
         /**
          * SeriesSummaryStatsResponse
@@ -2239,6 +2490,33 @@ export interface components {
             spotifyTrackId: string;
             /** Spotifyuri */
             spotifyUri: string | null;
+        };
+        /** UpcomingResponse */
+        UpcomingResponse: {
+            /** Audience */
+            audience: string;
+            /** Channel */
+            channel: string;
+            /** Channelready */
+            channelReady: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Roundid
+             * Format: uuid
+             */
+            roundId: string;
+            /** Roundtitle */
+            roundTitle: string;
+            /**
+             * Ruleid
+             * Format: uuid
+             */
+            ruleId: string;
+            /** Rulename */
+            ruleName: string;
+            /** Scheduledat */
+            scheduledAt: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -2905,6 +3183,206 @@ export interface operations {
             path: {
                 series_id: string;
                 user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notifications_api_v1_admin_series__series_id__notifications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesNotificationsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_channel_api_v1_admin_series__series_id__notifications_channel_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_rule_api_v1_admin_series__series_id__notifications_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpcomingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_rule_api_v1_admin_series__series_id__notifications_rules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_rule_api_v1_admin_series__series_id__notifications_rules__rule_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_rule_api_v1_admin_series__series_id__notifications_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+                rule_id: string;
             };
             cookie?: never;
         };

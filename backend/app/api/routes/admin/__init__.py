@@ -5,6 +5,7 @@ registering routes on it, and the route functions are re-exported because the
 tests call them directly rather than through HTTP.
 """
 
+from app.api.routes.admin import notifications as notifications
 from app.api.routes.admin._common import router
 from app.api.routes.admin.publications import (
     PublishRequest,

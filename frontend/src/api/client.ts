@@ -33,7 +33,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const body: unknown = await response.json().catch(() => undefined);
     const detail =
       typeof body === "object" && body !== null && "detail" in body
-        ? String(body.detail)
+        ? Array.isArray(body.detail)
+          ? body.detail
+              .map((item: unknown) =>
+                typeof item === "object" && item !== null && "msg" in item
+                  ? String(item.msg).replace(/^Value error, /, "")
+                  : "Check the submitted values.",
+              )
+              .join(" ")
+          : String(body.detail)
         : `Request failed (${response.status})`;
     throw new ApiError(response.status, detail);
   }

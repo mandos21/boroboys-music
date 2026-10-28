@@ -44,3 +44,10 @@ def test_post_message_wraps_http_errors(monkeypatch: pytest.MonkeyPatch) -> None
 
     with pytest.raises(mattermost.MattermostError):
         mattermost.post_message(settings, "hello")
+
+
+def test_blank_environment_webhook_is_unconfigured() -> None:
+    settings = Settings(mattermost_webhook_url="")
+    assert not settings.mattermost_is_configured
+    with pytest.raises(mattermost.MattermostError):
+        mattermost.post_message(settings, "hello")

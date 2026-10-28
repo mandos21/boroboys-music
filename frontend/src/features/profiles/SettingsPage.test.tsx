@@ -50,7 +50,7 @@ describe("SettingsPage", () => {
 
     expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Connected services" })).toBeTruthy();
-    expect(await screen.findByText("Deadline reminders")).toBeTruthy();
+    expect(await screen.findByText("Round reminders")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Your profile/ })).toHaveProperty(
       "href",
       expect.stringContaining("/profile"),

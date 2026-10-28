@@ -1171,6 +1171,70 @@
         "title": "CalendarRoundPlan",
         "type": "object"
       },
+      "ChannelUpdate": {
+        "properties": {
+          "mode": {
+            "enum": [
+              "shared",
+              "custom",
+              "disabled"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "format": "password",
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Url"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "ChannelUpdate",
+        "type": "object"
+      },
+      "ChannelsResponse": {
+        "properties": {
+          "emailReady": {
+            "title": "Emailready",
+            "type": "boolean"
+          },
+          "mattermostMode": {
+            "enum": [
+              "shared",
+              "custom",
+              "disabled"
+            ],
+            "title": "Mattermostmode",
+            "type": "string"
+          },
+          "mattermostReady": {
+            "title": "Mattermostready",
+            "type": "boolean"
+          },
+          "sharedMattermostReady": {
+            "title": "Sharedmattermostready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "emailReady",
+          "mattermostReady",
+          "mattermostMode",
+          "sharedMattermostReady"
+        ],
+        "title": "ChannelsResponse",
+        "type": "object"
+      },
       "ConnectionResponse": {
         "properties": {
           "disconnectedAt": {
@@ -1447,6 +1511,68 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HistoryResponse": {
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "roundTitle": {
+            "title": "Roundtitle",
+            "type": "string"
+          },
+          "ruleName": {
+            "title": "Rulename",
+            "type": "string"
+          },
+          "scheduledAt": {
+            "format": "date-time",
+            "title": "Scheduledat",
+            "type": "string"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "ruleName",
+          "roundTitle",
+          "channel",
+          "scheduledAt",
+          "status",
+          "sent",
+          "total",
+          "detail"
+        ],
+        "title": "HistoryResponse",
+        "type": "object"
+      },
       "InviteCreate": {
         "properties": {
           "expires_in_days": {
@@ -1611,6 +1737,75 @@
           "result"
         ],
         "title": "PolicyResultResponse",
+        "type": "object"
+      },
+      "PreviewInput": {
+        "properties": {
+          "audience": {
+            "default": "members",
+            "enum": [
+              "members",
+              "remaining"
+            ],
+            "title": "Audience",
+            "type": "string"
+          },
+          "channel": {
+            "enum": [
+              "email",
+              "mattermost"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "message_template": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message Template",
+            "type": "string"
+          },
+          "milestone": {
+            "enum": [
+              "opens",
+              "closes",
+              "scheduled_release",
+              "published"
+            ],
+            "title": "Milestone",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "offset_minutes": {
+            "default": 0,
+            "maximum": 43200.0,
+            "minimum": -43200.0,
+            "title": "Offset Minutes",
+            "type": "integer"
+          },
+          "round_id": {
+            "format": "uuid",
+            "title": "Round Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "channel",
+          "milestone",
+          "message_template",
+          "round_id"
+        ],
+        "title": "PreviewInput",
         "type": "object"
       },
       "ProfileAffinityResponse": {
@@ -2555,6 +2750,132 @@
         "title": "RoundUpdate",
         "type": "object"
       },
+      "RuleInput": {
+        "properties": {
+          "audience": {
+            "default": "members",
+            "enum": [
+              "members",
+              "remaining"
+            ],
+            "title": "Audience",
+            "type": "string"
+          },
+          "channel": {
+            "enum": [
+              "email",
+              "mattermost"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "message_template": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message Template",
+            "type": "string"
+          },
+          "milestone": {
+            "enum": [
+              "opens",
+              "closes",
+              "scheduled_release",
+              "published"
+            ],
+            "title": "Milestone",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "offset_minutes": {
+            "default": 0,
+            "maximum": 43200.0,
+            "minimum": -43200.0,
+            "title": "Offset Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "channel",
+          "milestone",
+          "message_template"
+        ],
+        "title": "RuleInput",
+        "type": "object"
+      },
+      "RuleResponse": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "members",
+              "remaining"
+            ],
+            "title": "Audience",
+            "type": "string"
+          },
+          "channel": {
+            "enum": [
+              "email",
+              "mattermost"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "message_template": {
+            "title": "Message Template",
+            "type": "string"
+          },
+          "milestone": {
+            "enum": [
+              "opens",
+              "closes",
+              "scheduled_release",
+              "published"
+            ],
+            "title": "Milestone",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offset_minutes": {
+            "title": "Offset Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "channel",
+          "milestone",
+          "offset_minutes",
+          "audience",
+          "message_template"
+        ],
+        "title": "RuleResponse",
+        "type": "object"
+      },
       "SeriesContributorResponse": {
         "description": "A contributor plus the genre mix they bring to the series.",
         "properties": {
@@ -2991,6 +3312,47 @@
           "latestPublishedRound"
         ],
         "title": "SeriesListResponse",
+        "type": "object"
+      },
+      "SeriesNotificationsResponse": {
+        "properties": {
+          "channels": {
+            "$ref": "#/components/schemas/ChannelsResponse"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryResponse"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleResponse"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "upcoming": {
+            "items": {
+              "$ref": "#/components/schemas/UpcomingResponse"
+            },
+            "title": "Upcoming",
+            "type": "array"
+          }
+        },
+        "required": [
+          "channels",
+          "rules",
+          "upcoming",
+          "history",
+          "timezone"
+        ],
+        "title": "SeriesNotificationsResponse",
         "type": "object"
       },
       "SeriesSummaryStatsResponse": {
@@ -3712,6 +4074,69 @@
           "artworkUrl"
         ],
         "title": "TrackResponse",
+        "type": "object"
+      },
+      "UpcomingResponse": {
+        "properties": {
+          "audience": {
+            "title": "Audience",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "channelReady": {
+            "title": "Channelready",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "roundId": {
+            "format": "uuid",
+            "title": "Roundid",
+            "type": "string"
+          },
+          "roundTitle": {
+            "title": "Roundtitle",
+            "type": "string"
+          },
+          "ruleId": {
+            "format": "uuid",
+            "title": "Ruleid",
+            "type": "string"
+          },
+          "ruleName": {
+            "title": "Rulename",
+            "type": "string"
+          },
+          "scheduledAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduledat"
+          }
+        },
+        "required": [
+          "ruleId",
+          "ruleName",
+          "roundId",
+          "roundTitle",
+          "channel",
+          "scheduledAt",
+          "message",
+          "audience",
+          "channelReady"
+        ],
+        "title": "UpcomingResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -4737,6 +5162,308 @@
           }
         },
         "summary": "Add Series Member",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
+    "/api/v1/admin/series/{series_id}/notifications": {
+      "get": {
+        "operationId": "get_notifications_api_v1_admin_series__series_id__notifications_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesNotificationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Notifications",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
+    "/api/v1/admin/series/{series_id}/notifications/channel": {
+      "put": {
+        "operationId": "update_channel_api_v1_admin_series__series_id__notifications_channel_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Channel",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
+    "/api/v1/admin/series/{series_id}/notifications/preview": {
+      "post": {
+        "operationId": "preview_rule_api_v1_admin_series__series_id__notifications_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpcomingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Rule",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
+    "/api/v1/admin/series/{series_id}/notifications/rules": {
+      "post": {
+        "operationId": "create_rule_api_v1_admin_series__series_id__notifications_rules_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Rule",
+        "tags": [
+          "administration"
+        ]
+      }
+    },
+    "/api/v1/admin/series/{series_id}/notifications/rules/{rule_id}": {
+      "delete": {
+        "operationId": "delete_rule_api_v1_admin_series__series_id__notifications_rules__rule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Rule",
+        "tags": [
+          "administration"
+        ]
+      },
+      "put": {
+        "operationId": "update_rule_api_v1_admin_series__series_id__notifications_rules__rule_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Rule",
         "tags": [
           "administration"
         ]

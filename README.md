@@ -157,3 +157,44 @@ Copy `.env.example` to `.env` before starting local services. Never commit secre
 AGPL-3.0-only (see [LICENSE](LICENSE)). Running a modified version of this
 software as a network service requires offering that version's source to its
 users, per AGPL §13.
+
+## Series management and notifications
+
+Series administration has URL-addressable Rounds, Members, History,
+and Notifications tabs (`/admin/series/<id>?tab=notifications`). Rounds groups
+round-check and Guess Who defaults under Round settings, with the current and
+upcoming rounds, scheduling, and automation in a second section. Description,
+cover, and accent can be edited from Round settings. Old Automation links open
+Rounds. Switching tabs or collapsing sections preserves form drafts for the current visit.
+
+Series administrators can create up to 20 notification rules. Each specifies a
+channel, milestone, offset (up to 30 days), audience, and plain-text message.
+Milestones are opening, submission closing, scheduled release, and successful
+publication. Publication rules use the actual publication time and allow only
+zero or positive offsets. Planned-release messages are skipped if the playlist
+has already published. Templates accept `{series_name}`, `{round_title}`,
+`{round_url}`, `{opens_at}`, `{closes_at}`, and `{publishes_at}`. Previewing a rule
+never sends a message; dates are displayed in the series timezone.
+
+Email uses the server SMTP configuration. Non-publication rules honor each
+member's round-reminder preference; publication rules honor their publication
+preference. The "members who can still submit" audience also excludes removed or
+inactive members, members at their limit, and those who declined further picks.
+These checks run again at delivery time. Mattermost can use the optional shared
+`MATTERMOST_WEBHOOK_URL`, a series-specific HTTPS incoming webhook, or be disabled.
+Series webhooks are encrypted with `CREDENTIAL_ENCRYPTION_KEY`, never returned by
+the settings API, and included in the existing credential rotation command.
+
+The minute scheduler commits an event and per-recipient delivery rows before
+queueing work. Pending jobs survive enqueue failure and dates are recalculated
+when schedules move. Failed recipients retry up to five attempts with increasing
+delays; successful recipients are not retried. A provider accepting a message
+immediately before a process crash can still cause a duplicate, since SMTP and
+incoming webhooks offer no transactional idempotency guarantee.
+
+New or re-enabled rules do not backfill missed milestones. Disabling/removing a
+rule stops pending sends, and deleted rules retain their delivery history.
+Unconfigured channels and events without eligible members are recorded as
+skipped. Historical playlist imports never trigger notifications. Migration seeds
+opening/publication announcements and 48/24-hour email reminders for existing
+series and preserves old sent markers, preventing repeat announcements.

@@ -15,15 +15,20 @@ class MattermostError(Exception):
     pass
 
 
-def post_message(settings: Settings, text: str) -> None:
-    if settings.mattermost_webhook_url is None:
+def post_message(settings: Settings, text: str, *, webhook_url: str | None = None) -> None:
+    url = webhook_url
+    if url is None:
+        if settings.mattermost_webhook_url is None:
+            raise MattermostError("Mattermost is not configured")
+        url = settings.mattermost_webhook_url.get_secret_value()
+    if not url.strip():
         raise MattermostError("Mattermost is not configured")
     try:
         response = httpx.post(
-            settings.mattermost_webhook_url.get_secret_value(),
+            url,
             json={"text": text},
             timeout=10.0,
         )
         response.raise_for_status()
-    except httpx.HTTPError as error:
+    except (httpx.HTTPError, httpx.InvalidURL) as error:
         raise MattermostError("could not post to Mattermost") from error

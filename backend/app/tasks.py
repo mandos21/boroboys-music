@@ -26,13 +26,8 @@ from app.db.models import Publication, PublicationState, Round, Submission, Subm
 from app.db.session import get_session_factory
 from app.services.auth_cleanup import purge_expired_auth_state
 from app.services.evidence import refresh_round_evidence
-from app.services.lifecycle import reconcile_rounds, start_due_open_announcements
-from app.services.notifications import (
-    notify_round_opened,
-    notify_round_published,
-    send_round_reminder,
-    start_due_reminders,
-)
+from app.services.lifecycle import reconcile_rounds
+from app.services.notification_rules import collect_due, deliver
 from app.services.publications import (
     defer_or_fail,
     execute_publication,
@@ -59,13 +54,10 @@ def reconcile_schedules(timestamp: int) -> None:
     del timestamp
     with get_session_factory()() as db:
         reconcile_rounds(db)
-        opened_round_ids = start_due_open_announcements(db)
-        due_reminders = start_due_reminders(db)
+        delivery_ids = collect_due(db)
         db.commit()
-        for round_id in opened_round_ids:
-            defer_round_opened_notification(str(round_id))
-        for round_id, window in due_reminders:
-            defer_reminder(str(round_id), window)
+        for delivery_id in delivery_ids:
+            defer_notification(str(delivery_id))
         for publication_id in start_due_publications(db):
             publication = db.get(Publication, publication_id)
             round_ = db.get(Round, publication.round_id) if publication else None
@@ -183,21 +175,38 @@ def enrich_track_genres(track_id: str) -> None:
 
 
 @app.task(queue="notifications")
-def send_reminder(round_id: str, window: str) -> None:
+def send_notification(delivery_id: str) -> None:
     with get_session_factory()() as db:
-        send_round_reminder(db, uuid.UUID(round_id), window)
+        deliver(db, uuid.UUID(delivery_id))
+
+
+def queue_due_notifications() -> None:
+    with get_session_factory()() as db:
+        ids = collect_due(db)
+        db.commit()
+    for delivery_id in ids:
+        defer_notification(str(delivery_id))
+
+
+# Retain task names for jobs queued before the migration, but route them
+# through the new ledger so they cannot bypass series settings or deduplication.
+@app.task(queue="notifications")
+def send_reminder(round_id: str, window: str) -> None:
+    queue_due_notifications()
 
 
 @app.task(queue="notifications")
 def notify_published(round_id: str) -> None:
-    with get_session_factory()() as db:
-        notify_round_published(db, uuid.UUID(round_id))
+    queue_due_notifications()
 
 
 @app.task(queue="notifications")
 def notify_opened(round_id: str) -> None:
-    with get_session_factory()() as db:
-        notify_round_opened(db, uuid.UUID(round_id))
+    queue_due_notifications()
+
+
+def defer_notification(delivery_id: str) -> None:
+    _defer_coalesced(send_notification, f"notification:{delivery_id}", {"delivery_id": delivery_id})
 
 
 def defer_publication(publication_id: str) -> None:
@@ -220,18 +229,8 @@ def defer_evidence_refresh(round_id: str, track_id: str) -> None:
     )
 
 
-def defer_reminder(round_id: str, window: str) -> None:
-    _defer_coalesced(
-        send_reminder, f"reminder:{round_id}:{window}", {"round_id": round_id, "window": window}
-    )
-
-
 def defer_round_published_notification(round_id: str) -> None:
     _defer_coalesced(notify_published, f"round-published:{round_id}", {"round_id": round_id})
-
-
-def defer_round_opened_notification(round_id: str) -> None:
-    _defer_coalesced(notify_opened, f"round-opened:{round_id}", {"round_id": round_id})
 
 
 def defer_track_genre_enrichment(track_id: str) -> None:

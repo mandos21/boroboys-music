@@ -172,7 +172,6 @@ export function RoundScheduleForm({
 
   return (
     <section className="panel" id="rounds">
-      <h2>Schedule a round</h2>
       <form
         className="admin-round-form"
         noValidate

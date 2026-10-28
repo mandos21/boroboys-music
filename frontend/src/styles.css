@@ -695,3 +695,12 @@ html[data-theme="dark"] .policy-warning .confirmation small { color: #d3bd96; }
 html[data-theme="dark"] .evidence .evidence-summary, html[data-theme="dark"] .evidence-person, html[data-theme="dark"] .evidence-counts strong { color: #edf7ef; }
 html[data-theme="dark"] .evidence-counts { color: #b7c9bb; }
 html[data-theme="dark"] .evidence .evidence-refresh { border-color: #42684d; background: #193423; color: #bbf7d0; }
+
+/* Shared toggle rows used by settings and administration forms. */
+.notification-toggle { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: .9rem 0; border-top: 1px solid #e2e8f0; cursor: pointer; }
+.notification-toggle:first-child { border-top: none; }
+.notification-toggle-label { display: block; color: #1e293b; font-size: .92rem; font-weight: 700; }
+.notification-toggle-description { display: block; margin-top: .15rem; color: #64748b; font-size: .8rem; }
+html[data-theme="dark"] .notification-toggle { border-color: #2c3d33; }
+html[data-theme="dark"] .notification-toggle-label { color: #eef8f0; }
+html[data-theme="dark"] .notification-toggle-description { color: #a7bbae; }

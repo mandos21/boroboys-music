@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -23,10 +22,7 @@ from app.db.models import (
 from app.services.lifecycle import (
     create_calendar_successor,
     create_rolling_successor,
-    create_successor,
-    reconcile_round_status,
     reconcile_rounds,
-    start_due_open_announcements,
     status_for_timeline,
 )
 
@@ -40,7 +36,7 @@ def test_status_for_timeline_opens_a_round_that_is_currently_in_its_window(db: S
     )
 
 
-def test_reconcile_rounds_reports_only_the_rounds_that_just_opened(db: Session) -> None:
+def test_reconcile_rounds_handles_opening_and_expired_windows(db: Session) -> None:
     suffix = uuid.uuid4().hex[:12]
     now = datetime.now(UTC)
     series = Series(
@@ -89,54 +85,12 @@ def test_reconcile_rounds_reports_only_the_rounds_that_just_opened(db: Session) 
     db.commit()
 
     reconcile_rounds(db, now=now)
-    opened = start_due_open_announcements(db, now=now)
-
-    assert opened == [opening.id]
+    assert opening.status is RoundStatus.OPEN
+    assert already_open.status is RoundStatus.OPEN
     db.commit()
     assert db.get(Round, skips_straight_to_closed.id).status is RoundStatus.CLOSED  # type: ignore[union-attr]
     reconcile_rounds(db, now=now + timedelta(minutes=1))
-    assert start_due_open_announcements(db, now=now + timedelta(minutes=1)) == []
-
-
-def test_rounds_opened_outside_the_worker_are_still_announced_once(
-    db: Session,
-    make_user: Callable[..., User],
-    make_series: Callable[..., Series],
-    make_round: Callable[..., Round],
-) -> None:
-    """A page load that reconciles a round, or an auto-created successor, must announce too."""
-    now = datetime.now(UTC)
-    series = make_series()
-    reconciled_by_a_page_load = make_round(
-        series,
-        status=RoundStatus.SCHEDULED,
-        opens_at=now - timedelta(minutes=1),
-        closes_at=now + timedelta(days=1),
-    )
-    db.commit()
-    assert reconcile_round_status(reconciled_by_a_page_load, now=now)
-    db.commit()
-
-    plan_series = make_series(
-        auto_start=True,
-        round_plan={"kind": "rolling", "duration_days": 7},
-    )
-    published = make_round(
-        plan_series,
-        status=RoundStatus.PUBLISHED,
-        opens_at=now - timedelta(days=14),
-        closes_at=now - timedelta(days=7),
-        members=[make_user(name="Member")],
-    )
-    successor = create_successor(db, published, now=now)
-    assert successor is not None and successor.status is RoundStatus.OPEN
-    db.commit()
-
-    claimed = start_due_open_announcements(db, now=now)
-
-    assert sorted(claimed) == sorted([reconciled_by_a_page_load.id, successor.id])
-    db.commit()
-    assert start_due_open_announcements(db, now=now + timedelta(minutes=1)) == []
+    assert opening.status is RoundStatus.OPEN
 
 
 def test_published_rolling_round_creates_one_open_successor_with_member_snapshot(

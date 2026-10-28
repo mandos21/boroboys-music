@@ -1,4 +1,4 @@
-"""Explicit, one-off re-encryption for provider credentials."""
+"""Explicit, one-off re-encryption for provider credentials and series webhooks."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import decrypt, encrypt
-from app.db.models import ExternalCredential
+from app.db.models import ExternalCredential, Series
 
 
 def rotate_credentials(
@@ -37,4 +37,16 @@ def rotate_credentials(
         plaintext = decrypt(credential.ciphertext, old_key)
         credential.ciphertext = encrypt(plaintext, new_key)
         credential.key_version = to_version
-    return len(credentials)
+    series_destinations = list(
+        db.scalars(
+            select(Series)
+            .where(Series.mattermost_webhook_key_version == from_version)
+            .with_for_update()
+        )
+    )
+    for series in series_destinations:
+        if series.mattermost_webhook_ciphertext:
+            plaintext = decrypt(series.mattermost_webhook_ciphertext, old_key)
+            series.mattermost_webhook_ciphertext = encrypt(plaintext, new_key)
+            series.mattermost_webhook_key_version = to_version
+    return len(credentials) + len(series_destinations)

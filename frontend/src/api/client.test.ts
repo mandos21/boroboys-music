@@ -47,3 +47,20 @@ describe("API client", () => {
     );
   });
 });
+
+it("shows server validation messages without serializing error objects", async () => {
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          detail: [{ loc: ["body"], msg: "Value error, Use only supported message fields" }],
+        }),
+        { status: 422 },
+      ),
+    ),
+  });
+  await expect(api("/invalid")).rejects.toEqual(
+    expect.objectContaining({ message: "Use only supported message fields" }),
+  );
+});

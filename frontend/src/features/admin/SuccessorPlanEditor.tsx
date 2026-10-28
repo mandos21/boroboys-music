@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { patch } from "../../api/client";
 import { Button } from "../../components/ui/button";
+import { Switch } from "../../components/ui/switch";
 import { useToast } from "../../components/ui/ToastProvider";
 import { errorMessage } from "./adminUtils";
 import type { Series } from "./types";
@@ -17,14 +18,17 @@ const planSchema = z
     autoStart: z.boolean(),
   })
   .superRefine((value, context) => {
-    if (value.kind === "rolling" && !/^[1-9]\d*$/.test(value.rollingDays)) {
+    if (
+      value.kind === "rolling" &&
+      (!/^[1-9]\d*$/.test(value.rollingDays) || Number(value.rollingDays) > 365)
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["rollingDays"],
-        message: "Use a whole number of days.",
+        message: "Use a whole number of days from 1 to 365.",
       });
     }
-    if (value.limit && !/^\d+$/.test(value.limit)) {
+    if (value.kind !== "none" && value.limit && !/^\d+$/.test(value.limit)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["limit"],
@@ -66,12 +70,14 @@ export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSav
         round_plan:
           values.kind === "rolling"
             ? {
+                ...(series.roundPlan?.kind === "rolling" ? series.roundPlan : {}),
                 kind: "rolling",
                 duration_days: Number(values.rollingDays),
                 submission_limit: values.limit ? Number(values.limit) : null,
               }
             : values.kind === "calendar"
               ? {
+                  ...(series.roundPlan?.kind === "calendar" ? series.roundPlan : {}),
                   kind: "calendar",
                   open_day: 1,
                   duration_days: 1,
@@ -98,7 +104,6 @@ export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSav
 
   return (
     <section className="panel">
-      <h2>Automatic next round</h2>
       <p>Changing this affects only successors created after a successful publication.</p>
       <form
         className="admin-round-form"
@@ -141,9 +146,19 @@ export function SuccessorPlanEditor({ series, onSaved }: { series: Series; onSav
           </span>
           {error("limit") && <span className="error-message">{error("limit")}</span>}
         </label>
-        <label className="check-label">
-          <input type="checkbox" disabled={kind === "none"} {...register("autoStart")} />
-          Create the next round automatically when this one is published
+        <label className="notification-toggle">
+          <span>Create the next round automatically when this one is published</span>
+          <Controller
+            name="autoStart"
+            control={form.control}
+            render={({ field }) => (
+              <Switch
+                checked={kind !== "none" && field.value}
+                onCheckedChange={field.onChange}
+                disabled={kind === "none"}
+              />
+            )}
+          />
         </label>
         <Button disabled={save.isPending} type="submit">
           {save.isPending ? "Saving…" : "Save plan"}

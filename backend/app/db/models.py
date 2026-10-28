@@ -210,6 +210,9 @@ class Series(UUIDTimestampMixin, Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     cover_image_url: Mapped[str | None] = mapped_column(String(1000))
     accent_color: Mapped[str | None] = mapped_column(String(32))
+    mattermost_webhook_ciphertext: Mapped[str | None] = mapped_column(Text)
+    mattermost_webhook_key_version: Mapped[str | None] = mapped_column(String(64))
+    use_shared_mattermost: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Default for new rounds' `attribution_reveal_delay_seconds`. Null means
     # submitters reveal immediately on publication, matching behavior before
     # the guessing game existed.
@@ -601,3 +604,63 @@ class WorkerHeartbeat(Base):
     observed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
+
+
+class NotificationRule(UUIDTimestampMixin, Base):
+    __tablename__ = "notification_rules"
+    __table_args__ = (
+        CheckConstraint("offset_minutes BETWEEN -43200 AND 43200", name="ck_notification_offset"),
+    )
+
+    series_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("series.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(100))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    channel: Mapped[str] = mapped_column(String(20))
+    milestone: Mapped[str] = mapped_column(String(30))
+    offset_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    audience: Mapped[str] = mapped_column(String(20), default="members")
+    message_template: Mapped[str] = mapped_column(Text)
+    # Moving or enabling a rule never backfills events that have already passed.
+    active_since: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class NotificationEvent(UUIDTimestampMixin, Base):
+    __tablename__ = "notification_events"
+    __table_args__ = (UniqueConstraint("rule_id", "round_id", name="uq_notification_event"),)
+
+    rule_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("notification_rules.id", ondelete="CASCADE")
+    )
+    round_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("rounds.id", ondelete="CASCADE"), index=True
+    )
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    rule_name: Mapped[str] = mapped_column(String(100))
+    channel: Mapped[str] = mapped_column(String(20))
+    # A reason explains events with no deliveries (including migrated legacy claims).
+    skip_reason: Mapped[str | None] = mapped_column(String(200))
+
+
+class NotificationDelivery(UUIDTimestampMixin, Base):
+    __tablename__ = "notification_deliveries"
+    __table_args__ = (
+        UniqueConstraint("event_id", "recipient_key", name="uq_notification_delivery_recipient"),
+        Index("ix_notification_delivery_due", "status", "next_attempt_at"),
+    )
+
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("notification_events.id", ondelete="CASCADE")
+    )
+    recipient_key: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(200))
+    message: Mapped[str | None] = mapped_column(Text)

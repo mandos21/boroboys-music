@@ -60,7 +60,7 @@ describe("NotificationSettingsPanel", () => {
   it("loads saved preferences and sends a snake_case body when one is toggled off", async () => {
     const { requests } = renderPanel();
 
-    expect(await screen.findByText("Deadline reminders")).toBeTruthy();
+    expect(await screen.findByText("Round reminders")).toBeTruthy();
     const switches = screen.getAllByRole("switch");
     expect(switches).toHaveLength(2);
     expect(switches[0].getAttribute("aria-checked")).toBe("true");
@@ -76,7 +76,7 @@ describe("NotificationSettingsPanel", () => {
   it("does not let a refetch that started before the change overwrite the saved value", async () => {
     const held: Deferred = { resolve: () => undefined };
     const { requests, client } = renderPanel({ holdSecondGet: held });
-    expect(await screen.findByText("Deadline reminders")).toBeTruthy();
+    expect(await screen.findByText("Round reminders")).toBeTruthy();
     const switches = screen.getAllByRole("switch");
 
     // A window-focus style refetch is in flight when the person toggles.

@@ -66,7 +66,10 @@ export function PolicyEditor({ value, onChange, scope = "new-round" }: PolicyEdi
           const definition = definitions.find((item) => item.kind === policy.kind);
           const kind = typeof policy.kind === "string" ? policy.kind : "Custom policy";
           return (
-            <article className="policy-editor-card" key={`${kind}-${index}`}>
+            <article
+              className={`policy-editor-card${definition?.supportsLookback ? " policy-editor-card-lookback" : ""}`}
+              key={`${kind}-${index}`}
+            >
               <div>
                 <strong>{definition?.name ?? kind}</strong>
                 <p>

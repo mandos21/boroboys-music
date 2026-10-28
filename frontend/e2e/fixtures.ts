@@ -224,6 +224,7 @@ const adminSeries = {
   isArchived: false,
   autoStartNextRound: true,
   defaultPolicies: [],
+  defaultAttributionRevealDelaySeconds: 3600,
   roundPlan: {
     kind: "calendar",
     full_month: true,
@@ -343,6 +344,7 @@ function responseFor(path: string) {
     return { notifyReminderEmails: true, notifyRoundPublishedEmails: false };
   }
   if (path === "/api/v1/connections") return connections;
+  if (path === "/api/v1/admin/series/series-1/notifications") return seriesNotifications;
   if (path === "/api/v1/admin/series/series-1") return adminSeries;
   if (path === "/api/v1/admin/series/series-1/members") {
     return contributors.map(({ id, displayName }) => ({
@@ -368,17 +370,109 @@ export async function applyVisualPreferences(page: Page, dark: boolean) {
     (theme) => {
       Date.now = () => new Date("2026-09-09T12:00:00-04:00").getTime();
       window.localStorage.setItem("music-rounds-theme", theme);
-      document.documentElement.dataset.theme = theme;
-      const style = document.createElement("style");
-      style.textContent = `
+      const apply = () => {
+        document.documentElement.dataset.theme = theme;
+        const style = document.createElement("style");
+        style.textContent = `
       *, *::before, *::after {
         animation: none !important;
         transition: none !important;
         caret-color: transparent !important;
       }
     `;
-      document.head.append(style);
+        document.head.append(style);
+      };
+      if (document.readyState === "loading")
+        document.addEventListener("DOMContentLoaded", apply, { once: true });
+      else apply();
     },
     dark ? "dark" : "light",
   );
 }
+
+export const seriesNotifications = {
+  timezone: "America/New_York",
+  channels: {
+    emailReady: true,
+    mattermostReady: true,
+    mattermostMode: "custom",
+    sharedMattermostReady: false,
+  },
+  rules: [
+    {
+      id: "rule-open",
+      name: "Round opens",
+      enabled: true,
+      channel: "mattermost",
+      milestone: "opens",
+      offset_minutes: 0,
+      audience: "members",
+      message_template: '"{round_title}" is open for submissions: {round_url}',
+    },
+    {
+      id: "rule-two-days",
+      name: "Two-day reminder",
+      enabled: true,
+      channel: "email",
+      milestone: "closes",
+      offset_minutes: -2880,
+      audience: "remaining",
+      message_template: "Share your picks before {closes_at}: {round_url}",
+    },
+    {
+      id: "rule-one-day",
+      name: "One-day reminder",
+      enabled: true,
+      channel: "email",
+      milestone: "closes",
+      offset_minutes: -1440,
+      audience: "remaining",
+      message_template: 'Last day to share your picks for "{round_title}": {round_url}',
+    },
+    {
+      id: "rule-published",
+      name: "Playlist published",
+      enabled: true,
+      channel: "mattermost",
+      milestone: "published",
+      offset_minutes: 0,
+      audience: "members",
+      message_template: '"{round_title}" has been published: {round_url}',
+    },
+    {
+      id: "rule-published-email",
+      name: "Playlist published",
+      enabled: true,
+      channel: "email",
+      milestone: "published",
+      offset_minutes: 0,
+      audience: "members",
+      message_template: '"{round_title}" has been published: {round_url}',
+    },
+  ],
+  upcoming: [
+    {
+      ruleId: "rule-two-days",
+      ruleName: "Two-day reminder",
+      roundId: "round-open",
+      roundTitle: "September after dark",
+      channel: "email",
+      scheduledAt: "2026-09-28T23:59:00-04:00",
+      message: "Share your picks before September 30: https://music.example.test/rounds/round-open",
+      audience: "4 eligible members right now",
+      channelReady: true,
+    },
+    {
+      ruleId: "rule-published",
+      ruleName: "Playlist published",
+      roundId: "round-open",
+      roundTitle: "September after dark",
+      channel: "mattermost",
+      scheduledAt: null,
+      message: "September after dark has been published.",
+      audience: "Mattermost channel",
+      channelReady: true,
+    },
+  ],
+  history: [],
+};

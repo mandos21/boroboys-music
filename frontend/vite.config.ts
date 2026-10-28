@@ -3,7 +3,9 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Browser tests run a second server; keep its optimizer from replacing the dev cache.
+  cacheDir: mode === "e2e" ? "node_modules/.vite-e2e" : "node_modules/.vite",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -46,4 +48,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

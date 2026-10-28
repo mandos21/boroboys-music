@@ -7,6 +7,7 @@ type DisclosureProps = {
   children: ReactNode;
   className?: string;
   defaultOpen?: boolean;
+  keepMounted?: boolean;
   description?: string;
   title: string;
 };
@@ -16,6 +17,7 @@ export function Disclosure({
   children,
   className,
   defaultOpen = false,
+  keepMounted = false,
   description,
   title,
 }: DisclosureProps) {
@@ -31,7 +33,9 @@ export function Disclosure({
         </span>
         <ChevronDown aria-hidden="true" size={17} />
       </CollapsibleTrigger>
-      <CollapsibleContent className="disclosure-content">{children}</CollapsibleContent>
+      <CollapsibleContent className="disclosure-content" keepMounted={keepMounted}>
+        {children}
+      </CollapsibleContent>
     </Collapsible>
   );
 }

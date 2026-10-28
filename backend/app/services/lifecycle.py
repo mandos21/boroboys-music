@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -18,8 +17,7 @@ def reconcile_rounds(db: Session, now: datetime | None = None) -> None:
 
     This is not the only place a round becomes open - a page load reconciles a
     round's timeline too, and successors can be created already open - which
-    is why opening is announced from :func:`start_due_open_announcements`
-    rather than from here.
+    is why notification rules reconcile the timeline separately.
     """
     instant = now or datetime.now(UTC)
     for round_ in db.scalars(
@@ -37,24 +35,6 @@ def reconcile_rounds(db: Session, now: datetime | None = None) -> None:
     # Sessions do not autoflush, and the announcement pass that follows in the
     # same transaction selects on the status this just changed.
     db.flush()
-
-
-def start_due_open_announcements(db: Session, now: datetime | None = None) -> list[uuid.UUID]:
-    """Claim every open round that has not yet been announced, exactly once.
-
-    Setting `opened_announced_at` in the same transaction that selects the row
-    is what makes this idempotent, the same way deadline reminders work.
-    """
-    instant = now or datetime.now(UTC)
-    claimed: list[uuid.UUID] = []
-    for round_ in db.scalars(
-        select(Round)
-        .where(Round.status == RoundStatus.OPEN, Round.opened_announced_at.is_(None))
-        .with_for_update(skip_locked=True)
-    ):
-        round_.opened_announced_at = instant
-        claimed.append(round_.id)
-    return claimed
 
 
 def reconcile_round_status(round_: Round, now: datetime | None = None) -> bool:

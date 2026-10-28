@@ -1,4 +1,4 @@
-"""Re-encrypt stored provider credentials under the configured active key."""
+"""Re-encrypt stored provider credentials and series webhooks under the configured active key."""
 
 from __future__ import annotations
 

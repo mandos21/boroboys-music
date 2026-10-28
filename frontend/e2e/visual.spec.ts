@@ -11,7 +11,16 @@ const visualRoutes = [
   { path: "/rounds/round-open/submit", name: "submission", ready: "Choose a track" },
   { path: "/profile", name: "profile", ready: "Your record, so far" },
   { path: "/settings", name: "settings", ready: "Connected services" },
-  { path: "/admin/series/series-1", name: "series-administration", ready: "Automation" },
+  {
+    path: "/admin/series/series-1",
+    name: "series-administration",
+    ready: "Current and upcoming rounds",
+  },
+  {
+    path: "/admin/series/series-1?tab=notifications",
+    name: "series-notifications",
+    ready: "Notification rules",
+  },
 ];
 
 test.beforeEach(async ({ page }, testInfo) => {
