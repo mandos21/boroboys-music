@@ -156,7 +156,7 @@ export function AppShell({ children }: AppShellProps) {
                 <ThemeToggle />
                 <a
                   className="header-sign-in"
-                  href={`/api/v1/auth/login?return=${encodeURIComponent(location.pathname)}`}
+                  href={`/api/v1/auth/login?return=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
                 >
                   Sign in
                 </a>

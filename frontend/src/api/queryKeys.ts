@@ -8,6 +8,7 @@ export const queryKeys = {
   session: () => ["session"] as const,
   connections: () => ["connections"] as const,
   profile: (userId?: string) => ["profile", userId ?? "me"] as const,
+  seriesEmailPreferences: () => ["series-email-preferences"] as const,
   notificationSettings: () => ["notification-settings"] as const,
 
   series: () => ["series"] as const,

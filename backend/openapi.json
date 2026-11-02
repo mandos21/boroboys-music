@@ -3314,6 +3314,49 @@
         "title": "SeriesListResponse",
         "type": "object"
       },
+      "SeriesNotificationSettingsResponse": {
+        "properties": {
+          "effectiveReminderEmails": {
+            "title": "Effectivereminderemails",
+            "type": "boolean"
+          },
+          "effectiveRoundPublishedEmails": {
+            "title": "Effectiveroundpublishedemails",
+            "type": "boolean"
+          },
+          "isArchived": {
+            "title": "Isarchived",
+            "type": "boolean"
+          },
+          "notifyReminderEmails": {
+            "title": "Notifyreminderemails",
+            "type": "boolean"
+          },
+          "notifyRoundPublishedEmails": {
+            "title": "Notifyroundpublishedemails",
+            "type": "boolean"
+          },
+          "seriesId": {
+            "title": "Seriesid",
+            "type": "string"
+          },
+          "seriesName": {
+            "title": "Seriesname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notifyReminderEmails",
+          "notifyRoundPublishedEmails",
+          "seriesId",
+          "seriesName",
+          "isArchived",
+          "effectiveReminderEmails",
+          "effectiveRoundPublishedEmails"
+        ],
+        "title": "SeriesNotificationSettingsResponse",
+        "type": "object"
+      },
       "SeriesNotificationsResponse": {
         "properties": {
           "channels": {
@@ -6145,6 +6188,84 @@
           }
         },
         "summary": "Update Notification Settings",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/api/v1/profiles/me/notification-settings/series": {
+      "get": {
+        "operationId": "get_series_notification_settings_api_v1_profiles_me_notification_settings_series_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesNotificationSettingsResponse"
+                  },
+                  "title": "Response Get Series Notification Settings Api V1 Profiles Me Notification Settings Series Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Series Notification Settings",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/api/v1/profiles/me/notification-settings/series/{series_id}": {
+      "patch": {
+        "operationId": "update_series_notification_settings_api_v1_profiles_me_notification_settings_series__series_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesNotificationSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Series Notification Settings",
         "tags": [
           "profiles"
         ]

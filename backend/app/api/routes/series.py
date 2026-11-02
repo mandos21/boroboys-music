@@ -37,7 +37,7 @@ from app.db.models import (
     TrackGenre,
     User,
 )
-from app.services.authorization import is_series_admin
+from app.services.authorization import accessible_series, is_series_admin
 from app.services.genre_taxonomy import GROUPS, group_for
 from app.services.lifecycle import reconcile_round_status
 from app.services.membership import ensure_default_series_membership
@@ -86,40 +86,7 @@ def list_my_series(
     user: Annotated[User, Depends(get_current_user)],
 ) -> list[dict[str, object]]:
     """List every series a listener can enter, with a useful round preview."""
-    if user.platform_role is PlatformRole.ADMIN:
-        series_items = list(db.scalars(select(Series).order_by(Series.name)))
-    else:
-        series_items = list(
-            db.scalars(
-                select(Series)
-                .outerjoin(Round, Round.series_id == Series.id)
-                .outerjoin(
-                    RoundMember,
-                    (RoundMember.round_id == Round.id)
-                    & (RoundMember.user_id == user.id)
-                    & RoundMember.removed_at.is_(None),
-                )
-                .outerjoin(
-                    SeriesAdmin,
-                    (SeriesAdmin.series_id == Series.id) & (SeriesAdmin.user_id == user.id),
-                )
-                .outerjoin(ContributorGroup, ContributorGroup.series_id == Series.id)
-                .outerjoin(
-                    ContributorGroupMember,
-                    (ContributorGroupMember.group_id == ContributorGroup.id)
-                    & (ContributorGroupMember.user_id == user.id),
-                )
-                .where(
-                    or_(
-                        RoundMember.id.is_not(None),
-                        SeriesAdmin.id.is_not(None),
-                        ContributorGroupMember.id.is_not(None),
-                    )
-                )
-                .distinct()
-                .order_by(Series.name)
-            )
-        )
+    series_items = list(db.scalars(accessible_series(user)))
     payloads = _series_payloads(db, series_items, user)
     return sorted(payloads, key=_series_sort_key)
 

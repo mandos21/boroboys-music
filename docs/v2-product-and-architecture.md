@@ -602,6 +602,25 @@ and communicate asynchronous states such as `evidence refreshing` or `publicatio
 retrying`. Client permission checks improve usability but never substitute for API
 authorization.
 
+### Personal email preferences
+
+`SeriesNotificationPreference` stores the two email category choices per user
+and series, independently of contributor groups and materialized round members.
+No row means both are allowed; existing global user preferences remain master
+opt-outs. Email eligibility requires an enabled series rule, an eligible active
+round member, and both global and series permission for that category. Checks
+run at scheduling and again before delivery. Re-enabling does not replay skipped
+notifications. Preferences survive future rounds and rejoining; they grant no
+membership or access themselves and never affect shared Mattermost messages.
+
+Authenticated, CSRF-protected updates can only change the caller's preferences
+for an accessible series. Partial updates use a unique user/series key and a
+PostgreSQL upsert to preserve independent simultaneous category edits. The API
+returns saved choices and effective choices after applying global opt-outs.
+Settings shows global switches and expandable series rows; the series page uses
+the same controls in a centered personal settings dialog (full-screen on mobile), separate from admin schedules.
+Email footer links select and expand the relevant series, including after login.
+
 ## 12. Database, migrations, and operations
 
 Use SQLAlchemy 2.x mappings and Alembic from the first migration. `metadata.create_all`

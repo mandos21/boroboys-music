@@ -204,7 +204,13 @@ never sends a message; dates are displayed in the series timezone.
 
 Email uses the server SMTP configuration. Non-publication rules honor each
 member's round-reminder preference; publication rules honor their publication
-preference. The "members who can still submit" audience also excludes removed or
+preference. Users can set both categories globally and separately per series in
+Settings → Email notifications, or open My email notifications on a series page.
+Global opt-outs always win. Missing series preferences allow both categories,
+so the migration preserves existing behavior. Choices persist across rounds and
+rejoining; enabling emails again does not replay skipped notifications. Email
+footers link to the series's expanded settings and preserve that destination
+through sign-in. Personal preferences never mute shared Mattermost messages. The "members who can still submit" audience also excludes removed or
 inactive members, members at their limit, and those who declined further picks.
 These checks run again at delivery time. Mattermost can use the optional shared
 `MATTERMOST_WEBHOOK_URL`, a series-specific HTTPS incoming webhook, or be disabled.

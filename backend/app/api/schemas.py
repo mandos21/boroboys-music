@@ -34,6 +34,14 @@ class NotificationSettingsResponse(ApiResponse):
     notify_round_published_emails: bool
 
 
+class SeriesNotificationSettingsResponse(NotificationSettingsResponse):
+    series_id: str
+    series_name: str
+    is_archived: bool
+    effective_reminder_emails: bool
+    effective_round_published_emails: bool
+
+
 class SessionResponse(ApiResponse):
     user: SessionUserResponse
     expires_at: datetime

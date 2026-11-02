@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, ChevronDown, Clock3, Disc3, ListMusic } from "lucide-react";
 import { Link, useParams } from "react-router";
 
+import { SeriesEmailPreferences } from "../profiles/SeriesEmailPreferences";
 import { api, patch, post } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
 import type { components } from "../../api/schema";
@@ -828,15 +829,18 @@ export function SeriesPage() {
             <h1>{item.name}</h1>
             {item.description && <p>{item.description}</p>}
           </div>
-          {item.isAdmin && (
-            <Link
-              data-slot="button"
-              className={buttonVariants({ variant: "secondary" })}
-              to={`/admin/series/${item.id}`}
-            >
-              Manage series
-            </Link>
-          )}
+          <div className="series-page-actions">
+            <SeriesEmailPreferences seriesId={item.id} seriesName={item.name} />
+            {item.isAdmin && (
+              <Link
+                data-slot="button"
+                className={buttonVariants({ variant: "secondary" })}
+                to={`/admin/series/${item.id}`}
+              >
+                Manage series
+              </Link>
+            )}
+          </div>
         </div>
         <p className="muted">A record of the rounds and releases your group has made together.</p>
         <section className="series-stats" aria-label="Series statistics">

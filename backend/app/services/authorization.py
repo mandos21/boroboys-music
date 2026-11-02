@@ -9,10 +9,19 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import Select, or_, select
 from sqlalchemy.orm import Session
 
-from app.db.models import PlatformRole, RoundMember, SeriesAdmin, User
+from app.db.models import (
+    ContributorGroup,
+    ContributorGroupMember,
+    PlatformRole,
+    Round,
+    RoundMember,
+    Series,
+    SeriesAdmin,
+    User,
+)
 
 
 def is_series_admin(db: Session, series_id: uuid.UUID, user: User) -> bool:
@@ -41,4 +50,32 @@ def is_round_member(db: Session, round_id: uuid.UUID, user_id: uuid.UUID) -> boo
             )
         )
         is not None
+    )
+
+
+def accessible_series(user: User) -> Select[tuple[Series]]:
+    """Series visible through administration, group membership, or an active round membership."""
+    statement = select(Series).order_by(Series.name, Series.id)
+    if user.platform_role is PlatformRole.ADMIN:
+        return statement
+    return statement.where(
+        or_(
+            select(SeriesAdmin.id)
+            .where(SeriesAdmin.series_id == Series.id, SeriesAdmin.user_id == user.id)
+            .exists(),
+            select(ContributorGroupMember.id)
+            .join(ContributorGroup)
+            .where(
+                ContributorGroup.series_id == Series.id, ContributorGroupMember.user_id == user.id
+            )
+            .exists(),
+            select(RoundMember.id)
+            .join(Round)
+            .where(
+                Round.series_id == Series.id,
+                RoundMember.user_id == user.id,
+                RoundMember.removed_at.is_(None),
+            )
+            .exists(),
+        )
     )

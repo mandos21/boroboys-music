@@ -83,7 +83,6 @@
 .profile-setup-section { margin-top: 2.5rem; }
 .profile-setup-section .connection-grid { margin-top: 1rem; }
 .appearance-toggle { margin-top: 1rem; }
-.notification-settings { display: grid; gap: .1rem; margin-top: 1rem; }
 
 @media (max-width: 62rem) { .profile-insights-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 44rem) { .profile-overview { align-items: start; flex-direction: column; gap: 1.2rem; }.profile-variety { width: 100%; grid-template-columns: auto 1fr; }.profile-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.profile-insights-grid { grid-template-columns: 1fr; }.profile-submission { grid-template-columns: 3rem minmax(0, 1fr); align-items: start; }.profile-submission > img, .profile-track-placeholder { width: 3rem; height: 3rem; }.profile-submission-round { grid-column: 2; justify-items: start; text-align: left; }.profile-submission-round a { max-width: 100%; }}

@@ -610,3 +610,111 @@ def test_http_contract_uses_real_auth_csrf_and_validates_templates(
     assert invalid.status_code == 422
     assert client.delete(path + f"/rules/{rule_id}").status_code == 204
     assert client.get(path).json()["rules"] == []
+
+
+@pytest.mark.parametrize(
+    "milestone,audience",
+    [
+        ("opens", "members"),
+        ("closes", "members"),
+        ("closes", "remaining"),
+        ("scheduled_release", "members"),
+        ("published", "members"),
+    ],
+)
+@pytest.mark.parametrize(
+    "global_enabled,series_enabled",
+    [
+        (True, None),
+        (False, None),
+        (True, True),
+        (True, False),
+        (False, True),
+        (False, False),
+    ],
+)
+def test_series_preferences_for_every_email_category(
+    db, make_user, make_series, make_round, milestone, audience, global_enabled, series_enabled
+):
+    from app.db.models import SeriesNotificationPreference
+
+    user = make_user(email="listener@test.com")
+    series, other = make_series(), make_series()
+    round_ = make_round(series, members=[user])
+    other_round = make_round(other, members=[user])
+    category = (
+        "notify_round_published_emails" if milestone == "published" else "notify_reminder_emails"
+    )
+    setattr(user, category, global_enabled)
+    if series_enabled is not None:
+        db.add(
+            SeriesNotificationPreference(
+                user_id=user.id, series_id=series.id, **{category: series_enabled}
+            )
+        )
+    db.flush()
+    rule = service.RuleInput(
+        name="Test",
+        channel="email",
+        milestone=milestone,
+        audience=audience,
+        offset_minutes=-60 if milestone == "closes" else 0,
+        message_template="{round_title}",
+    )
+    assert bool(service.recipients(db, rule, round_)) == (
+        global_enabled and series_enabled is not False
+    )
+    assert bool(service.recipients(db, rule, other_round)) == global_enabled
+    # The other category stays enabled.
+    other_rule = rule.model_copy(
+        update={
+            "milestone": "closes" if milestone == "published" else "published",
+            "audience": "members",
+        }
+    )
+    assert service.recipients(db, other_rule, round_) == [user]
+
+
+def test_queued_series_opt_out_is_rechecked_and_reenabling_does_not_replay(
+    db, make_series, make_round, make_user, make_rule, sent
+):
+    from app.api.routes.profiles import (
+        NotificationSettingsUpdate,
+        update_series_notification_settings,
+    )
+
+    now = datetime.now(UTC)
+    series = make_series()
+    user = make_user(email="one@example.test")
+    make_round(series, members=[user], closes_at=now + timedelta(hours=23))
+    make_rule(series)
+    make_rule(series, channel="mattermost", audience="members")
+    ids = service.collect_due(db, now)
+    assert len(ids) == 2
+    update_series_notification_settings(
+        series.id, NotificationSettingsUpdate(notify_reminder_emails=False), db, user
+    )
+    for id_ in ids:
+        service.deliver(db, id_, now)
+    assert [address for address, _ in sent] == ["mattermost"]
+    update_series_notification_settings(
+        series.id, NotificationSettingsUpdate(notify_reminder_emails=True), db, user
+    )
+    assert service.collect_due(db, now) == []
+    for id_ in ids:
+        service.deliver(db, id_, now)
+    assert [address for address, _ in sent] == ["mattermost"]
+
+
+def test_email_footer_links_to_this_series_preferences(
+    db, make_series, make_round, make_user, make_rule, sent
+):
+    now = datetime.now(UTC)
+    series = make_series()
+    make_round(
+        series, members=[make_user(email="one@example.test")], closes_at=now + timedelta(hours=23)
+    )
+    make_rule(series)
+    for id_ in service.collect_due(db, now):
+        service.deliver(db, id_, now)
+    assert f"/settings?series={series.id}#notifications-title" in sent[0][1]

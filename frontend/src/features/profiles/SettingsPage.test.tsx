@@ -18,7 +18,7 @@ function renderSettings() {
     "fetch",
     vi.fn((input: string | URL | Request) => {
       const url = String(input);
-      if (url.endsWith("/connections")) {
+      if (url.endsWith("/connections") || url.endsWith("/notification-settings/series")) {
         return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
       }
       if (url.endsWith("/profiles/me/notification-settings")) {

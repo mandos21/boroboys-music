@@ -18,6 +18,9 @@ function renderPanel(options: { holdSecondGet?: Deferred } = {}) {
   vi.stubGlobal(
     "fetch",
     vi.fn((_input: string | URL | Request, init?: RequestInit) => {
+      if (String(_input).endsWith("/notification-settings/series")) {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }
       const method = init?.method ?? "GET";
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       requests.push({ method, body });

@@ -35,7 +35,7 @@ from app.db.models import (
     User,
 )
 from app.services import email, mattermost
-from app.services.notifications import reminder_recipients
+from app.services.notifications import email_preference_allows, reminder_recipients
 
 Channel = Literal["email", "mattermost"]
 Milestone = Literal["opens", "closes", "scheduled_release", "published"]
@@ -202,12 +202,7 @@ def channel_ready(series: Series, channel: str, settings: Settings) -> bool:
 
 def recipients(db: Session, rule: NotificationRule | RuleInput, round_: Round) -> list[User]:
     if rule.audience == "remaining":
-        return [user for user in reminder_recipients(db, round_) if user.is_active]
-    preference = (
-        User.notify_round_published_emails
-        if rule.milestone == "published"
-        else User.notify_reminder_emails
-    )
+        return reminder_recipients(db, round_)
     return list(
         db.scalars(
             select(User)
@@ -217,7 +212,7 @@ def recipients(db: Session, rule: NotificationRule | RuleInput, round_: Round) -
                 RoundMember.removed_at.is_(None),
                 User.is_active.is_(True),
                 User.email.is_not(None),
-                preference.is_(True),
+                email_preference_allows(round_.series_id, published=rule.milestone == "published"),
             )
         )
     )
@@ -392,9 +387,9 @@ def deliver(db: Session, delivery_id: uuid.UUID, now: datetime | None = None) ->
             subject = " ".join(f"{series.name}: {rule.name} — {round_.title}".splitlines())
             body = (
                 delivery.message
-                + "\n\nManage your email preferences: "
+                + "\n\nManage email preferences for this series: "
                 + str(settings.app_base_url).rstrip("/")
-                + "/settings"
+                + f"/settings?series={series.id}#notifications-title"
             )
             email.send_email(settings, user.email, subject, body)
         else:

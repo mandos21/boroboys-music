@@ -652,6 +652,40 @@ export interface paths {
         patch: operations["update_notification_settings_api_v1_profiles_me_notification_settings_patch"];
         trace?: never;
     };
+    "/api/v1/profiles/me/notification-settings/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Series Notification Settings */
+        get: operations["get_series_notification_settings_api_v1_profiles_me_notification_settings_series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/me/notification-settings/series/{series_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Series Notification Settings */
+        patch: operations["update_series_notification_settings_api_v1_profiles_me_notification_settings_series__series_id__patch"];
+        trace?: never;
+    };
     "/api/v1/profiles/{user_id}": {
         parameters: {
             query?: never;
@@ -2265,6 +2299,23 @@ export interface components {
             /** Timezone */
             timezone: string;
         };
+        /** SeriesNotificationSettingsResponse */
+        SeriesNotificationSettingsResponse: {
+            /** Effectivereminderemails */
+            effectiveReminderEmails: boolean;
+            /** Effectiveroundpublishedemails */
+            effectiveRoundPublishedEmails: boolean;
+            /** Isarchived */
+            isArchived: boolean;
+            /** Notifyreminderemails */
+            notifyReminderEmails: boolean;
+            /** Notifyroundpublishedemails */
+            notifyRoundPublishedEmails: boolean;
+            /** Seriesid */
+            seriesId: string;
+            /** Seriesname */
+            seriesName: string;
+        };
         /** SeriesNotificationsResponse */
         SeriesNotificationsResponse: {
             channels: components["schemas"]["ChannelsResponse"];
@@ -3848,6 +3899,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_series_notification_settings_api_v1_profiles_me_notification_settings_series_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesNotificationSettingsResponse"][];
+                };
+            };
+        };
+    };
+    update_series_notification_settings_api_v1_profiles_me_notification_settings_series__series_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesNotificationSettingsResponse"];
                 };
             };
             /** @description Validation Error */

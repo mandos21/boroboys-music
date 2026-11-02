@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { Switch } from "../../components/ui/switch";
 import { ConnectionsPanel } from "../connections/ConnectionsPanel";
@@ -11,6 +11,7 @@ import "./profiles.css";
  * emails - kept apart from the profile page, which is about the listening
  * record itself. */
 export function SettingsPage() {
+  const [searchParams] = useSearchParams();
   return (
     <main className="shell settings-shell">
       <Link className="back" to="/profile">
@@ -27,7 +28,7 @@ export function SettingsPage() {
         <ConnectionsPanel />
       </SetupSection>
       <SetupSection id="notifications-title" title="Email notifications">
-        <NotificationSettingsPanel />
+        <NotificationSettingsPanel selectedSeriesId={searchParams.get("series")} />
       </SetupSection>
       <SetupSection id="appearance-title" title="Appearance">
         <ColorPaletteSetting />

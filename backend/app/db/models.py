@@ -219,6 +219,26 @@ class Series(UUIDTimestampMixin, Base):
     default_attribution_reveal_delay_seconds: Mapped[int | None] = mapped_column(Integer)
 
 
+class SeriesNotificationPreference(UUIDTimestampMixin, Base):
+    __tablename__ = "series_notification_preferences"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "series_id", name="uq_series_notification_preferences_user_series"
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    series_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("series.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    notify_reminder_emails: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notify_round_published_emails: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+
+
 class SeriesAdmin(UUIDTimestampMixin, Base):
     __tablename__ = "series_admins"
     __table_args__ = (

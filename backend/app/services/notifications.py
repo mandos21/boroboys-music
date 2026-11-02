@@ -6,8 +6,40 @@ import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
-from app.db.models import Round, RoundMember, Submission, SubmissionStatus, User
+from app.db.models import (
+    Round,
+    RoundMember,
+    SeriesNotificationPreference,
+    Submission,
+    SubmissionStatus,
+    User,
+)
+
+
+def email_preference_allows(
+    series_id: uuid.UUID, *, published: bool = False
+) -> ColumnElement[bool]:
+    """Global opt-outs win; a missing series preference preserves the default opt-in."""
+    global_preference = (
+        User.notify_round_published_emails if published else User.notify_reminder_emails
+    )
+    series_preference = (
+        SeriesNotificationPreference.notify_round_published_emails
+        if published
+        else SeriesNotificationPreference.notify_reminder_emails
+    )
+    opted_out = (
+        select(SeriesNotificationPreference.id)
+        .where(
+            SeriesNotificationPreference.user_id == User.id,
+            SeriesNotificationPreference.series_id == series_id,
+            series_preference.is_(False),
+        )
+        .exists()
+    )
+    return global_preference.is_(True) & ~opted_out
 
 
 def reminder_recipients(db: Session, round_: Round) -> list[User]:
@@ -19,7 +51,7 @@ def reminder_recipients(db: Session, round_: Round) -> list[User]:
                 RoundMember.round_id == round_.id,
                 RoundMember.removed_at.is_(None),
                 RoundMember.declined_further_submissions_at.is_(None),
-                User.notify_reminder_emails.is_(True),
+                email_preference_allows(round_.series_id),
                 User.is_active.is_(True),
                 User.email.is_not(None),
             )

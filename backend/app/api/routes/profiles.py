@@ -13,13 +13,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import Select, and_, exists, func, or_, select, true
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Row
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.deps import DbSession, get_current_user, require_csrf
 from app.api.payloads import contributor_display_name, contributor_profile_image_subquery
 from app.api.routes.rounds._common import _track_payload
-from app.api.schemas import NotificationSettingsResponse, ProfileResponse
+from app.api.schemas import (
+    NotificationSettingsResponse,
+    ProfileResponse,
+    SeriesNotificationSettingsResponse,
+)
 from app.db.models import (
     AttributionGame,
     PlatformRole,
@@ -28,6 +33,7 @@ from app.db.models import (
     RoundStatus,
     Series,
     SeriesAdmin,
+    SeriesNotificationPreference,
     Submission,
     SubmissionStatus,
     Track,
@@ -35,6 +41,7 @@ from app.db.models import (
     TrackGenre,
     User,
 )
+from app.services.authorization import accessible_series
 from app.services.genre_taxonomy import group_for
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -104,6 +111,78 @@ def _notification_settings_payload(user: User) -> dict[str, object]:
     return {
         "notifyReminderEmails": user.notify_reminder_emails,
         "notifyRoundPublishedEmails": user.notify_round_published_emails,
+    }
+
+
+@router.get(
+    "/me/notification-settings/series", response_model=list[SeriesNotificationSettingsResponse]
+)
+def get_series_notification_settings(
+    db: DbSession, user: Annotated[User, Depends(get_current_user)]
+) -> list[dict[str, object]]:
+    rows = db.execute(
+        accessible_series(user)
+        .add_columns(SeriesNotificationPreference)
+        .outerjoin(
+            SeriesNotificationPreference,
+            (SeriesNotificationPreference.series_id == Series.id)
+            & (SeriesNotificationPreference.user_id == user.id),
+        )
+    )
+    return [_series_notification_payload(series, preference, user) for series, preference in rows]
+
+
+@router.patch(
+    "/me/notification-settings/series/{series_id}",
+    response_model=SeriesNotificationSettingsResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def update_series_notification_settings(
+    series_id: uuid.UUID,
+    payload: NotificationSettingsUpdate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+    series = db.scalar(accessible_series(user).where(Series.id == series_id))
+    if series is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="series not found")
+    changes = payload.model_dump(exclude_none=True)
+    if changes:
+        # Concurrent first saves and partial edits must preserve the other switch.
+        statement = insert(SeriesNotificationPreference).values(
+            user_id=user.id, series_id=series_id, **changes
+        )
+        db.execute(
+            statement.on_conflict_do_update(
+                constraint="uq_series_notification_preferences_user_series",
+                set_={**changes, "updated_at": func.now()},
+            )
+        )
+        db.commit()
+    preference = db.scalar(
+        select(SeriesNotificationPreference)
+        .where(
+            SeriesNotificationPreference.user_id == user.id,
+            SeriesNotificationPreference.series_id == series_id,
+        )
+        .execution_options(populate_existing=True)
+    )
+    return _series_notification_payload(series, preference, user)
+
+
+def _series_notification_payload(
+    series: Series, preference: SeriesNotificationPreference | None, user: User
+) -> dict[str, object]:
+    reminders = preference.notify_reminder_emails if preference else True
+    published = preference.notify_round_published_emails if preference else True
+    return {
+        "seriesId": str(series.id),
+        "seriesName": series.name,
+        "isArchived": series.is_archived,
+        "notifyReminderEmails": reminders,
+        "notifyRoundPublishedEmails": published,
+        "effectiveReminderEmails": user.notify_reminder_emails and reminders,
+        "effectiveRoundPublishedEmails": user.notify_round_published_emails and published,
     }
 
 

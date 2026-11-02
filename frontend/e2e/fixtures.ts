@@ -343,6 +343,19 @@ function responseFor(path: string) {
   if (path === "/api/v1/profiles/me/notification-settings") {
     return { notifyReminderEmails: true, notifyRoundPublishedEmails: false };
   }
+  if (path === "/api/v1/profiles/me/notification-settings/series") {
+    return [
+      {
+        seriesId: "series-1",
+        seriesName: "BoroCrew After Hours",
+        isArchived: false,
+        notifyReminderEmails: true,
+        notifyRoundPublishedEmails: true,
+        effectiveReminderEmails: true,
+        effectiveRoundPublishedEmails: false,
+      },
+    ];
+  }
   if (path === "/api/v1/connections") return connections;
   if (path === "/api/v1/admin/series/series-1/notifications") return seriesNotifications;
   if (path === "/api/v1/admin/series/series-1") return adminSeries;
