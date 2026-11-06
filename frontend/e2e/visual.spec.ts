@@ -4,7 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { applyVisualPreferences, installApiFixtures } from "./fixtures";
 
 const visualRoutes = [
-  { path: "/", name: "dashboard", ready: "Good to have you here" },
+  { path: "/", name: "dashboard", ready: "Welcome back" },
   { path: "/series/series-1", name: "series", ready: "BoroCrew After Hours" },
   { path: "/rounds/round-open", name: "round", ready: "September after dark" },
   { path: "/rounds/round-published-demo", name: "published-round", ready: "August favorites" },
@@ -340,21 +340,21 @@ test("Guess Who awards keep their layout across screen sizes", async ({ page }, 
           title: "Eclectic",
           variant: "eclectic",
           detail: "Took the long way around the genres.",
-          explanation: "3 of 3 tracks covered distinct genre groups",
+          explanation: "3 of 3 tracks covered distinct genre families",
           contributor: kay,
         },
         {
           title: "Specialized",
           variant: "specialized",
           detail: "Stayed in a familiar lane.",
-          explanation: "3 of 3 tracks shared similar genre groups",
+          explanation: "3 of 3 tracks shared similar genre families",
           contributor: matt,
         },
         {
           title: "Uncharted",
           variant: "uncharted",
-          detail: "Made the genre map draw a blank.",
-          explanation: "2 of 3 tracks had no recognized genre tags",
+          detail: "The genre tags drew a blank.",
+          explanation: "2 of 3 tracks had no genre tags after completed lookups",
           contributor: kevin,
         },
       ],
@@ -365,13 +365,20 @@ test("Guess Who awards keep their layout across screen sizes", async ({ page }, 
   await expect(roundAwards.locator(".attribution-award")).toHaveCount(4);
   const awards = page.getByLabel("Guess Who awards");
   await expect(awards.locator(".attribution-award")).toHaveCount(4);
-  const columns = await awards.evaluate(
-    (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
-  );
+  await expect(awards.getByRole("heading", { name: "Awards so far" })).toBeVisible();
+  await expect(awards).toContainText("Based on 3 completed games");
+  await expect(awards).toContainText("100% · 2/2 guesses correct");
+  const columns = await awards
+    .locator(".attribution-awards")
+    .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
   expect(columns).toBe(testInfo.project.name.includes("desktop") ? 4 : 1);
   await page.addStyleTag({ content: ".app-header { position: static !important; }" });
   await expect(awards).toHaveScreenshot("guess-who-awards.png", { animations: "disabled" });
   await expect(roundAwards).toHaveScreenshot("round-awards.png", { animations: "disabled" });
+  const accessibility = await new AxeBuilder({ page })
+    .include('[aria-label="Guess Who awards"]')
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
 });
 
 test("the Settings connection action keeps its button contrast", async ({ page }, testInfo) => {

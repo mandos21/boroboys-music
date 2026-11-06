@@ -20,9 +20,35 @@ from app.db.models import (
     Series,
     Submission,
     Track,
+    TrackGenre,
     User,
 )
-from app.services.round_awards import AwardTrack, award_candidates, round_awards
+from app.services.round_awards import (
+    AwardTrack,
+    award_candidates,
+    award_genre_families,
+    round_awards,
+)
+
+
+def test_award_families_preserve_musical_identity_instead_of_chart_colors() -> None:
+    assert award_genre_families(["indie rock", "shoegaze", "pop punk"]) == {"rock"}
+    assert award_genre_families(["northern soul", "funk"]) == {"r&b"}
+    assert award_genre_families(["classical"]) == {"classical"}
+    assert award_genre_families([" Jazz Funk ", "jazz fusion"]) == {"jazz"}
+    assert award_genre_families(["score", "film score"]) == {"soundtrack"}
+    assert award_genre_families(["unmapped-music-tag"]) == set()
+
+
+def test_related_rock_styles_are_not_mistaken_for_unrelated_families() -> None:
+    person = uuid.uuid4()
+    tracks = [
+        _track(person, groups=tuple(award_genre_families([genre])))
+        for genre in ("indie rock", "shoegaze", "pop punk")
+    ]
+    titles = {award.title for award in award_candidates(tracks)}
+    assert "Specialized" in titles
+    assert "Eclectic" not in titles
 
 
 def _track(
@@ -190,3 +216,31 @@ def test_award_metadata_backfill_query_runs_on_postgres(
     monkeypatch.setattr(tasks, "defer_track_genre_enrichment", queued.append)
     tasks.backfill_track_award_metadata(0)
     assert queued == [str(missing.id)]
+
+
+def test_uncharted_does_not_count_soundtrack_or_unmapped_stored_tags_as_missing(
+    db: Session,
+    make_user: Callable[..., User],
+    make_series: Callable[..., Series],
+    make_round: Callable[..., Round],
+    make_track: Callable[..., Track],
+    make_submission: Callable[..., Submission],
+) -> None:
+    person = make_user()
+    round_ = make_round(make_series(), members=[person])
+    for tag in (None, "score", "unmapped-music-tag"):
+        track = make_track(provider_metadata={"genreEnrichmentStatus": "complete"})
+        make_submission(round_, person, track)
+        if tag:
+            db.add(TrackGenre(track_id=track.id, genre_key=tag, name=tag))
+    db.commit()
+    assert not any(award["title"] == "Uncharted" for award in round_awards(db, round_.id))
+
+
+def test_distinct_musical_families_are_not_collapsed_into_chart_groups() -> None:
+    person = uuid.uuid4()
+    tracks = [
+        _track(person, groups=tuple(award_genre_families([genre])))
+        for genre in ("jazz fusion", "classical", "score")
+    ]
+    assert "Eclectic" in {award.title for award in award_candidates(tracks)}

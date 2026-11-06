@@ -15,6 +15,63 @@ const pct = (value: number) => `${Math.round(value * 100)}%`;
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : word.endsWith("guess") ? "es" : "s"}`;
 
+type Accuracy = { contributor: Person; correct: number; total: number };
+
+function accuracyEvidence(rows: Accuracy[], context: string): string {
+  const first = rows[0];
+  const percentage = pct(first.correct / first.total);
+  const sameCounts = rows.every(
+    (row) => row.correct === first.correct && row.total === first.total,
+  );
+  if (sameCounts)
+    return `${percentage} · ${first.correct}/${first.total} ${context}${rows.length > 1 ? " (each)" : ""}`;
+  return `${percentage} ${context} · ${rows.map((row) => `${row.contributor.displayName}: ${row.correct}/${row.total}`).join("; ")}`;
+}
+
+/** Compare complete sets so a locally strong pick cannot monopolize later slots.
+ * At most nine category candidates means only 256 sets of up to four to inspect.
+ * A repeated person costs 0.15 per pair of cards (0.45 for three appearances).
+ * Every tied recipient counts; strength can still justify repeated appearances.
+ */
+export function selectGuessWhoAwards(candidates: GuessWhoAward[]): GuessWhoAward[] {
+  const ordered = [...candidates].sort((a, b) => a.title.localeCompare(b.title));
+  let best: GuessWhoAward[] = [];
+  let bestLanes = 0;
+  let bestScore = -Infinity;
+  function visit(start: number, chosen: GuessWhoAward[]) {
+    const lanes = new Set(chosen.map((award) => award.lane)).size;
+    const appearances = new Map<string, number>();
+    for (const award of chosen)
+      for (const id of new Set(award.people.map((person) => person.id)))
+        appearances.set(id, (appearances.get(id) ?? 0) + 1);
+    const repeats = [...appearances.values()].reduce((sum, n) => sum + (n * (n - 1)) / 2, 0);
+    const score = chosen.reduce((sum, award) => sum + award.strength, 0) - repeats * 0.15;
+    if (
+      lanes > bestLanes ||
+      (lanes === bestLanes &&
+        (chosen.length > best.length || (chosen.length === best.length && score > bestScore)))
+    ) {
+      best = [...chosen];
+      bestLanes = lanes;
+      bestScore = score;
+    }
+    if (chosen.length === 4) return;
+    for (let index = start; index < ordered.length; index++) {
+      const award = ordered[index];
+      const repeatsStory = chosen.some(
+        (other) =>
+          other.title === award.title ||
+          (["Imposter", "Plot Twist"].includes(other.title) &&
+            ["Imposter", "Plot Twist"].includes(award.title) &&
+            other.people.some((person) => award.people.some((p) => p.id === person.id))),
+      );
+      if (!repeatsStory) visit(index + 1, [...chosen, award]);
+    }
+  }
+  visit(0, []);
+  return best.sort((a, b) => a.lane - b.lane || a.title.localeCompare(b.title));
+}
+
 /** All scores are ratios, so larger rounds do not win awards merely through turnout. */
 export function guessWhoAwards(
   entries: AttributionSubmitterBreakdown[],
@@ -35,28 +92,40 @@ export function guessWhoAwards(
   )[0];
   if (best && best.correctCount / best.totalCount >= Math.max(0.6, average + 0.15)) {
     const rate = best.correctCount / best.totalCount;
+    const winners = eligibleGuesser.filter((row) => row.correctCount / row.totalCount === rate);
     add({
       title: "Detective",
       variant: "detective",
       detail: "Had the sharpest ear.",
-      explanation: `${pct(rate)} of guesses correct`,
-      people: eligibleGuesser
-        .filter((row) => row.correctCount / row.totalCount === rate)
-        .map((row) => row.contributor),
+      explanation: accuracyEvidence(
+        winners.map((row) => ({
+          contributor: row.contributor,
+          correct: row.correctCount,
+          total: row.totalCount,
+        })),
+        "guesses correct",
+      ),
+      people: winners.map((row) => row.contributor),
       strength: rate - average,
       lane: 0,
     });
   }
   if (worst && worst.correctCount / worst.totalCount <= average - 0.15) {
     const rate = worst.correctCount / worst.totalCount;
+    const winners = eligibleGuesser.filter((row) => row.correctCount / row.totalCount === rate);
     add({
       title: "Stumped",
       variant: "stumped",
       detail: "Followed a few false leads.",
-      explanation: `${pct(rate)} of guesses correct`,
-      people: eligibleGuesser
-        .filter((row) => row.correctCount / row.totalCount === rate)
-        .map((row) => row.contributor),
+      explanation: accuracyEvidence(
+        winners.map((row) => ({
+          contributor: row.contributor,
+          correct: row.correctCount,
+          total: row.totalCount,
+        })),
+        "guesses correct",
+      ),
+      people: winners.map((row) => row.contributor),
       strength: average - rate,
       lane: 0,
     });
@@ -70,28 +139,44 @@ export function guessWhoAwards(
   )[0];
   if (most && most.groupCorrectCount / most.groupTotalCount >= average + 0.15) {
     const rate = most.groupCorrectCount / most.groupTotalCount;
+    const winners = recognized.filter(
+      (row) => row.groupCorrectCount / row.groupTotalCount === rate,
+    );
     add({
       title: "Well-Known",
       variant: "well-known",
       detail: "Their picks sounded like them.",
-      explanation: `${pct(rate)} of guesses on their tracks were correct`,
-      people: recognized
-        .filter((row) => row.groupCorrectCount / row.groupTotalCount === rate)
-        .map((row) => row.contributor),
+      explanation: accuracyEvidence(
+        winners.map((row) => ({
+          contributor: row.contributor,
+          correct: row.groupCorrectCount,
+          total: row.groupTotalCount,
+        })),
+        "guesses correct on their tracks",
+      ),
+      people: winners.map((row) => row.contributor),
       strength: rate - average,
       lane: 1,
     });
   }
   if (least && least.groupCorrectCount / least.groupTotalCount <= average - 0.15) {
     const rate = least.groupCorrectCount / least.groupTotalCount;
+    const winners = recognized.filter(
+      (row) => row.groupCorrectCount / row.groupTotalCount === rate,
+    );
     add({
       title: "Elusive",
       variant: "elusive",
       detail: "Kept the room guessing.",
-      explanation: `${pct(rate)} of guesses on their tracks were correct`,
-      people: recognized
-        .filter((row) => row.groupCorrectCount / row.groupTotalCount === rate)
-        .map((row) => row.contributor),
+      explanation: accuracyEvidence(
+        winners.map((row) => ({
+          contributor: row.contributor,
+          correct: row.groupCorrectCount,
+          total: row.groupTotalCount,
+        })),
+        "guesses correct on their tracks",
+      ),
+      people: winners.map((row) => row.contributor),
       strength: average - rate,
       lane: 1,
     });
@@ -124,7 +209,7 @@ export function guessWhoAwards(
       title: "Imposter",
       variant: "imposter",
       detail: `Often mistaken for ${byId.get(imposter.mistaken)?.displayName ?? "someone else"}.`,
-      explanation: `${plural(imposter.count, "guess")} out of ${imposter.incoming} named ${byId.get(imposter.mistaken)?.displayName ?? "another person"}`,
+      explanation: `${pct(imposter.rate)} · ${imposter.count}/${imposter.incoming} guesses named ${byId.get(imposter.mistaken)?.displayName ?? "another person"}`,
       people: [byId.get(imposter.actual)!],
       strength: imposter.rate,
       lane: 2,
@@ -140,7 +225,13 @@ export function guessWhoAwards(
         (entries.find((entry) => entry.contributor.id === a)?.groupTotalCount ?? 0) +
         (entries.find((entry) => entry.contributor.id === b)?.groupTotalCount ?? 0);
       return [
-        { a, b, count: count + reverse, rate: denominator ? (count + reverse) / denominator : 0 },
+        {
+          a,
+          b,
+          total: denominator,
+          count: count + reverse,
+          rate: denominator ? (count + reverse) / denominator : 0,
+        },
       ];
     })
     .sort((a, b) => b.rate - a.rate)[0];
@@ -149,7 +240,7 @@ export function guessWhoAwards(
       title: "Doppelgängers",
       variant: "doppelgangers",
       detail: "The room kept mixing them up.",
-      explanation: `${plural(reciprocal.count, "crossed guess")} between them`,
+      explanation: `${pct(reciprocal.rate)} · ${reciprocal.count}/${reciprocal.total} guesses crossed between them`,
       people: [byId.get(reciprocal.a)!, byId.get(reciprocal.b)!],
       strength: reciprocal.rate,
       lane: 2,
@@ -166,7 +257,7 @@ export function guessWhoAwards(
       title: "Unanimous",
       variant: "unanimous",
       detail: `Every player so far recognized “${unanimous.song.track.name}.”`,
-      explanation: `${plural(unanimous.song.groupTotalCount, "correct guess")}`,
+      explanation: `100% · ${unanimous.song.groupCorrectCount}/${unanimous.song.groupTotalCount} guesses correct`,
       people: [unanimous.entry.contributor],
       strength: 1,
       lane: 3,
@@ -191,7 +282,7 @@ export function guessWhoAwards(
       title: "Plot Twist",
       variant: "plot-twist",
       detail: `“${twists.song.track.name}” sounded like ${byId.get(twists.id)?.displayName ?? "someone else"}.`,
-      explanation: `${twists.count} of ${twists.song.groupTotalCount} guesses named someone else`,
+      explanation: `${pct(twists.rate)} · ${twists.count}/${twists.song.groupTotalCount} guesses named ${byId.get(twists.id)?.displayName ?? "someone else"}`,
       people: [twists.entry.contributor],
       strength: twists.rate,
       lane: 3,
@@ -216,42 +307,10 @@ export function guessWhoAwards(
       title: "Split Decision",
       variant: "split-decision",
       detail: `“${split.song.track.name}” sent guesses in every direction.`,
-      explanation: `${plural(split.choices, "different person")} named`,
+      explanation: `${split.choices} different people named in ${plural(split.song.groupTotalCount, "guess")}`,
       people: [split.entry.contributor],
       strength: split.score,
       lane: 3,
     });
-  // Preserve variety first; use strength to decide between awards in a lane.
-  const selected: GuessWhoAward[] = [];
-  const repeatsStory = (award: GuessWhoAward) =>
-    selected.some(
-      (other) =>
-        ["Imposter", "Plot Twist"].includes(other.title) &&
-        ["Imposter", "Plot Twist"].includes(award.title) &&
-        other.people[0]?.id === award.people[0]?.id,
-    );
-  // Pick the specific mistaken-identity story first, then prefer a different
-  // person when two recognizability findings are equally strong.
-  for (const lane of [2, 1, 0, 3]) {
-    const winner = candidates
-      .filter((award) => award.lane === lane)
-      .sort((a, b) => {
-        const score = (award: GuessWhoAward) =>
-          award.strength -
-          (selected.some((other) => other.people[0]?.id === award.people[0]?.id) ? 0.04 : 0);
-        return score(b) - score(a) || a.title.localeCompare(b.title);
-      })
-      .find((award) => !repeatsStory(award));
-    if (winner) selected.push(winner);
-  }
-  const extras = candidates
-    .filter((award) => !selected.includes(award))
-    .sort((a, b) => b.strength - a.strength || a.title.localeCompare(b.title));
-  for (const award of extras) {
-    if (selected.length === 4) break;
-    // Imposter and Plot Twist can describe the same mistaken pair and track.
-    if (repeatsStory(award)) continue;
-    selected.push(award);
-  }
-  return selected.sort((a, b) => a.lane - b.lane);
+  return selectGuessWhoAwards(candidates);
 }

@@ -1572,6 +1572,50 @@ export interface components {
             /** Count */
             count: number;
         };
+        /** DashboardRoundResponse */
+        DashboardRoundResponse: {
+            /** Artworkurls */
+            artworkUrls: string[];
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            closesAt: string;
+            /** Contributorcount */
+            contributorCount: number;
+            /** Declinedfurthersubmissions */
+            declinedFurtherSubmissions: boolean;
+            /** Id */
+            id: string;
+            /** Ismember */
+            isMember: boolean;
+            /**
+             * Opensat
+             * Format: date-time
+             */
+            opensAt: string;
+            /** Prompt */
+            prompt: string | null;
+            /**
+             * Publishat
+             * Format: date-time
+             */
+            publishAt: string;
+            /** Publishedat */
+            publishedAt: string | null;
+            /** Spotifyplaylisturl */
+            spotifyPlaylistUrl: string | null;
+            /** Status */
+            status: string;
+            /** Submissionlimit */
+            submissionLimit: number;
+            /** Submittedcount */
+            submittedCount: number;
+            /** Title */
+            title: string;
+            /** Yoursubmissioncount */
+            yourSubmissionCount: number;
+        };
         /** EvidenceItemResponse */
         EvidenceItemResponse: {
             /** Accountid */
@@ -2050,36 +2094,6 @@ export interface components {
             /** Declined Further Submissions */
             declined_further_submissions: boolean;
         };
-        /** RoundPreviewResponse */
-        RoundPreviewResponse: {
-            /**
-             * Closesat
-             * Format: date-time
-             */
-            closesAt: string;
-            /** Contributorcount */
-            contributorCount: number;
-            /** Id */
-            id: string;
-            /**
-             * Opensat
-             * Format: date-time
-             */
-            opensAt: string;
-            /** Prompt */
-            prompt: string | null;
-            /**
-             * Publishat
-             * Format: date-time
-             */
-            publishAt: string;
-            /** Status */
-            status: string;
-            /** Submittedcount */
-            submittedCount: number;
-            /** Title */
-            title: string;
-        };
         /** RoundUpdate */
         RoundUpdate: {
             /** Attribution Reveal Delay Seconds */
@@ -2288,12 +2302,12 @@ export interface components {
             description: string | null;
             /** Fallbackartworkurl */
             fallbackArtworkUrl: string | null;
-            featuredRound: components["schemas"]["RoundPreviewResponse"] | null;
+            featuredRound: components["schemas"]["DashboardRoundResponse"] | null;
             /** Id */
             id: string;
             /** Isadmin */
             isAdmin: boolean;
-            latestPublishedRound: components["schemas"]["RoundPreviewResponse"] | null;
+            latestPublishedRound: components["schemas"]["DashboardRoundResponse"] | null;
             /** Name */
             name: string;
             /** Timezone */

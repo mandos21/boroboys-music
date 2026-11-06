@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useEffect, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { ChevronRight, ListMusic, Sparkles } from "lucide-react";
 import { Link, Navigate, Route, Routes, useParams, useSearchParams } from "react-router";
 
@@ -8,14 +8,11 @@ import { queryKeys } from "../api/queryKeys";
 import type { components } from "../api/schema";
 import { AppShell } from "../components/layout/AppShell";
 import { Button, buttonVariants } from "../components/ui/button";
-import { PageSkeleton } from "../components/ui/PageSkeleton";
 import { StatePanel } from "../components/ui/StatePanel";
 import { ToastProvider } from "../components/ui/ToastProvider";
-import { formatDate, formatDeadline } from "../lib/format";
-import { GuessWhoPhase } from "../features/rounds/GuessWhoPhase";
+import { HomePage } from "../features/home/HomePage";
 
 type Session = components["schemas"]["SessionResponse"];
-type SeriesPreview = components["schemas"]["SeriesListResponse"];
 
 // The dashboard is the usual first view. Keep its initial payload lean and
 // load the richer workspace screens only when somebody navigates to them.
@@ -51,284 +48,6 @@ const AdminSeriesPage = lazy(() =>
 const AdminRoundPage = lazy(() =>
   import("../features/admin/AdminRoundPage").then((module) => ({ default: module.AdminRoundPage })),
 );
-const SeriesCreatePanel = lazy(() =>
-  import("../features/admin/SeriesCreatePanel").then((module) => ({
-    default: module.SeriesCreatePanel,
-  })),
-);
-
-function seriesAccent(series: SeriesPreview) {
-  if (series.accentColor) return series.accentColor;
-  // A stable companion color without processing remote artwork in the browser.
-  const seed = series.coverImageUrl ?? series.fallbackArtworkUrl ?? series.name;
-  const hash = [...seed].reduce(
-    (value, character) => (value * 31 + character.charCodeAt(0)) >>> 0,
-    7,
-  );
-  return ["#15803d", "#0f766e", "#4d7c0f", "#9a3412", "#7e22ce"][hash % 5];
-}
-
-function HomePage() {
-  const session = useQuery({
-    queryKey: queryKeys.session(),
-    queryFn: () => api<Session>("/auth/session"),
-    retry: false,
-  });
-  const series = useQuery({
-    queryKey: queryKeys.series(),
-    queryFn: () => api<SeriesPreview[]>("/series"),
-    enabled: session.isSuccess,
-  });
-  if (session.isLoading)
-    return <PageSkeleton label="Getting your music space ready" variant="dashboard" />;
-  if (session.isError || !session.data) return <LandingPage />;
-
-  const currentUser = session.data.user;
-  const items = series.data ?? [];
-  const openSeries = items.find((item) => item.featuredRound?.status === "open");
-  const otherSeries = openSeries ? items.filter((item) => item.id !== openSeries.id) : items;
-  const latestPlaylists = items.filter((item) => item.latestPublishedRound);
-  return (
-    <main className="shell page-shell dashboard-shell">
-      <header className="page-heading dashboard-heading">
-        <div>
-          <p className="eyebrow">Your listening room</p>
-          <h1>
-            Good to have you here,{" "}
-            <span className="dashboard-user-name">{currentUser.displayName ?? "listener"}</span>.
-          </h1>
-          <p>
-            Keep up with what your friends have been into, leave a few things you cannot stop
-            playing, and come back when the playlist lands.
-          </p>
-        </div>
-        <div className="dashboard-meta" aria-label="Series overview">
-          <ListMusic aria-hidden="true" size={20} />
-          <span>{items.length} series</span>
-        </div>
-      </header>
-      {openSeries && <FeaturedOpenSeries series={openSeries} />}
-      {latestPlaylists.length > 0 && (
-        <section
-          className="content-section dashboard-playlists"
-          aria-labelledby="latest-playlists-heading"
-        >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Ready to listen</p>
-              <h2 id="latest-playlists-heading">Latest playlists</h2>
-            </div>
-          </div>
-          <div className="dashboard-playlist-grid">
-            {latestPlaylists.map((item) => {
-              const round = item.latestPublishedRound!;
-              return (
-                <Link className="dashboard-playlist" key={round.id} to={`/rounds/${round.id}`}>
-                  <span className="eyebrow">{item.name}</span>
-                  <strong>{round.title}</strong>
-                  <small>Released {formatDate(round.publishAt)}</small>
-                  <GuessWhoPhase roundId={round.id} />
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
-      {(!series.isSuccess || otherSeries.length > 0 || items.length === 0) && (
-        <section aria-labelledby="series-heading" className="content-section">
-          <div className="section-heading">
-            <div>
-              <h2 id="series-heading">{openSeries ? "Other series" : "Series"}</h2>
-            </div>
-          </div>
-          {series.isLoading && (
-            <section
-              className="dashboard-loading-grid"
-              aria-label="Finding your series"
-              aria-busy="true"
-            >
-              {Array.from({ length: 3 }, (_, index) => (
-                <div className="dashboard-loading-card" key={index} />
-              ))}
-            </section>
-          )}
-          {series.isError && (
-            <StatePanel kind="error" title="We couldn’t load your series">
-              Refresh the page to try again.
-            </StatePanel>
-          )}
-          {series.data?.length === 0 && (
-            <StatePanel title="No series yet">
-              {currentUser.platformRole === "admin" ? (
-                <>
-                  Start a space for a monthly check-in or a themed challenge below, then invite the
-                  people you want to hear from. <a href="#create-series-heading">Create a series</a>
-                </>
-              ) : (
-                "Once you are added to a series, its active round and listening history will appear here."
-              )}
-            </StatePanel>
-          )}
-          <div className="series-card-grid">
-            {otherSeries.map((item) => (
-              <SeriesCard key={item.id} series={item} />
-            ))}
-          </div>
-        </section>
-      )}
-      {currentUser.platformRole === "admin" && (
-        <Suspense fallback={<SeriesCreatePanelFallback />}>
-          <SeriesCreatePanel />
-        </Suspense>
-      )}
-    </main>
-  );
-}
-
-function SeriesCreatePanelFallback() {
-  return (
-    <section
-      aria-busy="true"
-      aria-label="Loading series creation tools"
-      className="series-create-panel"
-    >
-      <p className="eyebrow">Start something new</p>
-      <h2>Create a series</h2>
-    </section>
-  );
-}
-
-function FeaturedOpenSeries({ series }: { series: SeriesPreview }) {
-  const round = series.featuredRound;
-  const cover = series.coverImageUrl ?? series.fallbackArtworkUrl;
-  if (!round) return null;
-  return (
-    <article
-      className="featured-open-series"
-      style={
-        {
-          "--series-accent": seriesAccent(series),
-          "--series-cover": cover ? `url(${cover})` : "none",
-        } as CSSProperties
-      }
-    >
-      <Link
-        aria-label={`Open ${series.name}`}
-        className="featured-open-series-link"
-        to={`/series/${series.id}`}
-      />
-      <div className="featured-open-series-copy">
-        <p className="eyebrow open-now-label">
-          <RoundPulse />
-          Open now
-        </p>
-        <h2>{series.name}</h2>
-        <p>{series.description ?? "A place to trade what you have been listening to."}</p>
-        <p className="next-action">Your next step: pick a track for this round.</p>
-      </div>
-      <Link className="featured-open-series-round" to={`/rounds/${round.id}`}>
-        <span>Current round</span>
-        <strong>{round.title}</strong>
-        <small>
-          {round.submittedCount} of {round.contributorCount} people have submitted
-        </small>
-        <progress
-          aria-label={`${round.submittedCount} of ${round.contributorCount} contributors have submitted`}
-          max={Math.max(round.contributorCount, 1)}
-          value={round.submittedCount}
-        />
-        <small>
-          {formatDeadline(round.closesAt)} · {formatDate(round.closesAt)}
-        </small>
-        {round.prompt && <small className="featured-prompt">Prompt: {round.prompt}</small>}
-      </Link>
-    </article>
-  );
-}
-
-function RoundPulse() {
-  return (
-    <span className="round-pulse" role="img" aria-label="Round is open">
-      <i />
-      <i />
-      <i />
-    </span>
-  );
-}
-
-function SeriesCard({ series }: { series: SeriesPreview }) {
-  const round = series.featuredRound;
-  const isActive = round && round.status !== "published";
-  const isOpen = round?.status === "open";
-  const cover = series.coverImageUrl ?? series.fallbackArtworkUrl;
-  return (
-    <article
-      className="series-card"
-      style={
-        {
-          "--series-accent": seriesAccent(series),
-          "--series-cover": cover ? `url(${cover})` : "none",
-        } as CSSProperties
-      }
-    >
-      <Link
-        aria-label={`Open ${series.name}`}
-        className="series-card-link-to-series"
-        to={`/series/${series.id}`}
-      />
-      <div className="series-card-heading">
-        <div>
-          <h3>{series.name}</h3>
-        </div>
-        <span>
-          {isOpen && <RoundPulse />}
-          {round && <span className={`status ${round.status}`}>{round.status}</span>}
-        </span>
-      </div>
-      <p>{series.description ?? "A place to trade what you have been listening to."}</p>
-      {round ? (
-        <Link className="series-card-round series-card-round-link" to={`/rounds/${round.id}`}>
-          <span>{isActive ? "Current round" : "Latest release"}</span>
-          <strong>{round.title}</strong>
-          <small>
-            {isOpen ? (
-              <>
-                {round.submittedCount} of {round.contributorCount} people have submitted ·{" "}
-                {formatDeadline(round.closesAt).toLowerCase()}
-              </>
-            ) : isActive ? (
-              <>Opens {formatDate(round.opensAt)}</>
-            ) : (
-              <>Released {formatDate(round.publishAt)}</>
-            )}
-          </small>
-          {isOpen && (
-            <progress
-              aria-label={`${round.submittedCount} of ${round.contributorCount} contributors have submitted`}
-              max={Math.max(round.contributorCount, 1)}
-              value={round.submittedCount}
-            />
-          )}
-          {round.prompt && <small className="featured-prompt">Prompt: {round.prompt}</small>}
-          {!isActive && (
-            <small className="now-spinning">
-              <span>Now spinning</span>
-              <span className="now-spinning-viewport">
-                <strong>{round.title}</strong>
-              </span>
-            </small>
-          )}
-        </Link>
-      ) : (
-        <div className="series-card-round series-card-empty">
-          <span>No rounds yet</span>
-          <small>Its first listening window will show up here.</small>
-        </div>
-      )}
-    </article>
-  );
-}
-
 function LandingPage() {
   return (
     <main className="shell landing-shell">
@@ -491,7 +210,7 @@ export function App() {
             path="/"
             element={
               <ShellRoute>
-                <HomePage />
+                <HomePage signedOut={<LandingPage />} />
               </ShellRoute>
             }
           />

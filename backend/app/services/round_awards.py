@@ -12,7 +12,22 @@ from sqlalchemy.orm import Session
 
 from app.api.payloads import contributor_display_name, contributor_profile_image_subquery
 from app.db.models import Submission, SubmissionStatus, Track, TrackGenre, User
-from app.services.genre_taxonomy import OTHER_GROUP, group_for
+from app.services.genre_taxonomy import family_for
+
+
+def award_genre_families(genres: list[str]) -> frozenset[str]:
+    """Use musical families, independent of the chart's limited color palette.
+
+    Rock's alternative/punk branches remain related, while R&B, classical and
+    soundtracks keep their identities. Normalize common provider spellings
+    before the taxonomy's last-word fallback (jazz funk must not become R&B).
+    """
+    aliases = {"score": "soundtrack", "film score": "soundtrack", "jazz funk": "jazz-funk"}
+    return frozenset(
+        family
+        for genre in genres
+        if (family := family_for(aliases.get(genre.strip().casefold(), genre))) is not None
+    )
 
 
 @dataclass(frozen=True)
@@ -125,7 +140,7 @@ def award_candidates(tracks: list[AwardTrack]) -> list[AwardCandidate]:
                             else "Stayed in a familiar lane.",
                             f"{len(qualified)} of {count} tracks "
                             f"{'covered distinct' if eclectic else 'shared similar'} "
-                            "genre groups",
+                            "genre families",
                             len(qualified) / count + ((1 - overall) if eclectic else overall) / 10,
                         )
                     )
@@ -135,8 +150,8 @@ def award_candidates(tracks: list[AwardTrack]) -> list[AwardCandidate]:
                 AwardCandidate(
                     "Uncharted",
                     person_id,
-                    "Made the genre map draw a blank.",
-                    f"{no_tags} of {count} tracks had no recognized genre tags",
+                    "The genre tags drew a blank.",
+                    f"{no_tags} of {count} tracks had no genre tags after completed lookups",
                     no_tags / count,
                 )
             )
@@ -165,7 +180,7 @@ def round_awards(db: Session, round_id: uuid.UUID) -> list[dict[str, object]]:
     for submission, track, _, _ in rows:
         raw_listeners = track.provider_metadata.get("lastfmTrackListeners")
         genres = genre_names[track.id]
-        groups = frozenset(group for name in genres if (group := group_for(name)) != OTHER_GROUP)
+        groups = award_genre_families(genres)
         tracks.append(
             AwardTrack(
                 contributor_id=submission.contributor_id,
@@ -175,7 +190,7 @@ def round_awards(db: Session, round_id: uuid.UUID) -> list[dict[str, object]]:
                 else None,
                 groups=groups,
                 genre_complete=track.provider_metadata.get("genreEnrichmentStatus") == "complete",
-                has_genres=bool(groups),
+                has_genres=bool(genres),
             )
         )
     # One winner per title. Prefer different people where strengths are close;

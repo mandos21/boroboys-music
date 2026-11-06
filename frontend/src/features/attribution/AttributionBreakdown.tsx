@@ -58,25 +58,39 @@ function GuessWhoAwards({
 }) {
   const awards = guessWhoAwards(entries, leaderboard);
   if (awards.length === 0) return null;
+  const players = new Set(
+    entries.flatMap((entry) =>
+      entry.songs.flatMap((song) => song.guesses.map((guess) => guess.guesser.id)),
+    ),
+  ).size;
   return (
-    <div className="attribution-awards" aria-label="Guess Who awards">
-      {awards.map(({ title, detail, people, explanation, variant }) => {
-        return (
-          <article className={`attribution-award ${variant}`} key={title}>
-            <h3>{title}</h3>
-            <p>{detail}</p>
-            <div className="attribution-award-winners">
-              {people.map((person) => (
-                <Link key={person.id} to={`/people/${person.id}`}>
-                  <ContributorAvatar member={person} />
-                  <span>{person.displayName}</span>
-                </Link>
-              ))}
-            </div>
-            <strong>{explanation}</strong>
-          </article>
-        );
-      })}
+    <div aria-label="Guess Who awards">
+      <div className="attribution-awards-summary">
+        <h3>Awards so far</h3>
+        <p>
+          Based on {players} completed {players === 1 ? "game" : "games"}. Awards can change as more
+          people play.
+        </p>
+      </div>
+      <div className="attribution-awards">
+        {awards.map(({ title, detail, people, explanation, variant }) => {
+          return (
+            <article className={`attribution-award ${variant}`} key={title}>
+              <h3>{title}</h3>
+              <p>{detail}</p>
+              <div className="attribution-award-winners">
+                {people.map((person) => (
+                  <Link key={person.id} to={`/people/${person.id}`}>
+                    <ContributorAvatar member={person} />
+                    <span>{person.displayName}</span>
+                  </Link>
+                ))}
+              </div>
+              <strong>{explanation}</strong>
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }

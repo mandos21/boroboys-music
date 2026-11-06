@@ -1,0 +1,239 @@
+.home-shell {
+  display: grid;
+  gap: 1.5rem;
+}
+.home-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.home-heading h1 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  line-height: 1.2;
+  margin: 0.4rem 0 0.65rem;
+  overflow-wrap: anywhere;
+}
+.home-heading p:not(.eyebrow) {
+  color: var(--muted-foreground);
+  margin: 0;
+}
+.home-heading > button {
+  flex-shrink: 0;
+}
+.home-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+.home-feature-grid > :only-child {
+  grid-column: 1 / -1;
+}
+.home-card {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.home-current {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 8%, var(--card)),
+    var(--card) 75%
+  );
+}
+.home-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+}
+.home-card-top .eyebrow {
+  margin: 0;
+}
+.home-phase {
+  border: 1px solid var(--border);
+  border-radius: 2rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.home-series-link,
+.home-small-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+.home-series-link {
+  color: var(--muted-foreground);
+}
+.home-series-link svg,
+.home-small-action svg {
+  flex-shrink: 0;
+}
+.home-card h2 {
+  font-size: clamp(1.65rem, 2.5vw, 2.2rem);
+  line-height: 1.15;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.home-card h2 a,
+.home-series-card h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+.home-card h2 a:hover,
+.home-series-card h3 a:hover {
+  text-decoration: underline;
+}
+.home-prompt {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+.home-progress {
+  padding: 1rem 0;
+}
+.home-progress p {
+  margin: 0 0 0.8rem;
+  font-weight: 600;
+}
+.home-progress progress {
+  display: block;
+  width: 100%;
+  height: 0.4rem;
+  accent-color: var(--primary);
+  margin-bottom: 0.6rem;
+}
+.home-progress small,
+.home-timing span,
+.home-release p {
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+}
+.home-card-footer {
+  margin-top: auto;
+  display: grid;
+  gap: 1rem;
+}
+.home-timing {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.home-release {
+  display: grid;
+  gap: 1.5rem;
+}
+.home-release .artwork-mosaic {
+  max-width: 24rem;
+  width: 100%;
+  justify-self: center;
+  transform: rotate(1deg);
+}
+.home-record {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+.home-record svg {
+  width: 6rem;
+  height: 6rem;
+  stroke-width: 0.7;
+}
+.home-other-series h2 {
+  font-size: 1.15rem;
+  margin: 0.5rem 0 1rem;
+}
+.home-series-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+}
+.home-series-card {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+}
+.home-series-card h3 {
+  margin: 0.6rem 0;
+}
+.home-series-card p {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+.home-create-dialog .series-create-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+}
+@media (max-width: 700px) {
+  .home-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .home-feature-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-actions > a {
+    flex: 1 1 auto;
+  }
+}
+
+.home-progress progress {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--border);
+}
+.home-progress progress::-webkit-progress-bar {
+  background: var(--border);
+}
+.home-progress progress::-webkit-progress-value {
+  background: var(--primary);
+  border-radius: 999px;
+}
+.home-progress progress::-moz-progress-bar {
+  background: var(--primary);
+  border-radius: 999px;
+}
+.home-card a.guess-who-phase {
+  color: var(--signal-positive-strong);
+}
+.home-create-dialog .series-create-panel form {
+  grid-template-columns: 1fr;
+}
+.home-create-dialog .series-create-panel form > * {
+  grid-column: 1 / -1;
+}
+
+.home-shell .eyebrow,
+.home-create-dialog .eyebrow {
+  color: var(--signal-positive-strong);
+}
+.home-actions .home-secondary-action {
+  color: var(--muted-foreground);
+}

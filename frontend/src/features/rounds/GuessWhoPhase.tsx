@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
@@ -5,7 +6,7 @@ import { queryKeys } from "../../api/queryKeys";
 import type { AttributionStatus } from "../attribution/types";
 
 /** The phase is viewer-specific: completing guesses reveals answers early. */
-export function GuessWhoPhase({ roundId }: { roundId: string }) {
+export function GuessWhoPhase({ roundId, linked = false }: { roundId: string; linked?: boolean }) {
   const attribution = useQuery({
     queryKey: queryKeys.attribution(roundId),
     queryFn: () => api<AttributionStatus>(`/rounds/${roundId}/attribution`),
@@ -23,9 +24,12 @@ export function GuessWhoPhase({ roundId }: { roundId: string }) {
   const status = attribution.data;
   if (!status?.enabled || !status.published || !status.revealAt) return null;
   if (new Date(status.revealAt).getTime() <= attribution.dataUpdatedAt) return null;
-  return (
-    <span className="guess-who-phase">
-      {status.revealed ? "Guess Who? See results" : "Guess Who? Make your picks"}
-    </span>
-  );
+  const label = status.revealed ? "Guess Who? See results" : "Guess Who? Make your picks";
+  if (linked)
+    return (
+      <Link className="guess-who-phase" to={`/rounds/${roundId}#round-submissions`}>
+        {label}
+      </Link>
+    );
+  return <span className="guess-who-phase">{label}</span>;
 }

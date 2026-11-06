@@ -347,6 +347,13 @@ def test_open_series_are_listed_first_with_contributor_progress(db: Session) -> 
         "submittedCount": 1,
         "contributorCount": 2,
         "prompt": None,
+        "isMember": True,
+        "yourSubmissionCount": 0,
+        "submissionLimit": 3,
+        "declinedFurtherSubmissions": False,
+        "artworkUrls": [],
+        "spotifyPlaylistUrl": None,
+        "publishedAt": None,
     }
     assert items[0]["latestPublishedRound"] is None
     assert items[1]["latestPublishedRound"]["id"] == str(closed_round.id)

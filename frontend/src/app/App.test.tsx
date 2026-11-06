@@ -84,10 +84,18 @@ describe("application recovery screens", () => {
                     publishAt: "2026-10-01T12:00:00Z",
                     submittedCount: 2,
                     contributorCount: 5,
+                    isMember: true,
+                    yourSubmissionCount: 1,
+                    submissionLimit: 3,
+                    declinedFurtherSubmissions: false,
+                    artworkUrls: [],
+                    publishedAt: null,
+                    spotifyPlaylistUrl: null,
                   },
                   latestPublishedRound: {
                     id: "round-previous",
                     title: "August picks",
+                    artworkUrls: [],
                     status: "published",
                     publishAt: "2026-09-01T12:00:00Z",
                   },
@@ -105,8 +113,8 @@ describe("application recovery screens", () => {
 
     renderApp("/");
 
-    expect(await screen.findByRole("heading", { name: "Monthly picks" })).toBeTruthy();
-    expect(await screen.findByRole("link", { name: "Open Monthly picks" })).toHaveProperty(
+    expect(await screen.findByRole("heading", { name: "September picks" })).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: "Open Monthly picks" })[0]).toHaveProperty(
       "href",
       expect.stringContaining("/series/series-1"),
     );

@@ -762,3 +762,45 @@ The application is ready for a live round only when all of the following are tru
 - Procrastinate worker concurrency, queue partitioning, and upgrade strategy after
   observing real task volume.
 - Additional successor-plan types beyond the initial rolling and calendar plans.
+
+## 17. Round and Guess Who awards
+
+Published rounds have up to four round superlatives and four Guess Who awards.
+Empty slots stay empty when no finding qualifies. Guess Who awards use completed
+games as they arrive; there is no minimum guess count. The UI labels them
+“Awards so far,” shows the number of completed games, and pairs percentages with
+numerators and denominators. Tied winners with different denominators retain
+separate counts.
+
+Guess Who qualification uses accuracy and percentage-point differences from the
+round's weighted accuracy. Detective requires at least 60% accuracy and 15 points
+above average; Stumped requires 15 points below. Well-Known and Elusive use the
+same 15-point margins for incoming guesses. Imposter requires 25% of incoming
+guesses to name one other person; Doppelgängers requires 20% of combined incoming
+guesses to cross between a pair. Unanimous is 100% on a track, Plot Twist requires
+60% naming one wrong person, and Split Decision requires at least three names
+with none receiving more than half of a track's guesses.
+
+Selection compares sets of up to four qualifying category candidates. It first
+maximizes coverage of guessing, recognition, mistaken identity, and track-level
+stories, then fills available slots. Among equivalent sets it maximizes strength,
+subtracting 0.15 per pair of cards featuring the same recipient. Every person in
+a tied award counts. Strong evidence can still justify repeats; Imposter and
+Plot Twist about the same recipient do not appear together.
+
+Eclectic and Specialized use the existing taxonomy's underlying musical families,
+not the chart's color groups. Alternative and punk remain in the rock family;
+R&B/funk/soul, jazz, classical, and soundtrack retain separate families. Provider
+spellings such as “score” and “jazz funk” are normalized for award scoring.
+Per-track average Jaccard similarity must be at most 0.25 for Eclectic or at least
+0.4 for Specialized, and at least 80% of a contributor's selections must qualify.
+Missing genre families count against that coverage requirement. Chart colors and
+groupings are independent of this calculation.
+
+Uncharted requires completed genre enrichment with no stored genre tags on at
+least two thirds of a contributor's selections. A soundtrack tag, an unmapped tag,
+or an incomplete lookup does not qualify as missing tags. Underground and
+Mainstream still require 80% coverage in the round's bottom/top listener third,
+respectively, with absolute limits of at most 25,000 / at least 250,000 Last.fm
+track listeners. All track metadata comes from the cache; viewing awards does
+not call external providers.

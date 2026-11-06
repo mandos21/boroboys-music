@@ -12,6 +12,9 @@ html[data-theme="dark"] .attribution-leaderboard-contributor { color: #dce8e0; }
 html[data-theme="dark"] .attribution-leaderboard-rank, html[data-theme="dark"] .attribution-leaderboard li > small { color: #a7bbae; }
 
 .attribution-breakdown { margin-top: 1rem; }
+.attribution-awards-summary { margin-top: 1rem; }
+.attribution-awards-summary h3 { margin: 0; font-size: .95rem; }
+.attribution-awards-summary p { margin: .35rem 0 0; color: var(--muted-foreground); font-size: .82rem; }
 .attribution-awards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; }
 .attribution-award { display: flex; min-width: 0; flex-direction: column; gap: .7rem; overflow: hidden; padding: 1rem; border: 1px solid #d7eadc; border-top: 3px solid var(--award-accent); border-radius: .75rem; background: #f8fcf9; }
 .attribution-award.elusive { --award-accent: #7c3aed; --award-text: #6d28d9; }

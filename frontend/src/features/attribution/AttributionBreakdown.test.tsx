@@ -167,7 +167,8 @@ describe("AttributionBreakdown", () => {
     expect(awards.getByText("Elusive")).toBeTruthy();
     expect(awards.getByText("Well-Known")).toBeTruthy();
     expect(awards.getByText("Imposter")).toBeTruthy();
-    expect(awards.getByText("2 guesses out of 2 named Bob")).toBeTruthy();
+    expect(awards.getByText(/Based on 3 completed games/)).toBeTruthy();
+    expect(awards.getByText("100% · 2/2 guesses named Bob")).toBeTruthy();
     expect(awards.getAllByRole("link", { name: "Alice" })).toHaveLength(2);
     expect(awards.getAllByRole("link", { name: "Me" })).toHaveLength(2);
   });
@@ -177,6 +178,8 @@ describe("AttributionBreakdown", () => {
     await screen.findByRole("list", { name: "People and songs" });
     const awards = within(screen.getByLabelText("Guess Who awards"));
     expect(awards.getByText("Unanimous")).toBeTruthy();
+    expect(awards.getByText(/Based on 1 completed game\./)).toBeTruthy();
+    expect(awards.getByText("100% · 1/1 guesses correct")).toBeTruthy();
     expect(awards.queryByText("Well-Known")).toBeNull();
   });
 
@@ -197,6 +200,6 @@ describe("AttributionBreakdown", () => {
     const best = awards.getByText("Detective").closest(".attribution-award");
     expect(best?.textContent).toContain("Me");
     expect(best?.textContent).toContain("Alice");
-    expect(best?.textContent).toContain("60% of guesses correct");
+    expect(best?.textContent).toContain("60% guesses correct · Me: 3/5; Alice: 6/10");
   });
 });

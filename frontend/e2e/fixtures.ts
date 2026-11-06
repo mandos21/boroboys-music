@@ -276,7 +276,21 @@ function responseFor(path: string) {
     };
   }
   if (path === "/api/v1/series") {
-    return [{ ...series, featuredRound: openRound, latestPublishedRound: publishedRound }];
+    return [
+      {
+        ...series,
+        featuredRound: { ...openRound, yourSubmissionCount: 1, publishedAt: null },
+        latestPublishedRound: {
+          ...publishedRound,
+          yourSubmissionCount: 3,
+          isMember: true,
+          submissionLimit: 3,
+          declinedFurtherSubmissions: false,
+          publishedAt: publishedRound.publishAt,
+          spotifyPlaylistUrl: "https://open.spotify.com/playlist/fixture",
+        },
+      },
+    ];
   }
   if (path === "/api/v1/rounds/round-published-demo/attribution") {
     return {

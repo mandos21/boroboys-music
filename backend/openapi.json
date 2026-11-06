@@ -1347,6 +1347,122 @@
         "title": "ContributorSubmissionCountResponse",
         "type": "object"
       },
+      "DashboardRoundResponse": {
+        "properties": {
+          "artworkUrls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Artworkurls",
+            "type": "array"
+          },
+          "closesAt": {
+            "format": "date-time",
+            "title": "Closesat",
+            "type": "string"
+          },
+          "contributorCount": {
+            "title": "Contributorcount",
+            "type": "integer"
+          },
+          "declinedFurtherSubmissions": {
+            "title": "Declinedfurthersubmissions",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isMember": {
+            "title": "Ismember",
+            "type": "boolean"
+          },
+          "opensAt": {
+            "format": "date-time",
+            "title": "Opensat",
+            "type": "string"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "publishAt": {
+            "format": "date-time",
+            "title": "Publishat",
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishedat"
+          },
+          "spotifyPlaylistUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spotifyplaylisturl"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "submissionLimit": {
+            "title": "Submissionlimit",
+            "type": "integer"
+          },
+          "submittedCount": {
+            "title": "Submittedcount",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "yourSubmissionCount": {
+            "title": "Yoursubmissioncount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "opensAt",
+          "closesAt",
+          "publishAt",
+          "submittedCount",
+          "contributorCount",
+          "prompt",
+          "isMember",
+          "yourSubmissionCount",
+          "submissionLimit",
+          "declinedFurtherSubmissions",
+          "artworkUrls",
+          "spotifyPlaylistUrl",
+          "publishedAt"
+        ],
+        "title": "DashboardRoundResponse",
+        "type": "object"
+      },
       "EvidenceItemResponse": {
         "properties": {
           "accountId": {
@@ -2569,69 +2685,6 @@
         "title": "RoundParticipationUpdate",
         "type": "object"
       },
-      "RoundPreviewResponse": {
-        "properties": {
-          "closesAt": {
-            "format": "date-time",
-            "title": "Closesat",
-            "type": "string"
-          },
-          "contributorCount": {
-            "title": "Contributorcount",
-            "type": "integer"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "opensAt": {
-            "format": "date-time",
-            "title": "Opensat",
-            "type": "string"
-          },
-          "prompt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Prompt"
-          },
-          "publishAt": {
-            "format": "date-time",
-            "title": "Publishat",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "submittedCount": {
-            "title": "Submittedcount",
-            "type": "integer"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "status",
-          "opensAt",
-          "closesAt",
-          "publishAt",
-          "submittedCount",
-          "contributorCount",
-          "prompt"
-        ],
-        "title": "RoundPreviewResponse",
-        "type": "object"
-      },
       "RoundUpdate": {
         "properties": {
           "attribution_reveal_delay_seconds": {
@@ -3265,7 +3318,7 @@
           "featuredRound": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/RoundPreviewResponse"
+                "$ref": "#/components/schemas/DashboardRoundResponse"
               },
               {
                 "type": "null"
@@ -3283,7 +3336,7 @@
           "latestPublishedRound": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/RoundPreviewResponse"
+                "$ref": "#/components/schemas/DashboardRoundResponse"
               },
               {
                 "type": "null"

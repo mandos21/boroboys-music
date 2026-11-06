@@ -25,6 +25,7 @@ from app.db.models import (
     ContributorGroup,
     ContributorGroupMember,
     PlatformRole,
+    Publication,
     Round,
     RoundMember,
     RoundStatus,
@@ -189,23 +190,43 @@ def _series_payloads(
             .distinct()
         )
     visible_rounds = list(db.scalars(round_query))
-    if any(reconcile_round_status(round_) for round_ in visible_rounds):
+    if any([reconcile_round_status(round_) for round_ in visible_rounds]):
         db.commit()
 
     round_ids = [round_.id for round_ in visible_rounds]
     submitted_counts: dict[uuid.UUID, int] = {}
+    own_counts: dict[uuid.UUID, int] = {}
+    memberships: dict[uuid.UUID, RoundMember] = {}
+    publications: dict[uuid.UUID, Publication] = {}
     contributor_counts: dict[uuid.UUID, int] = {}
     artwork_by_round: dict[uuid.UUID, list[str]] = {}
     if round_ids:
-        submitted_counts = {
-            round_id: int(count)
-            for round_id, count in db.execute(
-                select(Submission.round_id, func.count(func.distinct(Submission.contributor_id)))
-                .where(
-                    Submission.round_id.in_(round_ids),
-                    Submission.status == SubmissionStatus.ACCEPTED,
+        for round_id, count, own_count in db.execute(
+            select(
+                Submission.round_id,
+                func.count(func.distinct(Submission.contributor_id)),
+                func.count().filter(Submission.contributor_id == user.id),
+            )
+            .where(
+                Submission.round_id.in_(round_ids),
+                Submission.status == SubmissionStatus.ACCEPTED,
+            )
+            .group_by(Submission.round_id)
+        ):
+            submitted_counts[round_id] = int(count)
+            own_counts[round_id] = int(own_count)
+        memberships = {
+            member.round_id: member
+            for member in db.scalars(
+                select(RoundMember).where(RoundMember.round_id.in_(round_ids), membership)
+            )
+        }
+        publications = {
+            publication.round_id: publication
+            for publication in db.scalars(
+                select(Publication).where(
+                    Publication.round_id.in_(round_ids), Publication.published_at.is_not(None)
                 )
-                .group_by(Submission.round_id)
             )
         }
         contributor_counts = {
@@ -219,10 +240,12 @@ def _series_payloads(
                 .group_by(RoundMember.round_id)
             )
         }
-        # An open round's submissions are a secret until it closes, so its
-        # artwork is withheld from the dashboard cards the same way.
+        # Only released artwork may appear on the dashboard, including when
+        # submissions have closed but publishing has not completed yet.
         artwork_round_ids = [
-            round_.id for round_ in visible_rounds if round_.status is not RoundStatus.OPEN
+            round_.id
+            for round_ in visible_rounds
+            if round_.status is RoundStatus.PUBLISHED and round_.id in publications
         ]
         if artwork_round_ids:
             for round_id, artwork_url in db.execute(
@@ -238,13 +261,55 @@ def _series_payloads(
                 if isinstance(artwork_url, str):
                     artwork_by_round.setdefault(round_id, []).append(artwork_url)
 
+    def preview(round_: Round) -> dict[str, object]:
+        member = memberships.get(round_.id)
+        publication = publications.get(round_.id)
+        published = round_.status is RoundStatus.PUBLISHED and publication is not None
+        return {
+            **_round_payload_from_counts(round_, submitted_counts, contributor_counts),
+            "isMember": member is not None,
+            "yourSubmissionCount": own_counts.get(round_.id, 0),
+            "submissionLimit": member.submission_limit_override
+            if member and member.submission_limit_override is not None
+            else round_.submission_limit,
+            "declinedFurtherSubmissions": bool(member and member.declined_further_submissions_at),
+            "artworkUrls": list(dict.fromkeys(artwork_by_round.get(round_.id, [])))[:8],
+            "spotifyPlaylistUrl": f"https://open.spotify.com/playlist/{publication.spotify_playlist_id}"
+            if published and publication and publication.spotify_playlist_id
+            else None,
+            "publishedAt": publication.published_at if published and publication else None,
+        }
+
+    def open_priority(round_: Round) -> tuple[int, datetime, str]:
+        member = memberships.get(round_.id)
+        limit = (
+            member.submission_limit_override
+            if member and member.submission_limit_override is not None
+            else round_.submission_limit
+        )
+        count = own_counts.get(round_.id, 0)
+        priority = (
+            3
+            if not member
+            else 2
+            if member.declined_further_submissions_at or count >= limit
+            else 0
+            if count == 0
+            else 1
+        )
+        return priority, round_.closes_at, str(round_.id)
+
     rounds_by_series: dict[uuid.UUID, list[Round]] = {series_id: [] for series_id in series_ids}
     for round_ in visible_rounds:
         rounds_by_series[round_.series_id].append(round_)
     payloads: list[dict[str, object]] = []
     for series in series_items:
         rounds = sorted(rounds_by_series[series.id], key=_round_sort_key)
-        featured = next((round_ for round_ in rounds if round_.status is RoundStatus.OPEN), None)
+        featured = min(
+            (round_ for round_ in rounds if round_.status is RoundStatus.OPEN),
+            key=open_priority,
+            default=None,
+        )
         featured = featured or next(
             (round_ for round_ in rounds if round_.status is not RoundStatus.PUBLISHED), None
         )
@@ -252,10 +317,13 @@ def _series_payloads(
         latest_published = next(
             (round_ for round_ in rounds if round_.status is RoundStatus.PUBLISHED), None
         )
-        artwork_urls = artwork_by_round.get(featured.id, []) if featured else []
+        artwork_urls = artwork_by_round.get(latest_published.id, []) if latest_published else []
         fallback_artwork_url = (
-            artwork_urls[featured.id.int % len(artwork_urls)]
-            if featured and artwork_urls and not series.cover_image_url and not series.accent_color
+            artwork_urls[latest_published.id.int % len(artwork_urls)]
+            if latest_published
+            and artwork_urls
+            and not series.cover_image_url
+            and not series.accent_color
             else None
         )
         payloads.append(
@@ -268,16 +336,8 @@ def _series_payloads(
                 "accentColor": series.accent_color,
                 "fallbackArtworkUrl": fallback_artwork_url,
                 "isAdmin": is_platform_admin or series.id in admin_series_ids,
-                "featuredRound": _round_payload_from_counts(
-                    featured, submitted_counts, contributor_counts
-                )
-                if featured
-                else None,
-                "latestPublishedRound": _round_payload_from_counts(
-                    latest_published, submitted_counts, contributor_counts
-                )
-                if latest_published
-                else None,
+                "featuredRound": preview(featured) if featured else None,
+                "latestPublishedRound": preview(latest_published) if latest_published else None,
             }
         )
     return payloads

@@ -382,6 +382,16 @@ class SeriesHistoryResponse(ApiResponse):
     rounds: list[SeriesHistoryRoundResponse]
 
 
+class DashboardRoundResponse(RoundPreviewResponse):
+    is_member: bool
+    your_submission_count: int
+    submission_limit: int
+    declined_further_submissions: bool
+    artwork_urls: list[str]
+    spotify_playlist_url: str | None
+    published_at: datetime | None
+
+
 class SeriesListResponse(ApiResponse):
     id: str
     name: str
@@ -391,8 +401,8 @@ class SeriesListResponse(ApiResponse):
     accent_color: str | None
     fallback_artwork_url: str | None
     is_admin: bool
-    featured_round: RoundPreviewResponse | None
-    latest_published_round: RoundPreviewResponse | None
+    featured_round: DashboardRoundResponse | None
+    latest_published_round: DashboardRoundResponse | None
 
 
 class AdminUserResponse(ApiResponse):

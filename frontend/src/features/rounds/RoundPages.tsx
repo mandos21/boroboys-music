@@ -1,3 +1,4 @@
+import { ArtworkMosaic } from "../../components/ArtworkMosaic";
 import { useEffect, useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, ChevronDown, Clock3, Disc3, ListMusic } from "lucide-react";
@@ -91,6 +92,7 @@ export function RoundPage() {
     retry: false,
   });
   const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.series() });
     queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissions(roundId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.roundSubmissionCounts(roundId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.round(roundId) });
@@ -136,12 +138,14 @@ export function RoundPage() {
     // the cached round moves the switch immediately, instead of leaving it
     // stale but re-enabled until a full round refetch lands.
     onMutate: () => queryClient.cancelQueries({ queryKey: queryKeys.round(roundId) }),
-    onSuccess: (data) =>
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.series() });
       queryClient.setQueryData<Round>(queryKeys.round(roundId), (current) =>
         current
           ? { ...current, declinedFurtherSubmissions: data.declinedFurtherSubmissions }
           : current,
-      ),
+      );
+    },
     onError: () =>
       showToast({
         title: "Couldn’t save that",
@@ -498,16 +502,6 @@ function ReleaseRecap({
         </CollapsibleContent>
       </Collapsible>
     </section>
-  );
-}
-
-function ArtworkMosaic({ artworkUrls, label }: { artworkUrls: string[]; label: string }) {
-  return (
-    <div className="artwork-mosaic" role="img" aria-label={label}>
-      {artworkUrls.map((url, index) => (
-        <img key={`${url}-${index}`} src={url} alt="" />
-      ))}
-    </div>
   );
 }
 
